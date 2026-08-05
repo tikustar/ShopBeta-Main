@@ -1,4 +1,4 @@
-import type { Timestamps } from "./firestore";
+import type { FirestoreDate, Timestamps } from "./firestore";
 
 export type Address = {
   id?: string;
@@ -16,9 +16,20 @@ export type Address = {
 
 export type UserRole = "customer" | "admin";
 
-/** Planned `users` collection (not present in Firestore yet). */
+/**
+ * Shape of a `users` document in the existing Firestore project. The live
+ * document uses snake_case (`created_time`, `display_name`) and mirrors the
+ * Auth record; camelCase fields below are the ShopBeta additions.
+ */
 export type UserDocument = Timestamps & {
-  email: string;
+  /** Duplicates the document id, which is the Firebase Auth uid. */
+  uid?: string;
+  email?: string;
+  /** Legacy snake_case field written by the existing app. */
+  display_name?: string;
+  /** Legacy snake_case creation timestamp. */
+  created_time?: FirestoreDate;
+
   displayName?: string;
   phone?: string;
   photoUrl?: string;

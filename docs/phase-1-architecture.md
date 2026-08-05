@@ -35,32 +35,65 @@ Files added: see the PR diff; the only modified existing files are
   nothing is hardcoded in source.
 - `getFirebaseApp()` / `getDb()` / `getFirebaseAuth()` / `getFirebaseStorage()` are
   memoized singletons — Firebase is never initialized ad hoc in a component.
-- Connection verified against project `shop-day84j`: Firestore read OK, Auth
-  instance OK, Storage bucket `shop-day84j.firebasestorage.app` resolved.
+- Connection verified against project `shop-day84j`: Firestore read OK, Auth instance OK.
+  The configured Storage bucket does not exist yet — see section 3.
 
 ## 3. Firestore inspection (read-only)
 
-Access used: the web API key with unauthenticated (rules-governed) reads, since no
-service-account key or Firebase CLI login is available in this environment.
+Authoritative inventory, taken with the Admin SDK (service-account credentials, reads only).
 
-| Collection                       | Result                                     |
-| -------------------------------- | ------------------------------------------ |
-| `products`                       | Readable — 2 documents (`note100`, `pro001`) |
-| every other name probed (~120)   | `PERMISSION_DENIED` or non-existent        |
+| Collection | Documents | Subcollections | Notes                                    |
+| ---------- | --------- | -------------- | ---------------------------------------- |
+| `products` | 2         | none           | `note100` (real data), `pro001` (test)   |
+| `users`    | 1         | none           | id = Auth uid `MhXMTC3AiLZ4Z3Enb8SiF2GtNiy1` |
 
-Limitations, stated plainly:
+These are the only root collections; no others exist.
 
-- `listCollectionIds` is denied to client credentials, so the collection list could
-  not be enumerated authoritatively. Collections other than `products` may exist but
-  be unreadable; the probe cannot distinguish "does not exist" from "read denied".
-- Anonymous auth is disabled (`ADMIN_ONLY_OPERATION`), so no authenticated read path
-  was available either.
-- Subcollections of the two product documents are also denied, so per-document
-  subcollections cannot be confirmed.
-- A service-account key (or `firebase login` + `firebase firestore` access) is needed
-  to produce a complete, authoritative inventory.
+`users` document schema (snake_case, mirrors the Auth record):
 
-Rules inference: `products` is world-readable; everything else requires auth.
+| Field          | Type      | Present |
+| -------------- | --------- | ------- |
+| `uid`          | string    | 1/1     |
+| `email`        | string    | 1/1     |
+| `display_name` | string    | 1/1     |
+| `created_time` | timestamp | 1/1     |
+
+No `role`, `phone`, `addresses` or `active` fields — the app has no admin/customer
+distinction stored anywhere yet.
+
+Relationships: `users/{uid}` keys off the Auth uid. Nothing else references anything —
+`products.category` is free text, and there are no `categoryId`/`brandId`/`userId`
+foreign keys in the data today.
+
+**Firebase Auth**: 1 user (`tikustarflow@gmail.com`, email/password provider, created
+2026-05-14). Anonymous sign-in is disabled.
+
+**Cloud Storage**: not provisioned. `shop-day84j.firebasestorage.app`,
+`shop-day84j.appspot.com` and `shop-day84j` all report *bucket does not exist*, so the
+configured `storageBucket` resolves to nothing and any upload will fail until Storage is
+enabled in the console.
+
+**Firestore indexes**: none (no composite indexes, no field overrides).
+
+### Deployed security rules (as of ruleset `2565be85`, 2026-05-12)
+
+```
+match /products/{document} {
+  allow create: if true;   // <-- anyone with the web API key can insert products
+  allow read:   if true;
+  allow write:  if false;
+  allow delete: if false;
+}
+match /{document=**} {
+  allow read, write: if request.time < timestamp.date(2026, 6, 11);  // expired
+}
+```
+
+Two problems: `products` accepts unauthenticated **creates**, and the catch-all was a
+wide-open 30-day rule that has now expired — which is why every other collection returns
+`PERMISSION_DENIED` to clients, including the app's own `users` document.
+`firestore.rules` and `firestore.indexes.json` in the repo root are proposed replacements
+and are **not deployed**.
 
 ## 4. Products collection analysis
 
@@ -134,16 +167,21 @@ until slugs exist.
 
 ## 6. Recommendations before Phase 2
 
-1. Obtain a service-account key so the full Firestore inventory, rules and indexes can be
-   audited authoritatively.
-2. Seed real product data — 2 documents (one of them test data) is not enough to validate
+1. **Fix the security rules** — `allow create: if true` on `/products` lets anyone with the
+   public web API key insert documents, and the expired catch-all blocks the app from
+   reading its own `users/{uid}` document. Deploy `firestore.rules`.
+2. **Enable Cloud Storage** — the configured bucket does not exist, so uploads and
+   `getDownloadURL` will fail.
+3. Rotate the `firebase-adminsdk-fbsvc@shop-day84j` service-account key that was shared for
+   this inspection.
+4. Seed real product data — 2 documents (one of them test data) is not enough to validate
    listing, filtering or pagination.
-3. Decide the currency/price unit. UI formats as USD via `Intl`, but `127500` looks like
+5. Decide the currency/price unit. UI formats as USD via `Intl`, but `127500` looks like
    NGN minor-or-major units; the pricing model should be explicit before checkout work.
-4. Replace base64 images in Firestore with Storage URLs before the catalog grows — data
+6. Replace base64 images in Firestore with Storage URLs before the catalog grows — data
    URIs bloat documents and defeat image optimization.
-5. Add `slug` before wiring `/product/[slug]` to Firestore.
-6. Publish Firestore security rules and indexes as code (`firestore.rules`,
-   `firestore.indexes.json`) in this repo.
-7. Add a test setup (Vitest + React Testing Library) — the repo currently has none.
-8. Consider TanStack Query for server-state caching, keeping Zustand for client state.
+7. Add `slug` before wiring `/product/[slug]` to Firestore.
+8. Add `role` to `users` (the proposed rules rely on it) and reconcile the snake_case
+   `display_name`/`created_time` fields with the camelCase convention used elsewhere.
+9. Add a test setup (Vitest + React Testing Library) — the repo currently has none.
+10. Consider TanStack Query for server-state caching, keeping Zustand for client state.

@@ -16,7 +16,10 @@ export const addressSchema = z.object({
 
 export const userDocumentSchema = z
   .object({
-    email: z.string().email(),
+    uid: z.string().optional(),
+    email: z.string().email().optional(),
+    display_name: z.string().optional(),
+    created_time: z.unknown().optional(),
     displayName: z.string().optional(),
     phone: z.string().optional(),
     photoUrl: z.string().optional(),
