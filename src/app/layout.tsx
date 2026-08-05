@@ -4,6 +4,7 @@ import "./globals.css";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { MobileBottomNav } from "@/components/layout/mobile-nav";
+import { AppProviders } from "@/providers/app-providers";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -38,13 +39,15 @@ export default function RootLayout({
         >
           Skip to content
         </a>
-        <Header />
-        <main id="main" className="pb-20 lg:pb-0">
-          {children}
-        </main>
-        <Footer />
-        <MobileBottomNav />
-        <div className="h-16 lg:hidden" aria-hidden />
+        <AppProviders>
+          <Header />
+          <main id="main" className="pb-20 lg:pb-0">
+            {children}
+          </main>
+          <Footer />
+          <MobileBottomNav />
+          <div className="h-16 lg:hidden" aria-hidden />
+        </AppProviders>
       </body>
     </html>
   );
