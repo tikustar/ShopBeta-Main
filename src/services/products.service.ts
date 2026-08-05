@@ -106,14 +106,20 @@ export async function getRelatedProducts(
   return [...sameCategory, ...rest].slice(0, max);
 }
 
-/** Newest first; falls back to unordered when documents lack `createdAt`. */
+/**
+ * Newest first. An `orderBy` on `createdAt` silently drops documents missing the
+ * field, so an empty result falls back to the unordered catalogue.
+ */
 export async function getLatestProducts(max = 4): Promise<Product[]> {
   try {
-    const products = await run(orderBy("createdAt", "desc"), limitTo(max));
-    return products.filter((product) => product.active);
+    const products = (await run(orderBy("createdAt", "desc"), limitTo(max))).filter(
+      (product) => product.active,
+    );
+    if (products.length) return products;
   } catch {
-    return getActiveProducts(max);
+    // Fall through to the unordered catalogue.
   }
+  return getActiveProducts(max);
 }
 
 export async function searchProducts(

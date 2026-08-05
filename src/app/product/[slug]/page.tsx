@@ -89,7 +89,9 @@ export default async function ProductDetailsPage({
           items={[
             { label: "Home", href: "/" },
             { label: product.category, href: "/products" },
-            { label: product.subcategory, href: "/products" },
+            ...(product.subcategory && product.subcategory !== product.category
+              ? [{ label: product.subcategory, href: "/products" }]
+              : []),
             { label: product.name },
           ]}
         />

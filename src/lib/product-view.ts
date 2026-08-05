@@ -72,8 +72,13 @@ function shortDescriptionFor(product: Product) {
   return truncate(firstSentence || product.description, 140);
 }
 
+/** Firestore stores free-text categories such as "gadgets". */
+function titleCase(value: string) {
+  return value.replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
+}
+
 export function toProductView(product: Product): ProductView {
-  const category = product.category ?? "Uncategorised";
+  const category = titleCase(product.category ?? "Uncategorised");
   return {
     id: product.id,
     slug: product.slug,
