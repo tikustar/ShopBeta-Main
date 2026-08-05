@@ -2,8 +2,13 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { byCategory, categories, products } from "@/lib/data";
+import { categories } from "@/lib/data";
 import { cn } from "@/lib/utils";
+import { toProductViews } from "@/lib/product-view";
+import {
+  getActiveProducts,
+  getProductsByCategory,
+} from "@/services/products.service";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -12,6 +17,7 @@ import { ProductIcon } from "@/components/commerce/product-media";
 import { ProductCard } from "@/components/commerce/product-card";
 import { FilterPanel } from "@/components/commerce/filters";
 import { ProductBrowser } from "@/components/commerce/product-browser";
+import { CatalogEmpty, CatalogError } from "@/components/commerce/catalog-state";
 
 export function generateStaticParams() {
   return categories.map((category) => ({ slug: category.slug }));
@@ -29,12 +35,26 @@ export function generateMetadata({
   };
 }
 
-export default function CategoryPage({ params }: { params: { slug: string } }) {
+export const revalidate = 60;
+
+export default async function CategoryPage({
+  params,
+}: {
+  params: { slug: string };
+}) {
   const category = categories.find((item) => item.slug === params.slug);
   if (!category) notFound();
 
-  const items = byCategory(category.slug);
-  const listing = items.length ? items : products.slice(0, 6);
+  let listing: ReturnType<typeof toProductViews> = [];
+  let failed = false;
+  try {
+    // Firestore has no `categories` collection yet, so match on the free-text
+    // `category` field and fall back to the whole catalogue.
+    const matches = await getProductsByCategory(category.name);
+    listing = toProductViews(matches.length ? matches : await getActiveProducts());
+  } catch {
+    failed = true;
+  }
   const featured = listing.slice(0, 4);
 
   return (
@@ -62,7 +82,7 @@ export default function CategoryPage({ params }: { params: { slug: string } }) {
         />
         <div className="relative max-w-xl">
           <Badge tone="primary" className="mb-4">
-            {category.itemCount.toLocaleString()} products
+            {listing.length.toLocaleString()} products
           </Badge>
           <h1 className="text-[30px] font-semibold leading-tight tracking-[-0.03em] text-ink sm:text-display-sm">
             {category.name}
@@ -118,6 +138,8 @@ export default function CategoryPage({ params }: { params: { slug: string } }) {
             </ButtonLink>
           }
         />
+        {failed ? <CatalogError /> : null}
+        {!failed && !featured.length ? <CatalogEmpty /> : null}
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 lg:gap-5">
           {featured.map((product) => (
             <ProductCard key={product.id} product={product} />
@@ -143,7 +165,16 @@ export default function CategoryPage({ params }: { params: { slug: string } }) {
               <FilterPanel />
             </div>
           </aside>
-          <ProductBrowser items={listing} total={category.itemCount} />
+          {failed ? (
+            <CatalogError compact={false} />
+          ) : listing.length ? (
+            <ProductBrowser items={listing} />
+          ) : (
+            <CatalogEmpty
+              compact={false}
+              description={`No products are listed under ${category.name} yet.`}
+            />
+          )}
         </div>
       </section>
     </div>

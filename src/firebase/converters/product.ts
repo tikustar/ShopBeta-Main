@@ -51,7 +51,12 @@ export function toProduct(id: string, raw: unknown): Product {
     brandId: document.brandId,
     stock: document.stock,
     sku: document.sku,
-    variations: document.variation ?? [],
+    barcode: document.barcode,
+    variations:
+      document.variation ?? document.variants?.map((variant) => variant.value) ?? [],
+    variants:
+      document.variants ??
+      (document.variation ?? []).map((value) => ({ label: "Variant", value })),
     specifications:
       document.specifications ?? parseSpecificationBlock(document.specification),
     reviews,
@@ -80,6 +85,8 @@ export function toProductDocument(
     rating: product.rating,
     imgs: product.images,
     variation: product.variations,
+    variants: product.variants,
+    barcode: product.barcode,
     category: product.category,
     sponsored: product.sponsored,
     officialStore: product.officialStore,

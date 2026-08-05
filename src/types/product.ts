@@ -87,7 +87,10 @@ export type Product = {
   brandId?: string;
   stock?: number;
   sku?: string;
+  barcode?: string;
+  /** Legacy `variation` strings, kept for UI colour/variant pickers. */
   variations: string[];
+  variants: ProductVariantOption[];
   specifications: ProductSpecification[];
   reviews: EmbeddedProductReview[];
   sponsored: boolean;

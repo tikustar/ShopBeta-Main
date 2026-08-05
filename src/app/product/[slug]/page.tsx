@@ -11,15 +11,18 @@ import {
   ShoppingCart,
   Truck,
 } from "lucide-react";
-import {
-  productsBySlug,
-  products,
-  ratingBreakdown,
-  recentlyViewedSlugs,
-  resolve,
-  reviews,
-} from "@/lib/data";
 import { discountPercent, formatPrice } from "@/lib/utils";
+import {
+  ratingBreakdown as buildRatingBreakdown,
+  toProductView,
+  toProductViews,
+  toReviewViews,
+} from "@/lib/product-view";
+import {
+  getActiveProducts,
+  getProductBySlug,
+  getRelatedProducts,
+} from "@/services/products.service";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,19 +34,28 @@ import { ProductGallery } from "@/components/commerce/product-gallery";
 import { ProductCard } from "@/components/commerce/product-card";
 import { WishlistButton } from "@/components/commerce/wishlist-button";
 
-export function generateStaticParams() {
-  return products.map((product) => ({ slug: product.slug }));
+export const revalidate = 60;
+export const dynamicParams = true;
+
+/** Prerender what the catalogue holds at build time; anything else is on-demand. */
+export async function generateStaticParams() {
+  try {
+    const products = await getActiveProducts();
+    return products.map((product) => ({ slug: product.slug }));
+  } catch {
+    return [];
+  }
 }
 
-export function generateMetadata({
+export async function generateMetadata({
   params,
 }: {
   params: { slug: string };
-}): Metadata {
-  const product = productsBySlug.get(params.slug);
+}): Promise<Metadata> {
+  const product = await getProductBySlug(params.slug);
   return {
     title: product?.name ?? "Product",
-    description: product?.shortDescription,
+    description: product?.description,
   };
 }
 
@@ -54,28 +66,21 @@ const perks = [
   { icon: CreditCard, title: "Pay in 3", body: "0% interest, no fees" },
 ];
 
-export default function ProductDetailsPage({
+export default async function ProductDetailsPage({
   params,
 }: {
   params: { slug: string };
 }) {
-  const product = productsBySlug.get(params.slug);
-  if (!product) notFound();
+  const source = await getProductBySlug(params.slug);
+  if (!source) notFound();
 
+  const product = toProductView(source);
+  const reviews = toReviewViews(source);
+  const ratingBreakdown = buildRatingBreakdown(reviews);
   const off = discountPercent(product.price, product.oldPrice);
   const totalReviews = ratingBreakdown.reduce((sum, row) => sum + row.count, 0);
-  const sameCategory = products.filter(
-    (item) => item.category === product.category && item.id !== product.id,
-  );
-  const related = [
-    ...sameCategory,
-    ...products.filter(
-      (item) => item.id !== product.id && !sameCategory.includes(item),
-    ),
-  ].slice(0, 4);
-  const recentlyViewed = resolve(recentlyViewedSlugs).filter(
-    (item) => item.id !== product.id,
-  );
+  const related = toProductViews(await getRelatedProducts(source));
+  const recentlyViewed = related;
 
   return (
     <div className="sb-container">

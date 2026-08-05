@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import { Flame, Percent, Timer, Zap } from "lucide-react";
-import { byTag, products } from "@/lib/data";
 import { discountPercent, formatPrice } from "@/lib/utils";
+import { toProductViews } from "@/lib/product-view";
+import {
+  getDiscountedProducts,
+  getFlashSaleProducts,
+} from "@/services/products.service";
 import { PageHeader } from "@/components/layout/page-header";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, SectionHeading } from "@/components/ui/card";
@@ -10,21 +14,31 @@ import { Pagination } from "@/components/ui/pagination";
 import { Countdown } from "@/components/commerce/countdown";
 import { ProductCard } from "@/components/commerce/product-card";
 import { ProductMedia } from "@/components/commerce/product-media";
+import { CatalogEmpty, CatalogError } from "@/components/commerce/catalog-state";
 
 export const metadata: Metadata = {
   title: "Deals",
 };
 
-export default function DealsPage() {
-  const flash = byTag("flash-sale");
-  const offers = byTag("special-offer");
-  const discounted = products
-    .filter((product) => product.oldPrice)
-    .sort(
-      (a, b) =>
-        discountPercent(b.price, b.oldPrice) - discountPercent(a.price, a.oldPrice),
-    );
-  const headline = discounted[0];
+export const revalidate = 60;
+
+export default async function DealsPage() {
+  type Items = ReturnType<typeof toProductViews>;
+  let flash: Items = [];
+  let discounted: Items = [];
+  let failed = false;
+  try {
+    const [flashSale, deals] = await Promise.all([
+      getFlashSaleProducts(),
+      getDiscountedProducts(),
+    ]);
+    flash = toProductViews(flashSale);
+    discounted = toProductViews(deals);
+  } catch {
+    failed = true;
+  }
+  const offers = discounted;
+  const headline = discounted[0] as Items[number] | undefined;
 
   return (
     <div className="sb-container">
@@ -80,6 +94,11 @@ export default function DealsPage() {
           eyebrow="Deal of the day"
           title="One product, one price, until midnight"
         />
+        {failed ? <CatalogError /> : null}
+        {!failed && !headline ? (
+          <CatalogEmpty description="No discounted products are available right now." />
+        ) : null}
+        {headline ? (
         <Card padded={false} className="overflow-hidden">
           <div className="grid gap-0 lg:grid-cols-[1fr_1.2fr]">
             <ProductMedia
@@ -135,6 +154,7 @@ export default function DealsPage() {
             </div>
           </div>
         </Card>
+        ) : null}
       </section>
 
       {/* Flash sale products */}
@@ -144,6 +164,10 @@ export default function DealsPage() {
           title="Flash sale products"
           action={<Countdown showLabels={false} />}
         />
+        {failed ? <CatalogError /> : null}
+        {!failed && !flash.length ? (
+          <CatalogEmpty description="No flash sale products are live right now." />
+        ) : null}
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 lg:gap-5">
           {flash.map((product) => (
             <ProductCard key={product.id} product={product} />

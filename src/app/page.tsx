@@ -9,13 +9,27 @@ import {
   Truck,
   Zap,
 } from "lucide-react";
-import { brands, byTag, categories, products } from "@/lib/data";
+import { brands, categories, type Product as ProductView } from "@/lib/data";
 import { formatPrice } from "@/lib/utils";
+import { toProductViews } from "@/lib/product-view";
+import {
+  getActiveProducts,
+  getBestSellers,
+  getDiscountedProducts,
+  getFeaturedProducts,
+  getFlashSaleProducts,
+  getLatestProducts,
+  getTrendingProducts,
+} from "@/services/products.service";
 import { ButtonLink } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SectionHeading } from "@/components/ui/card";
 import { CategoryCard, CategoryTile } from "@/components/commerce/category-card";
-import { ProductRail } from "@/components/commerce/product-card";
+import {
+  CatalogEmpty,
+  CatalogError,
+  CatalogRail,
+} from "@/components/commerce/catalog-state";
 import { BrandMark, ProductMedia } from "@/components/commerce/product-media";
 import { Countdown } from "@/components/commerce/countdown";
 
@@ -42,14 +56,58 @@ const trustPoints = [
   },
 ];
 
-export default function HomePage() {
-  const hero = products[0];
-  const flash = byTag("flash-sale", 4);
-  const featured = byTag("featured", 4);
-  const trending = byTag("trending", 4);
-  const recent = byTag("new", 4);
-  const best = byTag("best-seller", 4);
-  const offers = byTag("special-offer", 3);
+export const revalidate = 60;
+
+async function loadSections() {
+  const [catalog, flash, featured, trending, recent, best, offers] =
+    await Promise.all([
+      getActiveProducts(),
+      getFlashSaleProducts(4),
+      getFeaturedProducts(4),
+      getTrendingProducts(4),
+      getLatestProducts(4),
+      getBestSellers(4),
+      getDiscountedProducts(3),
+    ]);
+
+  const hero: ProductView | undefined = toProductViews(
+    featured.length ? featured : catalog,
+  )[0];
+
+  return {
+    hero,
+    flash: toProductViews(flash),
+    featured: toProductViews(featured),
+    trending: toProductViews(trending),
+    recent: toProductViews(recent),
+    best: toProductViews(best),
+    offers: toProductViews(offers),
+  };
+}
+
+type Sections = Omit<Awaited<ReturnType<typeof loadSections>>, "hero"> & {
+  hero?: ProductView;
+};
+
+const EMPTY_SECTIONS: Sections = {
+  hero: undefined,
+  flash: [],
+  featured: [],
+  trending: [],
+  recent: [],
+  best: [],
+  offers: [],
+};
+
+export default async function HomePage() {
+  let failed = false;
+  let sections = EMPTY_SECTIONS;
+  try {
+    sections = await loadSections();
+  } catch {
+    failed = true;
+  }
+  const { hero, flash, featured, trending, recent, best, offers } = sections;
 
   return (
     <div className="sb-container">
@@ -111,6 +169,7 @@ export default function HomePage() {
         </div>
 
         <div className="grid gap-4">
+          {hero ? (
           <Link
             href={`/product/${hero.slug}`}
             className="group relative flex flex-col justify-between overflow-hidden rounded-3xl bg-ink p-7 text-white"
@@ -144,6 +203,14 @@ export default function HomePage() {
               </span>
             </div>
           </Link>
+          ) : failed ? (
+            <CatalogError />
+          ) : (
+            <CatalogEmpty
+              title="No products yet"
+              description="Editor’s choice appears once the catalogue has products."
+            />
+          )}
 
           <Link
             href="/deals"
@@ -230,7 +297,11 @@ export default function HomePage() {
             </div>
           </div>
           <div className="p-4 sm:p-6">
-            <ProductRail items={flash} />
+            <CatalogRail
+              items={flash}
+              failed={failed}
+              emptyDescription="No flash sale products are live right now."
+            />
           </div>
         </div>
       </section>
@@ -247,7 +318,7 @@ export default function HomePage() {
             </ButtonLink>
           }
         />
-        <ProductRail items={featured} />
+        <CatalogRail items={featured} failed={failed} />
       </section>
 
       {/* Trending */}
@@ -261,7 +332,7 @@ export default function HomePage() {
             </ButtonLink>
           }
         />
-        <ProductRail items={trending} />
+        <CatalogRail items={trending} failed={failed} />
       </section>
 
       {/* Recently added */}
@@ -275,7 +346,7 @@ export default function HomePage() {
             </ButtonLink>
           }
         />
-        <ProductRail items={recent} />
+        <CatalogRail items={recent} failed={failed} />
       </section>
 
       {/* Best sellers */}
@@ -289,7 +360,7 @@ export default function HomePage() {
             </ButtonLink>
           }
         />
-        <ProductRail items={best} />
+        <CatalogRail items={best} failed={failed} />
       </section>
 
       {/* Top brands */}
@@ -326,6 +397,10 @@ export default function HomePage() {
           title="Special offers"
           description="Curated collections with the discount already applied."
         />
+        {failed ? <CatalogError /> : null}
+        {!failed && !offers.length ? (
+          <CatalogEmpty description="No discounted products are available right now." />
+        ) : null}
         <div className="grid gap-4 md:grid-cols-3">
           {offers.map((product) => (
             <Link
