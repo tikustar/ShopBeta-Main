@@ -8,6 +8,7 @@ import { orderDoc, ordersCollection } from "@/firebase/collections";
 import { appendTimeline } from "@/lib/order-timeline";
 import { writeAuditLog } from "@/services/audit.service";
 import type { Order, OrderStatus, PaymentStatus } from "@/types/order";
+import { stripUndefined } from "@/utils/firestore";
 
 type Actor = { id: string; email?: string };
 
@@ -48,12 +49,15 @@ export async function updateOrderStatusAdmin(
     existing.timeline,
     timelineEventForStatus(orderStatus),
   );
-  await updateDoc(orderDoc(id), {
-    orderStatus,
-    status: orderStatus,
-    timeline,
-    updatedAt: serverTimestamp(),
-  });
+  await updateDoc(
+    orderDoc(id),
+    stripUndefined({
+      orderStatus,
+      status: orderStatus,
+      timeline,
+      updatedAt: serverTimestamp(),
+    }),
+  );
   await writeAuditLog({
     actorId: actor.id,
     actorEmail: actor.email,
@@ -71,10 +75,13 @@ export async function updateOrderPaymentStatusAdmin(
   actor: Actor,
 ) {
   const existing = await getOrderAdmin(id);
-  await updateDoc(orderDoc(id), {
-    paymentStatus,
-    updatedAt: serverTimestamp(),
-  });
+  await updateDoc(
+    orderDoc(id),
+    stripUndefined({
+      paymentStatus,
+      updatedAt: serverTimestamp(),
+    }),
+  );
   await writeAuditLog({
     actorId: actor.id,
     actorEmail: actor.email,
@@ -91,10 +98,13 @@ export async function setOrderTrackingAdmin(
   trackingNumber: string,
   actor: Actor,
 ) {
-  await updateDoc(orderDoc(id), {
-    trackingNumber,
-    updatedAt: serverTimestamp(),
-  });
+  await updateDoc(
+    orderDoc(id),
+    stripUndefined({
+      trackingNumber,
+      updatedAt: serverTimestamp(),
+    }),
+  );
   await writeAuditLog({
     actorId: actor.id,
     actorEmail: actor.email,

@@ -1,6 +1,7 @@
 import { getDoc, setDoc } from "firebase/firestore";
 import { userDoc } from "@/firebase/collections";
 import type { UserDocument, UserProfile } from "@/types/user";
+import { stripUndefined } from "@/utils/firestore";
 
 export async function getUserById(
   uid: string,
@@ -16,7 +17,7 @@ export async function upsertUserProfile(
 ): Promise<void> {
   await setDoc(
     userDoc(uid),
-    { ...data, uid, id: uid } as UserProfile,
+    stripUndefined({ ...data, uid, id: uid }) as UserProfile,
     { merge: true },
   );
 }

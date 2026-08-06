@@ -14,11 +14,57 @@ export function toTimestamp(value: Date | undefined) {
   return value ? Timestamp.fromDate(value) : undefined;
 }
 
-/** Drop undefined values, which Firestore rejects on write. */
-export function stripUndefined<T extends Record<string, unknown>>(data: T) {
-  return Object.fromEntries(
-    Object.entries(data).filter(([, value]) => value !== undefined),
-  ) as Partial<T>;
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (value === null || typeof value !== "object") return false;
+  if (Array.isArray(value)) return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
+
+/**
+ * Recursively remove `undefined` values before Firestore writes.
+ * Preserves Date, Timestamp, FieldValue, DocumentReference, and other
+ * non-plain objects. Drops `undefined` array entries.
+ */
+export function stripUndefined<T>(value: T): T {
+  if (value === undefined) {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value
+      .filter((item) => item !== undefined)
+      .map((item) => stripUndefined(item)) as T;
+  }
+  if (!isPlainObject(value)) {
+    return value;
+  }
+  const result: Record<string, unknown> = {};
+  for (const [key, nested] of Object.entries(value)) {
+    if (nested === undefined) continue;
+    result[key] = stripUndefined(nested);
+  }
+  return result as T;
+}
+
+/** Collect dotted paths whose value is `undefined` (for diagnostics). */
+export function findUndefinedPaths(
+  value: unknown,
+  path = "",
+): string[] {
+  if (value === undefined) {
+    return [path || "(root)"];
+  }
+  if (Array.isArray(value)) {
+    return value.flatMap((item, index) =>
+      findUndefinedPaths(item, path ? `${path}[${index}]` : `[${index}]`),
+    );
+  }
+  if (!isPlainObject(value)) {
+    return [];
+  }
+  return Object.entries(value).flatMap(([key, nested]) =>
+    findUndefinedPaths(nested, path ? `${path}.${key}` : key),
+  );
 }
 
 /** Parse the free-form `specification` blob into label/value pairs. */

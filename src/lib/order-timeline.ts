@@ -65,7 +65,7 @@ export function timelineEntry(
   return {
     event,
     label: meta.label,
-    description: description ?? meta.description,
+    description: description ?? meta.description ?? null,
     at,
   };
 }
