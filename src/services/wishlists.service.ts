@@ -1,6 +1,7 @@
 import { getDoc, setDoc } from "firebase/firestore";
 import { wishlistDoc } from "@/firebase/collections";
 import type { Wishlist, WishlistDocument } from "@/types/commerce";
+import { stripUndefined } from "@/utils/firestore";
 
 export async function getWishlist(
   userId: string,
@@ -16,7 +17,7 @@ export async function setWishlist(
 ): Promise<void> {
   await setDoc(
     wishlistDoc(userId),
-    { ...data, userId, id: userId } as Wishlist,
+    stripUndefined({ ...data, userId, id: userId }) as Wishlist,
     { merge: true },
   );
 }

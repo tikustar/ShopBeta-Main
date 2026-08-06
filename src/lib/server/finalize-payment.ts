@@ -13,6 +13,7 @@ import type {
   NormalizedPaymentResult,
   PaymentDocument,
 } from "@/types/payment";
+import { stripUndefined } from "@/utils/firestore";
 
 export type FinalizeResult =
   | { ok: true; order: Order; alreadyProcessed: boolean }
@@ -183,7 +184,7 @@ export async function finalizeSuccessfulPayment(input: {
       );
       const confirmed = appendTimelineAdmin(timeline, "order_confirmed");
 
-      tx.update(orderRef, {
+      tx.update(orderRef, stripUndefined({
         paymentStatus: "paid",
         orderStatus: "paid",
         status: "paid",
@@ -192,11 +193,11 @@ export async function finalizeSuccessfulPayment(input: {
         inventoryReserved: true,
         timeline: confirmed,
         updatedAt: FieldValue.serverTimestamp(),
-      });
+      }));
 
       const paymentPayload: Record<string, unknown> = {
         orderId: order.id,
-        orderNumber: order.orderNumber,
+        orderNumber: order.orderNumber ?? "",
         userId: order.userId,
         gateway: input.payment.gateway,
         reference: input.payment.reference,
@@ -204,11 +205,11 @@ export async function finalizeSuccessfulPayment(input: {
         amountKobo: toKobo(input.payment.amount),
         currency: input.payment.currency || "NGN",
         status: "paid",
-        customerEmail: input.payment.customerEmail,
-        channel: input.payment.channel,
-        gatewayResponse: input.payment.gatewayResponse,
-        verificationData: input.payment.gatewayResponse,
-        authorization: input.payment.authorization,
+        customerEmail: input.payment.customerEmail ?? "",
+        channel: input.payment.channel ?? "",
+        gatewayResponse: input.payment.gatewayResponse ?? {},
+        verificationData: input.payment.gatewayResponse ?? {},
+        authorization: input.payment.authorization ?? {},
         paidAt: input.payment.paidAt
           ? new Date(input.payment.paidAt)
           : new Date(),
@@ -220,7 +221,7 @@ export async function finalizeSuccessfulPayment(input: {
         paymentPayload.createdAt = FieldValue.serverTimestamp();
       }
 
-      tx.set(paymentRef, paymentPayload, { merge: true });
+      tx.set(paymentRef, stripUndefined(paymentPayload), { merge: true });
 
       return {
         ok: true as const,
@@ -302,19 +303,19 @@ export async function markPaymentFailed(input: {
           return { ok: true as const, order, alreadyProcessed: true };
         }
         if (input.eventId) processedEventIds.push(input.eventId);
-        tx.update(paymentRef!, {
+        tx.update(paymentRef!, stripUndefined({
           status: input.status,
           processedEventIds,
           updatedAt: FieldValue.serverTimestamp(),
-        });
+        }));
       }
 
-      tx.update(orderRef, {
+      tx.update(orderRef, stripUndefined({
         paymentStatus: input.status,
         ...(input.reference ? { paymentReference: input.reference } : {}),
         timeline,
         updatedAt: FieldValue.serverTimestamp(),
-      });
+      }));
 
       return {
         ok: true as const,
@@ -405,20 +406,20 @@ export async function finalizeCashOnDelivery(
       const reference = `COD-${order.orderNumber ?? order.id}`;
       const paymentPayload: PaymentDocument = {
         orderId: order.id,
-        orderNumber: order.orderNumber,
+        orderNumber: order.orderNumber ?? "",
         userId: order.userId,
         gateway: "cod",
         reference,
         amount: Number(order.total ?? 0),
         currency: "NGN",
         status: "pending",
-        customerEmail: order.customer?.email,
+        customerEmail: order.customer?.email ?? "",
         createdAt: FieldValue.serverTimestamp() as never,
         updatedAt: FieldValue.serverTimestamp() as never,
       };
-      tx.set(paymentRef, paymentPayload);
+      tx.set(paymentRef, stripUndefined(paymentPayload));
 
-      tx.update(orderRef, {
+      tx.update(orderRef, stripUndefined({
         paymentStatus: "pending",
         orderStatus: "processing",
         status: "processing",
@@ -427,7 +428,7 @@ export async function finalizeCashOnDelivery(
         paymentReference: reference,
         timeline,
         updatedAt: FieldValue.serverTimestamp(),
-      });
+      }));
 
       return {
         ok: true as const,

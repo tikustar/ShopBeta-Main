@@ -1,5 +1,4 @@
 import {
-  collection,
   doc,
   getDoc,
   getDocs,
@@ -18,6 +17,7 @@ import { clientTimelineEntry } from "@/lib/order-timeline";
 import type { Order, OrderDocument, OrderItem } from "@/types/order";
 import type { Address } from "@/types/user";
 import type { ProductDocument } from "@/types/product";
+import { findUndefinedPaths, stripUndefined } from "@/utils/firestore";
 
 export async function getOrderById(id: string): Promise<Order | undefined> {
   const snapshot = await getDoc(orderDoc(id));
@@ -73,6 +73,65 @@ export type PlaceOrderResult =
   | { ok: true; order: Order }
   | { ok: false; reason: string };
 
+function validatePlaceOrderInput(input: PlaceOrderInput): string | null {
+  if (!input.userId?.trim()) {
+    return "You must be signed in or continue as a guest.";
+  }
+  if (!input.lines?.length) {
+    return "Your cart is empty.";
+  }
+  if (!input.customer?.name?.trim()) {
+    return "Customer name is required.";
+  }
+  if (!input.customer?.email?.trim() || !input.customer.email.includes("@")) {
+    return "A valid customer email is required.";
+  }
+  if (!input.customer?.phone?.trim() || input.customer.phone.trim().length < 7) {
+    return "A valid customer phone number is required.";
+  }
+  if (!input.paymentMethod?.trim()) {
+    return "Select a payment method.";
+  }
+
+  const address = input.shippingAddress;
+  if (
+    !address?.fullName?.trim() ||
+    !address?.phone?.trim() ||
+    !address?.line1?.trim() ||
+    !address?.city?.trim() ||
+    !address?.country?.trim()
+  ) {
+    return "Complete your shipping address.";
+  }
+
+  for (const line of input.lines) {
+    if (!line.productId?.trim()) {
+      return "Your cart contains an invalid product.";
+    }
+    if (!(Number(line.quantity) > 0)) {
+      return `"${line.name || "Item"}" has an invalid quantity.`;
+    }
+  }
+
+  return null;
+}
+
+function normalizeShippingAddress(address: Address): Address {
+  return {
+    fullName: address.fullName.trim(),
+    phone: address.phone.trim(),
+    line1: address.line1.trim(),
+    line2: address.line2?.trim() ?? "",
+    city: address.city.trim(),
+    state: address.state?.trim() ?? "",
+    postalCode: address.postalCode?.trim() ?? "",
+    country: address.country.trim(),
+    isDefault: address.isDefault ?? true,
+    ...(address.id ? { id: address.id } : {}),
+    ...(address.label ? { label: address.label } : {}),
+  };
+}
+
 /**
  * Create a pending order without reducing stock.
  * Stock is reserved after Paystack verification or COD confirmation (server).
@@ -80,13 +139,15 @@ export type PlaceOrderResult =
 export async function createPendingOrder(
   input: PlaceOrderInput,
 ): Promise<PlaceOrderResult> {
-  if (!input.lines.length) {
-    return { ok: false, reason: "Your cart is empty." };
+  const validationError = validatePlaceOrderInput(input);
+  if (validationError) {
+    return { ok: false, reason: validationError };
   }
 
   const db = getDb();
   const orderNumber = generateOrderNumber();
-  const orderRef = doc(collection(db, COLLECTIONS.orders));
+  const orderRef = doc(ordersCollection());
+  const shippingAddress = normalizeShippingAddress(input.shippingAddress);
 
   try {
     const order = await runTransaction(db, async (transaction) => {
@@ -118,10 +179,10 @@ export async function createPendingOrder(
         const unitPrice = Number(data.price ?? line.price);
         products.push({
           productId: line.productId,
-          name: data.productName ?? line.name,
-          slug: data.slug ?? line.slug,
-          image: data.thumbnail ?? line.thumbnail,
-          variation: line.variation,
+          name: data.productName ?? line.name ?? "",
+          slug: data.slug ?? line.slug ?? "",
+          image: data.thumbnail ?? line.thumbnail ?? "",
+          variation: line.variation ?? "",
           unitPrice,
           quantity: line.quantity,
           lineTotal: unitPrice * line.quantity,
@@ -133,51 +194,66 @@ export async function createPendingOrder(
         clientTimelineEntry("payment_pending"),
       ];
 
-      const document: OrderDocument = {
+      const orderData: OrderDocument = {
         orderNumber,
         reference: orderNumber,
         userId: input.userId,
         customer: {
           userId: input.userId,
-          name: input.customer.name,
-          email: input.customer.email,
-          phone: input.customer.phone,
+          name: input.customer.name.trim(),
+          email: input.customer.email.trim(),
+          phone: input.customer.phone.trim(),
         },
         products,
         items: products,
-        subtotal: input.subtotal,
-        deliveryFee: input.deliveryFee,
-        shipping: input.deliveryFee,
-        discount: input.discount,
-        tax: input.tax,
-        total: input.total,
+        subtotal: Number(input.subtotal) || 0,
+        deliveryFee: Number(input.deliveryFee) || 0,
+        shipping: Number(input.deliveryFee) || 0,
+        discount: Number(input.discount) || 0,
+        tax: Number(input.tax) || 0,
+        total: Number(input.total) || 0,
         totals: {
-          subtotal: input.subtotal,
-          deliveryFee: input.deliveryFee,
-          shipping: input.deliveryFee,
-          discount: input.discount,
-          tax: input.tax,
-          total: input.total,
+          subtotal: Number(input.subtotal) || 0,
+          deliveryFee: Number(input.deliveryFee) || 0,
+          shipping: Number(input.deliveryFee) || 0,
+          discount: Number(input.discount) || 0,
+          tax: Number(input.tax) || 0,
+          total: Number(input.total) || 0,
         },
         paymentMethod: input.paymentMethod,
         paymentStatus: "pending",
         orderStatus: "pending",
         status: "pending",
-        shippingAddress: input.shippingAddress,
-        notes: input.notes,
-        deliveryOptionId: input.deliveryOptionId,
-        couponCode: input.couponCode,
+        shippingAddress,
+        notes: input.notes?.trim() ?? "",
+        deliveryOptionId: input.deliveryOptionId ?? "",
+        couponCode: input.couponCode?.trim() ?? "",
         timeline,
         inventoryReserved: false,
         createdAt: serverTimestamp() as OrderDocument["createdAt"],
         updatedAt: serverTimestamp() as OrderDocument["updatedAt"],
       };
 
-      transaction.set(orderRef, document);
+      const undefinedPaths = findUndefinedPaths(orderData);
+      if (undefinedPaths.length > 0) {
+        console.warn(
+          "[createPendingOrder] undefined fields before sanitize:",
+          undefinedPaths,
+        );
+      }
+      console.log("[createPendingOrder] orderData before write", {
+        ...orderData,
+        createdAt: "[serverTimestamp]",
+        updatedAt: "[serverTimestamp]",
+        undefinedPaths,
+      });
+
+      const sanitized = stripUndefined(orderData);
+      transaction.set(orderRef, sanitized);
 
       return {
         id: orderRef.id,
-        ...document,
+        ...sanitized,
         createdAt: new Date(),
         updatedAt: new Date(),
       } satisfies Order;
@@ -189,6 +265,7 @@ export async function createPendingOrder(
       error instanceof Error
         ? error.message
         : "Could not place your order. Please try again.";
+    console.error("[createPendingOrder] failed", message, error);
     return { ok: false, reason: message };
   }
 }

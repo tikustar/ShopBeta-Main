@@ -10,6 +10,7 @@ import {
 import { COLLECTIONS } from "@/constants/collections";
 import { getDb } from "@/firebase/firestore";
 import type { AuditLog, AuditLogDocument } from "@/types/admin";
+import { stripUndefined } from "@/utils/firestore";
 
 function auditCollection() {
   return collection(getDb(), COLLECTIONS.auditLogs);
@@ -27,17 +28,17 @@ export async function writeAuditLog(input: {
 }) {
   const document: AuditLogDocument = {
     actorId: input.actorId,
-    actorEmail: input.actorEmail,
+    actorEmail: input.actorEmail ?? "",
     action: input.action,
     resourceType: input.resourceType,
-    resourceId: input.resourceId,
+    resourceId: input.resourceId ?? "",
     previousValue: input.previousValue ?? null,
     newValue: input.newValue ?? null,
-    meta: input.meta,
+    meta: input.meta ?? {},
     createdAt: serverTimestamp() as never,
     updatedAt: serverTimestamp() as never,
   };
-  await addDoc(auditCollection(), document);
+  await addDoc(auditCollection(), stripUndefined(document));
 }
 
 export async function listAuditLogs(max = 100): Promise<AuditLog[]> {

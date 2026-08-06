@@ -9,7 +9,7 @@ import type { FirestoreDate, Timestamps } from "./firestore";
 export type OrderTimelineEntry = {
   event: OrderTimelineEvent | string;
   label: string;
-  description?: string;
+  description?: string | null;
   at: FirestoreDate;
 };
 

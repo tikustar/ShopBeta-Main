@@ -13,9 +13,22 @@ Set in `.env.local` (local) and Vercel (production):
 
 Never commit secrets. Rotate any key that was pasted into chat.
 
-## Webhook endpoint
+## Webhook endpoints
+
+**Firebase Cloud Function (recommended for Paystack Dashboard):**
+
+`POST https://us-central1-shop-day84j.cloudfunctions.net/paystackWebhook`
+
+- Project: `shop-day84j`
+- Region: `us-central1`
+- Secret: `PAYSTACK_SECRET_KEY` (Secret Manager)
+- Param: `MAKE_WEBHOOK_URL` (`functions/.env` at deploy)
+
+**Next.js / Vercel (also supported):**
 
 `POST /api/payments/paystack/webhook`
+
+Point Paystack at **one** of these URLs (prefer the Cloud Function). Both share the same processing rules.
 
 Flow:
 
@@ -34,11 +47,14 @@ Supported events: `charge.success`, `charge.failed`, `transfer.success` (ack), `
 
 ```bash
 firebase use shop-day84j
+firebase deploy --only functions:paystackWebhook
 firebase deploy --only firestore:rules
 firebase deploy --only firestore:indexes
 # Optional storage:
 firebase deploy --only storage
 ```
+
+Console: Firebase → Build → Functions → `paystackWebhook` (us-central1).
 
 Indexes build asynchronously — check Firebase Console → Firestore → Indexes until all are **Enabled**.
 

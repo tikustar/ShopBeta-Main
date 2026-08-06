@@ -132,9 +132,10 @@ export default function CheckoutPage() {
       fullName,
       phone: customer.phone.trim(),
       line1: street.trim(),
+      line2: "",
       city: city.trim(),
-      state: stateName.trim() || undefined,
-      postalCode: postalCode.trim() || undefined,
+      state: stateName.trim(),
+      postalCode: postalCode.trim(),
       country: country.trim(),
       isDefault: true,
     };
@@ -180,9 +181,9 @@ export default function CheckoutPage() {
         subtotal,
         total,
         paymentMethod: method,
-        notes: deliveryNotes.trim() || undefined,
+        notes: deliveryNotes.trim(),
         deliveryOptionId,
-        couponCode: couponCode || undefined,
+        couponCode: couponCode.trim(),
       });
 
       if (!result.ok) {

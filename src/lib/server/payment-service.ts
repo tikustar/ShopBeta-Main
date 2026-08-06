@@ -18,6 +18,7 @@ import {
   markPaymentFailed,
 } from "@/lib/server/finalize-payment";
 import type { Order } from "@/types/order";
+import { stripUndefined } from "@/utils/firestore";
 
 function paymentReferenceForOrder(order: Order) {
   const base = (order.orderNumber || order.id).replace(/[^a-zA-Z0-9]/g, "");
@@ -83,32 +84,36 @@ export async function initializePaystackForOrder(input: {
   });
 
   const paymentRef = db.collection(COLLECTIONS.payments).doc();
-  await paymentRef.set({
-    orderId: order.id,
-    orderNumber: order.orderNumber,
-    userId: order.userId,
-    gateway: "paystack",
-    reference: initialized.reference,
-    amount,
-    amountKobo: toKobo(amount),
-    currency: "NGN",
-    status: "processing",
-    customerEmail: email,
-    metadata: {
-      accessCode: initialized.access_code,
-    },
-    createdAt: FieldValue.serverTimestamp(),
-    updatedAt: FieldValue.serverTimestamp(),
-  });
+  await paymentRef.set(
+    stripUndefined({
+      orderId: order.id,
+      orderNumber: order.orderNumber ?? "",
+      userId: order.userId,
+      gateway: "paystack",
+      reference: initialized.reference,
+      amount,
+      amountKobo: toKobo(amount),
+      currency: "NGN",
+      status: "processing",
+      customerEmail: email,
+      metadata: {
+        accessCode: initialized.access_code,
+      },
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    }),
+  );
 
-  await orderRef.update({
-    paymentMethod: "paystack",
-    paymentStatus: "processing",
-    paymentReference: initialized.reference,
-    paymentId: paymentRef.id,
-    timeline: appendTimelineAdmin(order.timeline, "payment_processing"),
-    updatedAt: FieldValue.serverTimestamp(),
-  });
+  await orderRef.update(
+    stripUndefined({
+      paymentMethod: "paystack",
+      paymentStatus: "processing",
+      paymentReference: initialized.reference,
+      paymentId: paymentRef.id,
+      timeline: appendTimelineAdmin(order.timeline, "payment_processing"),
+      updatedAt: FieldValue.serverTimestamp(),
+    }),
+  );
 
   return {
     ok: true as const,

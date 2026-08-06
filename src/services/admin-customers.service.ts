@@ -9,6 +9,7 @@ import { listOrdersAdmin } from "@/services/admin-orders.service";
 import { writeAuditLog } from "@/services/audit.service";
 import type { UserProfile } from "@/types/user";
 import { USER_ROLES, type UserRole, type UserStatus } from "@/constants/app";
+import { stripUndefined } from "@/utils/firestore";
 
 type Actor = { id: string; email?: string };
 
@@ -51,11 +52,14 @@ export async function setCustomerStatusAdmin(
   status: UserStatus,
   actor: Actor,
 ) {
-  await updateDoc(userDoc(userId), {
-    status,
-    active: status === "active",
-    updatedAt: serverTimestamp(),
-  });
+  await updateDoc(
+    userDoc(userId),
+    stripUndefined({
+      status,
+      active: status === "active",
+      updatedAt: serverTimestamp(),
+    }),
+  );
   await writeAuditLog({
     actorId: actor.id,
     actorEmail: actor.email,
@@ -84,10 +88,13 @@ export async function setUserRoleAdmin(
   const snap = await getDoc(userDoc(userId));
   const previousRole = snap.exists() ? snap.data()?.role : undefined;
 
-  await updateDoc(userDoc(userId), {
-    role,
-    updatedAt: serverTimestamp(),
-  });
+  await updateDoc(
+    userDoc(userId),
+    stripUndefined({
+      role,
+      updatedAt: serverTimestamp(),
+    }),
+  );
 
   await writeAuditLog({
     actorId: actor.id,
