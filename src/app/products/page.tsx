@@ -1,22 +1,34 @@
 import type { Metadata } from "next";
-import { products } from "@/lib/data";
+import { toProductViews } from "@/lib/product-view";
+import { getActiveProducts } from "@/services/products.service";
 import { PageHeader } from "@/components/layout/page-header";
 import { SearchBar } from "@/components/commerce/search-bar";
 import { FilterPanel } from "@/components/commerce/filters";
 import { ProductBrowser } from "@/components/commerce/product-browser";
+import { CatalogEmpty, CatalogError } from "@/components/commerce/catalog-state";
 
 export const metadata: Metadata = {
   title: "All products",
   description: "Browse every product in the ShopBeta catalogue.",
 };
 
-export default function ProductListingPage() {
+export const revalidate = 60;
+
+export default async function ProductListingPage() {
+  let items: ReturnType<typeof toProductViews> = [];
+  let failed = false;
+  try {
+    items = toProductViews(await getActiveProducts());
+  } catch {
+    failed = true;
+  }
+
   return (
     <div className="sb-container">
       <PageHeader
         crumbs={[{ label: "Home", href: "/" }, { label: "All products" }]}
         title="All products"
-        description="12,412 products across computers, electronics, gaming, smart home, office and networking."
+        description={`${items.length.toLocaleString()} products across computers, electronics, gaming, smart home, office and networking.`}
       />
 
       <div className="mb-8 max-w-2xl">
@@ -35,7 +47,17 @@ export default function ProductListingPage() {
             <FilterPanel />
           </div>
         </aside>
-        <ProductBrowser items={products} total={12412} />
+        {failed ? (
+          <CatalogError compact={false} />
+        ) : items.length ? (
+          <ProductBrowser items={items} />
+        ) : (
+          <CatalogEmpty
+            compact={false}
+            title="No products yet"
+            description="The catalogue is empty. Products added in Firestore appear here automatically."
+          />
+        )}
       </div>
     </div>
   );

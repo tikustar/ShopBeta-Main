@@ -1,10 +1,12 @@
 import { CURRENCY } from "@/constants/app";
 
+/** Whole-Naira formatting, e.g. 127500 -> "₦127,500". */
 export function formatPrice(value: number) {
   return new Intl.NumberFormat(CURRENCY.locale, {
     style: "currency",
     currency: CURRENCY.code,
-    maximumFractionDigits: 2,
+    currencyDisplay: "narrowSymbol",
+    maximumFractionDigits: 0,
   }).format(value);
 }
 

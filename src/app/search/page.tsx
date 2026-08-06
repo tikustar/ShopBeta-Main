@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Clock, TrendingUp, X } from "lucide-react";
-import { popularSearches, products, recentSearches } from "@/lib/data";
+import { popularSearches, recentSearches } from "@/lib/data";
+import { toProductViews } from "@/lib/product-view";
+import { searchProducts } from "@/services/products.service";
 import { PageHeader } from "@/components/layout/page-header";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -9,20 +11,39 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { NoResultsIllustration } from "@/components/ui/illustrations";
 import { SearchBar } from "@/components/commerce/search-bar";
 import { ProductBrowser } from "@/components/commerce/product-browser";
+import { CatalogError } from "@/components/commerce/catalog-state";
 
 export const metadata: Metadata = {
   title: "Search",
 };
 
-export default function SearchResultsPage() {
-  const results = products.slice(0, 9);
+/** Results depend on `?q=`, so this page is rendered per request. */
+export const dynamic = "force-dynamic";
+
+export default async function SearchResultsPage({
+  searchParams,
+}: {
+  searchParams: { q?: string };
+}) {
+  const queryTerm = searchParams.q?.trim() ?? "";
+  let results: ReturnType<typeof toProductViews> = [];
+  let failed = false;
+  try {
+    results = toProductViews(await searchProducts(queryTerm));
+  } catch {
+    failed = true;
+  }
 
   return (
     <div className="sb-container">
       <PageHeader
         crumbs={[{ label: "Home", href: "/" }, { label: "Search" }]}
         title="Search results"
-        description="Showing results for “laptop”. Refine with filters or try a related search."
+        description={
+          queryTerm
+            ? `Showing results for “${queryTerm}”. Refine with filters or try a related search.`
+            : "Showing the full catalogue. Refine with filters or try a related search."
+        }
       />
 
       <div className="mb-8 max-w-3xl">
@@ -83,13 +104,17 @@ export default function SearchResultsPage() {
         </Card>
       </div>
 
-      <ProductBrowser items={results} total={412} showFilterDrawer showActiveFilters />
+      {failed ? (
+        <CatalogError compact={false} />
+      ) : (
+        <ProductBrowser items={results} showFilterDrawer showActiveFilters />
+      )}
 
       <section className="pt-16 sm:pt-20">
         <h2 className="mb-4 text-[15px] font-semibold text-ink">No results state</h2>
         <EmptyState
           illustration={<NoResultsIllustration />}
-          title="No matches for “thunderbolt 6 dock”"
+          title={`No matches for “${queryTerm || "thunderbolt 6 dock"}”`}
           description="Check the spelling, use fewer words, or browse the closest category instead."
           actions={
             <>

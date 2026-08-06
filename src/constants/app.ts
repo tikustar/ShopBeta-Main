@@ -1,8 +1,10 @@
 export const APP_NAME = "ShopBeta";
 
+/** Firestore prices are whole Naira amounts. */
 export const CURRENCY = {
-  code: "USD",
-  locale: "en-US",
+  code: "NGN",
+  locale: "en-NG",
+  symbol: "\u20a6",
 } as const;
 
 export const PAGINATION = {
