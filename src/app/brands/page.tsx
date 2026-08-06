@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Search } from "lucide-react";
-import { brands, byTag, categories } from "@/lib/data";
 import { cn } from "@/lib/utils";
+import { toBrandViews, toCategoryViews } from "@/lib/catalog-view";
+import { toProductViews } from "@/lib/product-view";
+import { buildListingMetadata } from "@/lib/seo";
+import { getFeaturedProducts } from "@/services/products.service";
+import { getBrands, getCategories } from "@/services/catalog.service";
 import { PageHeader } from "@/components/layout/page-header";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, SectionHeading } from "@/components/ui/card";
@@ -10,24 +14,45 @@ import { Input } from "@/components/ui/field";
 import { Badge } from "@/components/ui/badge";
 import { BrandMark, ProductIcon } from "@/components/commerce/product-media";
 import { ProductCard } from "@/components/commerce/product-card";
+import { CatalogEmpty, CatalogError } from "@/components/commerce/catalog-state";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildListingMetadata({
   title: "Brands",
-};
+  description: "Browse brands in the live ShopBeta catalogue.",
+  path: "/brands",
+});
+
+export const revalidate = 60;
 
 const letters = ["All", "A–F", "G–L", "M–R", "S–Z"];
 
-export default function BrandsPage() {
+export default async function BrandsPage() {
+  let brands: ReturnType<typeof toBrandViews> = [];
+  let categories: ReturnType<typeof toCategoryViews> = [];
+  let spotlight: ReturnType<typeof toProductViews> = [];
+  let failed = false;
+  try {
+    const [brandDocs, categoryDocs, featured] = await Promise.all([
+      getBrands(),
+      getCategories(),
+      getFeaturedProducts(4),
+    ]);
+    brands = toBrandViews(brandDocs);
+    categories = toCategoryViews(categoryDocs);
+    spotlight = toProductViews(featured);
+  } catch {
+    failed = true;
+  }
+
   const featured = brands.filter((brand) => brand.featured);
   const collections = categories.slice(0, 3);
-  const spotlight = byTag("featured", 4);
 
   return (
     <div className="sb-container">
       <PageHeader
         crumbs={[{ label: "Home", href: "/" }, { label: "Brands" }]}
         title="Brands"
-        description="340 brands, all sourced through official channels. Warranty claims handled in-house."
+        description={`${brands.length.toLocaleString()} brands sourced from the live ShopBeta catalogue.`}
       />
 
       <div className="mb-10 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -56,18 +81,20 @@ export default function BrandsPage() {
         </div>
       </div>
 
-      {/* Featured brands */}
+      {failed ? <CatalogError compact={false} /> : null}
+
       <section>
         <SectionHeading
           eyebrow="Partners"
           title="Featured brands"
-          description="Brands with the widest range and fastest restocks on ShopBeta."
+          description="Brands with the widest range on ShopBeta."
         />
+        {!failed && !featured.length ? <CatalogEmpty /> : null}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {featured.map((brand) => (
             <Link
               key={brand.slug}
-              href="/products"
+              href={`/products?brand=${brand.slug}`}
               className="group flex items-center gap-4 rounded-2xl border border-line bg-white p-5 transition-all duration-300 ease-premium hover:-translate-y-1 hover:border-transparent hover:sb-shadow-hover"
             >
               <BrandMark
@@ -79,79 +106,60 @@ export default function BrandsPage() {
                   {brand.name}
                 </p>
                 <p className="mt-1 text-[13px] text-muted">
-                  {brand.productCount} products · {brand.category}
+                  {brand.productCount.toLocaleString()} products
                 </p>
               </div>
-              <ArrowRight
-                className="h-4 w-4 shrink-0 text-muted transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-primary"
-                aria-hidden
-              />
+              <ArrowRight className="h-4 w-4 text-muted transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
             </Link>
           ))}
         </div>
       </section>
 
-      {/* Brand logo grid */}
-      <section className="pt-16 sm:pt-20">
-        <SectionHeading title="All brands" description="A–Z, updated weekly." />
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-6">
+      <section className="pt-16">
+        <SectionHeading title="All brands" description="A–Z, updated from Firestore." />
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {brands.map((brand) => (
             <Link
               key={brand.slug}
-              href="/products"
-              className="group flex flex-col items-center gap-3 rounded-2xl border border-line bg-white p-6 transition-all duration-300 ease-premium hover:-translate-y-1 hover:border-transparent hover:sb-shadow-soft"
+              href={`/products?brand=${brand.slug}`}
+              className="flex items-center justify-between rounded-2xl border border-line bg-white px-5 py-4 transition-colors hover:bg-soft"
             >
-              <BrandMark
-                initials={brand.initials}
-                className="transition-colors group-hover:bg-primary-50 group-hover:text-primary"
-              />
-              <span className="text-center text-[13px] font-medium text-ink">
-                {brand.name}
+              <span className="flex items-center gap-3">
+                <BrandMark initials={brand.initials} className="h-10 w-10 text-xs" />
+                <span>
+                  <span className="block text-sm font-medium text-ink">{brand.name}</span>
+                  <span className="block text-[12px] text-muted">
+                    {brand.productCount.toLocaleString()} products
+                  </span>
+                </span>
               </span>
-              <span className="text-[11px] text-muted">{brand.productCount} products</span>
+              {brand.featured ? <Badge tone="primary">Featured</Badge> : null}
             </Link>
           ))}
         </div>
       </section>
 
-      {/* Brand collections */}
-      <section className="pt-16 sm:pt-20">
-        <SectionHeading
-          eyebrow="Collections"
-          title="Brand collections"
-          description="Curated line-ups pulled together by our buying team."
-        />
-        <div className="grid gap-4 lg:grid-cols-3">
-          {collections.map((collection) => (
-            <Card key={collection.slug} className={cn("relative overflow-hidden", collection.tone)}>
-              <Badge tone="ink" className="mb-4">
-                Collection
-              </Badge>
-              <h3 className="text-lg font-semibold tracking-[-0.02em] text-ink">
-                Best of {collection.name}
-              </h3>
-              <p className="mt-2 max-w-xs text-[14px] leading-relaxed text-muted">
-                {collection.description}
-              </p>
-              <ButtonLink
-                href={`/category/${collection.slug}`}
-                variant="secondary"
-                size="sm"
-                className="mt-6"
-              >
-                Explore
-              </ButtonLink>
-              <ProductIcon
-                icon={collection.icon}
-                className="pointer-events-none absolute -bottom-4 right-2 h-28 w-28 text-ink/10"
-              />
+      <section className="pt-16">
+        <SectionHeading title="Shop by category" />
+        <div className="grid gap-4 sm:grid-cols-3">
+          {collections.map((category) => (
+            <Card key={category.slug} className="relative overflow-hidden">
+              <span className={cn("absolute inset-0 opacity-70", category.tone)} aria-hidden />
+              <div className="relative">
+                <ProductIcon icon={category.icon} className="h-8 w-8 text-ink/70" />
+                <h3 className="mt-4 text-[17px] font-semibold text-ink">{category.name}</h3>
+                <p className="mt-2 text-[13px] text-muted">{category.description}</p>
+                <ButtonLink href={`/category/${category.slug}`} className="mt-5" size="sm">
+                  Browse
+                  <ArrowRight className="h-4 w-4" aria-hidden />
+                </ButtonLink>
+              </div>
             </Card>
           ))}
         </div>
       </section>
 
-      {/* Spotlight products */}
-      <section className="pt-16 sm:pt-20">
+      <section className="pt-16">
         <SectionHeading title="Best of the big brands" />
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 lg:gap-5">
           {spotlight.map((product) => (

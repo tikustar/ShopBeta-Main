@@ -9,18 +9,14 @@ import {
   Truck,
   Zap,
 } from "lucide-react";
-import { brands, categories, type Product as ProductView } from "@/lib/data";
+import { type Product as ProductView } from "@/lib/data";
 import { formatPrice } from "@/lib/utils";
-import { toProductViews } from "@/lib/product-view";
-import {
-  getActiveProducts,
-  getBestSellers,
-  getDiscountedProducts,
-  getFeaturedProducts,
-  getFlashSaleProducts,
-  getLatestProducts,
-  getTrendingProducts,
-} from "@/services/products.service";
+import { toBrandViews, toCategoryViews } from "@/lib/catalog-view";
+import { toProductViews, toProductView } from "@/lib/product-view";
+import { buildListingMetadata } from "@/lib/seo";
+import { getHomeCatalogSections } from "@/services/products.service";
+import { getBrands, getCategories } from "@/services/catalog.service";
+import { RecentlyViewedRail } from "@/components/commerce/recently-viewed";
 import { ButtonLink } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SectionHeading } from "@/components/ui/card";
@@ -58,30 +54,34 @@ const trustPoints = [
 
 export const revalidate = 60;
 
-async function loadSections() {
-  const [catalog, flash, featured, trending, recent, best, offers] =
-    await Promise.all([
-      getActiveProducts(),
-      getFlashSaleProducts(4),
-      getFeaturedProducts(4),
-      getTrendingProducts(4),
-      getLatestProducts(4),
-      getBestSellers(4),
-      getDiscountedProducts(3),
-    ]);
+export const metadata = buildListingMetadata({
+  title: "Shop electronics & gadgets",
+  description:
+    "ShopBeta catalogue — flash sales, featured picks, trending products and recently added stock.",
+  path: "/",
+});
 
-  const hero: ProductView | undefined = toProductViews(
-    featured.length ? featured : catalog,
-  )[0];
+async function loadSections() {
+  const [home, categoryDocs, brandDocs] = await Promise.all([
+    getHomeCatalogSections(4),
+    getCategories(),
+    getBrands(),
+  ]);
+
+  const hero: ProductView | undefined = home.heroSource
+    ? toProductView(home.heroSource)
+    : undefined;
 
   return {
     hero,
-    flash: toProductViews(flash),
-    featured: toProductViews(featured),
-    trending: toProductViews(trending),
-    recent: toProductViews(recent),
-    best: toProductViews(best),
-    offers: toProductViews(offers),
+    flash: toProductViews(home.flash),
+    featured: toProductViews(home.featured),
+    trending: toProductViews(home.trending),
+    recent: toProductViews(home.recent),
+    best: toProductViews(home.best),
+    offers: toProductViews(home.offers),
+    categories: toCategoryViews(categoryDocs),
+    brands: toBrandViews(brandDocs),
   };
 }
 
@@ -97,6 +97,8 @@ const EMPTY_SECTIONS: Sections = {
   recent: [],
   best: [],
   offers: [],
+  categories: [],
+  brands: [],
 };
 
 export default async function HomePage() {
@@ -107,7 +109,17 @@ export default async function HomePage() {
   } catch {
     failed = true;
   }
-  const { hero, flash, featured, trending, recent, best, offers } = sections;
+  const {
+    hero,
+    flash,
+    featured,
+    trending,
+    recent,
+    best,
+    offers,
+    categories,
+    brands,
+  } = sections;
 
   return (
     <div className="sb-container">
@@ -463,6 +475,8 @@ export default async function HomePage() {
           ))}
         </div>
       </section>
+
+      <RecentlyViewedRail />
     </div>
   );
 }

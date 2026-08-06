@@ -1,7 +1,8 @@
 rules_version = '2';
 
-// Proposed hardened rules — NOT deployed. Review, then `firebase deploy --only firestore:rules`.
-// The rules live in the console today still allow `create: if true` on /products.
+// Proposed hardened rules — NOT deployed.
+// Deploy with: `firebase deploy --only firestore:rules`
+// Until then, the console rules still govern live access.
 service cloud.firestore {
   match /databases/{database}/documents {
     function isSignedIn() {
@@ -12,11 +13,14 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid;
     }
 
+    // Admin role lives on users/{uid}.role == 'admin'.
+    // Catalog writes from scripts use the Admin SDK and bypass these rules.
     function isAdmin() {
       return isSignedIn() &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
+    // Public catalog read; writes require authenticated admin (or Admin SDK).
     match /products/{productId} {
       allow read: if true;
       allow write: if isAdmin();

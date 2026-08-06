@@ -22,8 +22,14 @@ export const productDoc = (id: string) =>
 export const categoriesCollection = () =>
   collection(getDb(), COLLECTIONS.categories).withConverter(categoryConverter);
 
+export const categoryDoc = (id: string) =>
+  doc(getDb(), COLLECTIONS.categories, id).withConverter(categoryConverter);
+
 export const brandsCollection = () =>
   collection(getDb(), COLLECTIONS.brands).withConverter(brandConverter);
+
+export const brandDoc = (id: string) =>
+  doc(getDb(), COLLECTIONS.brands, id).withConverter(brandConverter);
 
 export const usersCollection = () =>
   collection(getDb(), COLLECTIONS.users).withConverter(userConverter);

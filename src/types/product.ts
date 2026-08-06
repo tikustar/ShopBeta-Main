@@ -51,6 +51,8 @@ export type ProductDocument = Timestamps & {
   slug?: string;
   sku?: string;
   barcode?: string;
+  /** Free-text brand name when present (DummyJSON import). */
+  brand?: string;
   brandId?: string;
   categoryId?: string;
   subcategory?: string;
@@ -84,6 +86,7 @@ export type Product = {
   thumbnail?: string;
   category?: string;
   categoryId?: string;
+  brand?: string;
   brandId?: string;
   stock?: number;
   sku?: string;

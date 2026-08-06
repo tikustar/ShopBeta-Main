@@ -1,3 +1,7 @@
+"use client";
+
+import { useState } from "react";
+import Image from "next/image";
 import {
   Armchair,
   Camera,
@@ -54,24 +58,30 @@ export function ProductIcon({
 }
 
 /**
- * Placeholder product imagery: a soft tinted surface with the device glyph.
- * Swap for real <Image /> sources when the catalogue is connected.
+ * Product imagery: prefers a real image URL, otherwise a tinted glyph fallback.
  */
 export function ProductMedia({
   icon,
   tone,
   name,
+  src,
   className,
   iconClassName,
   iconTone = "text-ink/75",
+  priority = false,
 }: {
   icon: IconKey;
   tone: string;
   name: string;
+  src?: string;
   className?: string;
   iconClassName?: string;
   iconTone?: string;
+  priority?: boolean;
 }) {
+  const [failed, setFailed] = useState(false);
+  const showImage = Boolean(src) && !failed;
+
   return (
     <div
       role="img"
@@ -82,15 +92,35 @@ export function ProductMedia({
         className,
       )}
     >
-      <span className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/60 blur-2xl" aria-hidden />
-      <ProductIcon
-        icon={icon}
-        className={cn(
-          "relative h-1/2 w-1/2 transition-transform duration-500 ease-premium",
-          iconTone,
-          iconClassName,
-        )}
-      />
+      {showImage ? (
+        <Image
+          src={src!}
+          alt={name}
+          fill
+          sizes="(max-width: 768px) 50vw, 25vw"
+          className="object-contain p-4 transition-transform duration-500 ease-premium"
+          onError={() => setFailed(true)}
+          priority={priority}
+          loading={priority ? undefined : "lazy"}
+          placeholder="blur"
+          blurDataURL="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAiIGhlaWdodD0iMTAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwIiBoZWlnaHQ9IjEwIiBmaWxsPSIjRjRGNkZBIi8+PC9zdmc+"
+        />
+      ) : (
+        <>
+          <span
+            className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/60 blur-2xl"
+            aria-hidden
+          />
+          <ProductIcon
+            icon={icon}
+            className={cn(
+              "relative h-1/2 w-1/2 transition-transform duration-500 ease-premium",
+              iconTone,
+              iconClassName,
+            )}
+          />
+        </>
+      )}
     </div>
   );
 }

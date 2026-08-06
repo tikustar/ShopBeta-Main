@@ -8,6 +8,8 @@ export function Dropdown({
   label,
   options,
   initial,
+  value,
+  onChange,
   align = "left",
   className,
   buttonClassName,
@@ -15,13 +17,19 @@ export function Dropdown({
   label?: string;
   options: string[];
   initial?: string;
+  value?: string;
+  onChange?: (value: string) => void;
   align?: "left" | "right";
   className?: string;
   buttonClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState(initial ?? options[0]);
+  const [selected, setSelected] = useState(value ?? initial ?? options[0]);
   const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (value != null) setSelected(value);
+  }, [value]);
 
   useEffect(() => {
     const onClick = (event: MouseEvent) => {
@@ -37,7 +45,7 @@ export function Dropdown({
         type="button"
         aria-haspopup="listbox"
         aria-expanded={open}
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => setOpen((state) => !state)}
         className={cn(
           "inline-flex h-11 w-full items-center justify-between gap-3 rounded-xl border border-line bg-white px-4 text-sm text-ink transition-colors hover:border-ink/20",
           buttonClassName,
@@ -71,6 +79,7 @@ export function Dropdown({
                 aria-selected={option === selected}
                 onClick={() => {
                   setSelected(option);
+                  onChange?.(option);
                   setOpen(false);
                 }}
                 className={cn(

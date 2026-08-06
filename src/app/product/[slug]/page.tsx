@@ -19,9 +19,16 @@ import {
   toReviewViews,
 } from "@/lib/product-view";
 import {
+  breadcrumbJsonLd,
+  buildProductMetadata,
+  JsonLd,
+  productJsonLd,
+} from "@/lib/seo";
+import {
   getActiveProducts,
   getProductBySlug,
   getRelatedProducts,
+  getYouMayAlsoLike,
 } from "@/services/products.service";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Badge } from "@/components/ui/badge";
@@ -31,8 +38,12 @@ import { Rating, RatingBar } from "@/components/ui/rating";
 import { QuantitySelector } from "@/components/ui/quantity-selector";
 import { Tabs } from "@/components/ui/tabs";
 import { ProductGallery } from "@/components/commerce/product-gallery";
-import { ProductCard } from "@/components/commerce/product-card";
 import { WishlistButton } from "@/components/commerce/wishlist-button";
+import { TrackableProductCard } from "@/components/commerce/trackable-product-card";
+import {
+  RecentlyViewedRail,
+  TrackProductView,
+} from "@/components/commerce/recently-viewed";
 
 export const revalidate = 60;
 export const dynamicParams = true;
@@ -40,7 +51,7 @@ export const dynamicParams = true;
 /** Prerender what the catalogue holds at build time; anything else is on-demand. */
 export async function generateStaticParams() {
   try {
-    const products = await getActiveProducts();
+    const products = await getActiveProducts(48);
     return products.map((product) => ({ slug: product.slug }));
   } catch {
     return [];
@@ -53,10 +64,8 @@ export async function generateMetadata({
   params: { slug: string };
 }): Promise<Metadata> {
   const product = await getProductBySlug(params.slug);
-  return {
-    title: product?.name ?? "Product",
-    description: product?.description,
-  };
+  if (!product) return { title: "Product not found" };
+  return buildProductMetadata(product);
 }
 
 const perks = [
@@ -79,36 +88,74 @@ export default async function ProductDetailsPage({
   const ratingBreakdown = buildRatingBreakdown(reviews);
   const off = discountPercent(product.price, product.oldPrice);
   const totalReviews = ratingBreakdown.reduce((sum, row) => sum + row.count, 0);
-  const related = toProductViews(await getRelatedProducts(source));
-  const recentlyViewed = related;
+  const relatedSource = await getRelatedProducts(source, 4);
+  const relatedIds = new Set(relatedSource.map((item) => item.id));
+  const alsoLike = toProductViews(
+    await getYouMayAlsoLike(source, 4, relatedIds),
+  );
+  const related = toProductViews(relatedSource);
+
+  const breadcrumbItems = [
+    { label: "Home", href: "/" },
+    {
+      label: product.category,
+      href: product.categoryId
+        ? `/category/${product.categoryId}`
+        : "/products",
+    },
+    { label: product.name },
+  ];
 
   return (
     <div className="sb-container">
+      <JsonLd data={productJsonLd(source)} />
+      <JsonLd
+        data={breadcrumbJsonLd([
+          { name: "Home", path: "/" },
+          {
+            name: product.category,
+            path: product.categoryId
+              ? `/category/${product.categoryId}`
+              : "/products",
+          },
+          { name: product.name },
+        ])}
+      />
+      <TrackProductView
+        product={product}
+        categoryId={product.categoryId}
+        brandId={product.brandId}
+      />
+
       <div className="pt-6 sm:pt-8">
-        <Breadcrumb
-          items={[
-            { label: "Home", href: "/" },
-            { label: product.category, href: "/products" },
-            ...(product.subcategory && product.subcategory !== product.category
-              ? [{ label: product.subcategory, href: "/products" }]
-              : []),
-            { label: product.name },
-          ]}
-        />
+        <Breadcrumb items={breadcrumbItems} />
       </div>
 
       <div className="grid gap-8 pt-6 lg:grid-cols-[1.1fr_1fr] lg:gap-12">
-        <ProductGallery icon={product.icon} tone={product.tone} name={product.name} />
+        <ProductGallery
+          icon={product.icon}
+          tone={product.tone}
+          name={product.name}
+          images={product.images ?? (product.thumbnail ? [product.thumbnail] : [])}
+        />
 
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <Link
-              href="/brands"
+              href={
+                product.brandId ? `/products?brand=${product.brandId}` : "/brands"
+              }
               className="text-[13px] font-semibold uppercase tracking-[0.1em] text-primary hover:underline"
             >
               {product.brand}
             </Link>
-            {product.badge ? <Badge tone="ink">{product.badge}</Badge> : null}
+            {product.officialStore ? <Badge tone="success">Official store</Badge> : null}
+            {product.sponsored ? <Badge tone="ink">Sponsored</Badge> : null}
+            {product.badge &&
+            product.badge !== "Official store" &&
+            product.badge !== "Sponsored" ? (
+              <Badge tone="ink">{product.badge}</Badge>
+            ) : null}
           </div>
 
           <h1 className="mt-3 text-[26px] font-semibold leading-tight tracking-[-0.03em] text-ink sm:text-[34px]">
@@ -123,7 +170,9 @@ export default async function ProductDetailsPage({
             <span className="text-line" aria-hidden>
               |
             </span>
-            <span className="text-[13px] text-muted">SKU {product.id}</span>
+            <span className="text-[13px] text-muted">
+              SKU {product.sku ?? product.id}
+            </span>
           </div>
 
           <div className="mt-6 flex flex-wrap items-end gap-3">
@@ -164,23 +213,28 @@ export default async function ProductDetailsPage({
 
           <div className="mt-7">
             <p className="mb-2.5 text-[13px] font-medium text-ink">
-              Colour: <span className="text-muted">{product.colors[0]}</span>
+              Colour:{" "}
+              <span className="text-muted">
+                {product.colors[0] ?? "Default"}
+              </span>
             </p>
             <div className="flex flex-wrap gap-2">
-              {product.colors.map((color, index) => (
-                <button
-                  key={color}
-                  type="button"
-                  aria-pressed={index === 0}
-                  className={
-                    index === 0
-                      ? "rounded-full border border-primary bg-primary-50 px-4 py-2 text-[13px] font-medium text-primary-700"
-                      : "rounded-full border border-line bg-white px-4 py-2 text-[13px] text-ink-soft transition-colors hover:border-ink/25"
-                  }
-                >
-                  {color}
-                </button>
-              ))}
+              {(product.colors.length ? product.colors : ["Default"]).map(
+                (color, index) => (
+                  <button
+                    key={color}
+                    type="button"
+                    aria-pressed={index === 0}
+                    className={
+                      index === 0
+                        ? "rounded-full border border-primary bg-primary-50 px-4 py-2 text-[13px] font-medium text-primary-700"
+                        : "rounded-full border border-line bg-white px-4 py-2 text-[13px] text-ink-soft transition-colors hover:border-ink/25"
+                    }
+                  >
+                    {color}
+                  </button>
+                ),
+              )}
             </div>
           </div>
 
@@ -381,21 +435,33 @@ export default async function ProductDetailsPage({
         </h2>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 lg:gap-5">
           {related.map((item) => (
-            <ProductCard key={item.id} product={item} />
+            <TrackableProductCard
+              key={item.id}
+              product={item}
+              rail="related"
+              source="product-detail"
+            />
           ))}
         </div>
       </section>
 
       <section className="pt-16 sm:pt-20">
         <h2 className="mb-6 text-2xl font-semibold tracking-[-0.025em] text-ink">
-          Recently viewed
+          You may also like
         </h2>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 lg:gap-5">
-          {recentlyViewed.slice(0, 4).map((item) => (
-            <ProductCard key={item.id} product={item} />
+          {alsoLike.map((item) => (
+            <TrackableProductCard
+              key={item.id}
+              product={item}
+              rail="you-may-also-like"
+              source="product-detail"
+            />
           ))}
         </div>
       </section>
+
+      <RecentlyViewedRail excludeId={product.id} />
     </div>
   );
 }

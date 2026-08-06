@@ -28,6 +28,7 @@ export function ProductCard({
           icon={product.icon}
           tone={product.tone}
           name={product.name}
+          src={product.thumbnail ?? product.images?.[0]}
           className="aspect-square w-full"
           iconClassName="group-hover:scale-110"
         />
@@ -89,6 +90,7 @@ export function ProductListCard({ product }: { product: Product }) {
           icon={product.icon}
           tone={product.tone}
           name={product.name}
+          src={product.thumbnail ?? product.images?.[0]}
           className="h-44 w-full sm:h-40 sm:w-40"
         />
         {off > 0 ? (

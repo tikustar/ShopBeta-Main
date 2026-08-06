@@ -58,6 +58,7 @@ export const productDocumentSchema = z
     slug: z.string().optional(),
     sku: z.string().optional(),
     barcode: z.string().optional(),
+    brand: z.string().optional(),
     brandId: z.string().optional(),
     categoryId: z.string().optional(),
     subcategory: z.string().optional(),

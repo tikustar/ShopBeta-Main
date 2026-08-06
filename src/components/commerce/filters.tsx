@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { SlidersHorizontal, Star, X } from "lucide-react";
-import { brands, categories, priceBounds } from "@/lib/data";
+import type { Brand, Category } from "@/lib/data";
+import type { CatalogFilters } from "@/lib/catalog-query";
+import { emptyFilters } from "@/lib/catalog-query";
 import { cn, formatPrice } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/field";
 import { Chip } from "@/components/ui/badge";
@@ -29,73 +31,126 @@ function Group({
   );
 }
 
-function PriceSlider() {
-  const [max, setMax] = useState(1600);
-  return (
-    <div>
-      <div className="mb-3 flex items-center justify-between text-[13px] text-muted">
-        <span>{formatPrice(priceBounds.min)}</span>
-        <span className="font-semibold text-ink">Up to {formatPrice(max)}</span>
-      </div>
-      <input
-        type="range"
-        min={priceBounds.min}
-        max={priceBounds.max}
-        step={50}
-        value={max}
-        onChange={(event) => setMax(Number(event.target.value))}
-        aria-label="Maximum price"
-        className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-line accent-primary"
-      />
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        <input
-          type="number"
-          defaultValue={priceBounds.min}
-          aria-label="Minimum price"
-          className="h-10 rounded-xl border border-line px-3 text-sm text-ink outline-none focus:border-primary"
-        />
-        <input
-          type="number"
-          value={max}
-          onChange={(event) => setMax(Number(event.target.value))}
-          aria-label="Maximum price"
-          className="h-10 rounded-xl border border-line px-3 text-sm text-ink outline-none focus:border-primary"
-        />
-      </div>
-    </div>
-  );
+function toggleValue(list: string[], value: string) {
+  return list.includes(value)
+    ? list.filter((item) => item !== value)
+    : [...list, value];
 }
 
-export function FilterPanel({ className }: { className?: string }) {
+export function FilterPanel({
+  className,
+  categories = [],
+  brands = [],
+  priceBounds = { min: 0, max: 0 },
+  filters,
+  onChange,
+}: {
+  className?: string;
+  categories?: Category[];
+  brands?: Brand[];
+  priceBounds?: { min: number; max: number };
+  filters?: CatalogFilters;
+  onChange?: (filters: CatalogFilters) => void;
+}) {
+  const value = filters ?? emptyFilters();
+  const update = (patch: Partial<CatalogFilters>) => {
+    onChange?.({ ...value, ...patch });
+  };
+
+  const maxCeiling = Math.max(priceBounds.max, priceBounds.min + 1);
+  const currentMax = value.maxPrice ?? maxCeiling;
+
   return (
     <div className={cn("rounded-2xl border border-line bg-white px-5 py-1", className)}>
       <Group title="Category">
-        <div className="space-y-0.5">
-          {categories.slice(0, 6).map((category) => (
+        <div className="max-h-56 space-y-0.5 overflow-y-auto pr-1">
+          {categories.slice(0, 12).map((category) => (
             <Checkbox
               key={category.slug}
               label={category.name}
               count={category.itemCount}
-              defaultChecked={category.slug === "computers"}
+              checked={value.categories.includes(category.slug)}
+              onChange={() =>
+                update({ categories: toggleValue(value.categories, category.slug) })
+              }
             />
           ))}
         </div>
       </Group>
       <Group title="Brand">
         <div className="max-h-56 space-y-0.5 overflow-y-auto pr-1">
-          {brands.slice(0, 10).map((brand) => (
-            <Checkbox key={brand.slug} label={brand.name} count={brand.productCount} />
+          {brands.slice(0, 16).map((brand) => (
+            <Checkbox
+              key={brand.slug}
+              label={brand.name}
+              count={brand.productCount}
+              checked={value.brands.includes(brand.slug)}
+              onChange={() =>
+                update({ brands: toggleValue(value.brands, brand.slug) })
+              }
+            />
           ))}
         </div>
       </Group>
       <Group title="Price">
-        <PriceSlider />
+        <div>
+          <div className="mb-3 flex items-center justify-between text-[13px] text-muted">
+            <span>{formatPrice(priceBounds.min)}</span>
+            <span className="font-semibold text-ink">
+              Up to {formatPrice(currentMax)}
+            </span>
+          </div>
+          <input
+            type="range"
+            min={priceBounds.min}
+            max={maxCeiling}
+            step={Math.max(1, Math.round((maxCeiling - priceBounds.min) / 40))}
+            value={currentMax}
+            onChange={(event) => update({ maxPrice: Number(event.target.value) })}
+            aria-label="Maximum price"
+            className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-line accent-primary"
+          />
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <input
+              type="number"
+              value={value.minPrice ?? priceBounds.min}
+              onChange={(event) =>
+                update({
+                  minPrice: event.target.value
+                    ? Number(event.target.value)
+                    : undefined,
+                })
+              }
+              aria-label="Minimum price"
+              className="h-10 rounded-xl border border-line px-3 text-sm text-ink outline-none focus:border-primary"
+            />
+            <input
+              type="number"
+              value={currentMax}
+              onChange={(event) =>
+                update({
+                  maxPrice: event.target.value
+                    ? Number(event.target.value)
+                    : undefined,
+                })
+              }
+              aria-label="Maximum price"
+              className="h-10 rounded-xl border border-line px-3 text-sm text-ink outline-none focus:border-primary"
+            />
+          </div>
+        </div>
       </Group>
       <Group title="Customer rating">
         <div className="space-y-0.5">
           {[4, 3, 2].map((stars) => (
             <Checkbox
               key={stars}
+              checked={value.minRating === stars}
+              onChange={() =>
+                update({
+                  minRating: value.minRating === stars ? undefined : stars,
+                })
+              }
               label={
                 <span className="flex items-center gap-1.5">
                   <span className="flex">
@@ -121,48 +176,145 @@ export function FilterPanel({ className }: { className?: string }) {
       </Group>
       <Group title="Availability">
         <div className="space-y-0.5">
-          <Checkbox label="In stock" defaultChecked count={1842} />
-          <Checkbox label="Ships today" count={914} />
-          <Checkbox label="Pre-order" count={62} />
-          <Checkbox label="Include out of stock" count={128} />
+          <Checkbox
+            label="In stock"
+            checked={value.inStockOnly}
+            onChange={() => update({ inStockOnly: !value.inStockOnly })}
+          />
         </div>
       </Group>
-      <Group title="Delivery" defaultOpen={false}>
+      <Group title="Highlights" defaultOpen={false}>
         <div className="space-y-0.5">
-          <Checkbox label="Free delivery" defaultChecked />
-          <Checkbox label="Next-day delivery" />
-          <Checkbox label="Store pickup" />
+          <Checkbox
+            label="Sponsored"
+            checked={value.sponsored}
+            onChange={() => update({ sponsored: !value.sponsored })}
+          />
+          <Checkbox
+            label="Official store"
+            checked={value.officialStore}
+            onChange={() => update({ officialStore: !value.officialStore })}
+          />
+          <Checkbox
+            label="Featured"
+            checked={value.featured}
+            onChange={() => update({ featured: !value.featured })}
+          />
+          <Checkbox
+            label="Flash sale"
+            checked={value.flashSale}
+            onChange={() => update({ flashSale: !value.flashSale })}
+          />
         </div>
       </Group>
     </div>
   );
 }
 
-export function ActiveFilters() {
-  const [filters, setFilters] = useState([
-    "Computers",
-    "Apple",
-    "Under $1,600",
-    "In stock",
-  ]);
+export function ActiveFilters({
+  filters,
+  categories = [],
+  brands = [],
+  onChange,
+  onClear,
+}: {
+  filters: CatalogFilters;
+  categories?: Category[];
+  brands?: Brand[];
+  onChange: (filters: CatalogFilters) => void;
+  onClear: () => void;
+}) {
+  const chips = useMemo(() => {
+    const items: Array<{ key: string; label: string; clear: () => void }> = [];
+    for (const slug of filters.categories) {
+      const category = categories.find((item) => item.slug === slug);
+      items.push({
+        key: `cat-${slug}`,
+        label: category?.name ?? slug,
+        clear: () =>
+          onChange({
+            ...filters,
+            categories: filters.categories.filter((value) => value !== slug),
+          }),
+      });
+    }
+    for (const slug of filters.brands) {
+      const brand = brands.find((item) => item.slug === slug);
+      items.push({
+        key: `brand-${slug}`,
+        label: brand?.name ?? slug,
+        clear: () =>
+          onChange({
+            ...filters,
+            brands: filters.brands.filter((value) => value !== slug),
+          }),
+      });
+    }
+    if (filters.maxPrice != null) {
+      items.push({
+        key: "max-price",
+        label: `Under ${formatPrice(filters.maxPrice)}`,
+        clear: () => onChange({ ...filters, maxPrice: undefined }),
+      });
+    }
+    if (filters.minRating != null) {
+      items.push({
+        key: "rating",
+        label: `${filters.minRating}+ stars`,
+        clear: () => onChange({ ...filters, minRating: undefined }),
+      });
+    }
+    if (filters.inStockOnly) {
+      items.push({
+        key: "stock",
+        label: "In stock",
+        clear: () => onChange({ ...filters, inStockOnly: false }),
+      });
+    }
+    if (filters.sponsored) {
+      items.push({
+        key: "sponsored",
+        label: "Sponsored",
+        clear: () => onChange({ ...filters, sponsored: false }),
+      });
+    }
+    if (filters.officialStore) {
+      items.push({
+        key: "official",
+        label: "Official store",
+        clear: () => onChange({ ...filters, officialStore: false }),
+      });
+    }
+    if (filters.featured) {
+      items.push({
+        key: "featured",
+        label: "Featured",
+        clear: () => onChange({ ...filters, featured: false }),
+      });
+    }
+    if (filters.flashSale) {
+      items.push({
+        key: "flash",
+        label: "Flash sale",
+        clear: () => onChange({ ...filters, flashSale: false }),
+      });
+    }
+    return items;
+  }, [filters, categories, brands, onChange]);
 
-  if (!filters.length) return null;
+  if (!chips.length) return null;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
       <span className="text-[13px] text-muted">Active:</span>
-      {filters.map((filter) => (
-        <Chip
-          key={filter}
-          onRemove={() => setFilters((list) => list.filter((f) => f !== filter))}
-          onClick={() => setFilters((list) => list.filter((f) => f !== filter))}
-        >
-          {filter}
+      {chips.map((chip) => (
+        <Chip key={chip.key} onRemove={chip.clear} onClick={chip.clear}>
+          {chip.label}
         </Chip>
       ))}
       <button
         type="button"
-        onClick={() => setFilters([])}
+        onClick={onClear}
         className="text-[13px] font-medium text-primary hover:underline"
       >
         Clear all
@@ -171,7 +323,21 @@ export function ActiveFilters() {
   );
 }
 
-export function FilterDrawer() {
+export function FilterDrawer({
+  categories,
+  brands,
+  priceBounds,
+  filters,
+  onChange,
+  onReset,
+}: {
+  categories: Category[];
+  brands: Brand[];
+  priceBounds: { min: number; max: number };
+  filters: CatalogFilters;
+  onChange: (filters: CatalogFilters) => void;
+  onReset: () => void;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -204,12 +370,22 @@ export function FilterDrawer() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-4">
-              <FilterPanel className="border-0 px-0" />
+              <FilterPanel
+                className="border-0 px-0"
+                categories={categories}
+                brands={brands}
+                priceBounds={priceBounds}
+                filters={filters}
+                onChange={onChange}
+              />
             </div>
             <div className="flex gap-3 border-t border-line p-4">
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={() => {
+                  onReset();
+                  setOpen(false);
+                }}
                 className="h-12 flex-1 rounded-full border border-line text-sm font-medium text-ink"
               >
                 Reset
