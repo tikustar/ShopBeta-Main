@@ -19,6 +19,7 @@ import {
 } from "@/lib/server/finalize-payment";
 import type { Order } from "@/types/order";
 import { stripUndefined } from "@/utils/firestore";
+import { paymentLog } from "@/lib/server/payment-log";
 
 function paymentReferenceForOrder(order: Order) {
   const base = (order.orderNumber || order.id).replace(/[^a-zA-Z0-9]/g, "");
@@ -81,6 +82,12 @@ export async function initializePaystackForOrder(input: {
       orderNumber: order.orderNumber,
       userId: order.userId,
     },
+  });
+
+  paymentLog("init.paystack", "Paystack Initialize API OK", {
+    orderId: order.id,
+    reference: initialized.reference,
+    hasAuthorizationUrl: Boolean(initialized.authorization_url),
   });
 
   const paymentRef = db.collection(COLLECTIONS.payments).doc();

@@ -47,9 +47,17 @@ export function isFlutterwaveEnabled() {
 }
 
 export function isPaystackConfigured() {
-  return Boolean(
-    process.env.PAYSTACK_SECRET_KEY?.trim() &&
-      process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY?.trim(),
+  // Server initialize / verify only need the secret. Public key is optional
+  // (required only for client-side Paystack Inline JS, not redirect checkout).
+  return Boolean(process.env.PAYSTACK_SECRET_KEY?.trim());
+}
+
+/** HTTPS base for Paystack Cloud Functions (initialize + webhook). */
+export function getPaystackFunctionsBaseUrl() {
+  return (
+    process.env.PAYSTACK_FUNCTIONS_BASE_URL?.replace(/\/$/, "") ||
+    process.env.NEXT_PUBLIC_PAYSTACK_FUNCTIONS_BASE_URL?.replace(/\/$/, "") ||
+    "https://us-central1-shop-day84j.cloudfunctions.net"
   );
 }
 

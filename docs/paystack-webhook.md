@@ -15,7 +15,13 @@ Never commit secrets. Rotate any key that was pasted into chat.
 
 ## Webhook endpoints
 
-**Firebase Cloud Function (recommended for Paystack Dashboard):**
+**Firebase Cloud Function — Initialize (redirect checkout):**
+
+`POST https://us-central1-shop-day84j.cloudfunctions.net/paystackInitialize`
+
+Used by `POST /api/payments/paystack/initialize` when Firebase Admin is not configured locally (falls back automatically).
+
+**Firebase Cloud Function — Webhook:**
 
 `POST https://us-central1-shop-day84j.cloudfunctions.net/paystackWebhook`
 
@@ -27,8 +33,9 @@ Never commit secrets. Rotate any key that was pasted into chat.
 **Next.js / Vercel (also supported):**
 
 `POST /api/payments/paystack/webhook`
+`POST /api/payments/paystack/initialize`
 
-Point Paystack at **one** of these URLs (prefer the Cloud Function). Both share the same processing rules.
+Point Paystack Dashboard webhooks at **one** URL (prefer the Cloud Function webhook). Both share the same processing rules.
 
 Flow:
 
