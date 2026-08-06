@@ -1,22 +1,39 @@
+/**
+ * Structured payment logging (temporary verbose for flow diagnosis).
+ */
 import { reportEvent } from "@/lib/monitoring";
 
-/** Structured payment / webhook logging for production diagnosis. */
+export type PaymentLogStage =
+  | "checkout.button"
+  | "checkout.order"
+  | "init.request"
+  | "init.admin"
+  | "init.functions"
+  | "init.paystack"
+  | "init.redirect"
+  | "init.failure"
+  | "callback.start"
+  | "callback.verify"
+  | "callback.listener"
+  | "callback.success"
+  | "callback.failure"
+  | "webhook.incoming"
+  | "webhook.signature"
+  | "webhook.event"
+  | "webhook.verify"
+  | "webhook.firestore"
+  | "webhook.make"
+  | "webhook.success"
+  | "webhook.failure"
+  | "webhook.ignored";
+
 export function paymentLog(
-  stage:
-    | "webhook.incoming"
-    | "webhook.signature"
-    | "webhook.event"
-    | "webhook.verify"
-    | "webhook.firestore"
-    | "webhook.make"
-    | "webhook.success"
-    | "webhook.failure"
-    | "webhook.ignored",
+  stage: PaymentLogStage,
   message: string,
   meta?: Record<string, unknown>,
 ) {
   const level =
-    stage === "webhook.failure" || stage === "webhook.signature"
+    stage.endsWith("failure") || stage === "webhook.signature"
       ? "error"
       : stage === "webhook.ignored"
         ? "warning"
@@ -31,13 +48,16 @@ export function paymentLog(
   });
 
   if (process.env.NODE_ENV !== "test") {
-    const line = {
-      at: new Date().toISOString(),
-      stage,
-      message,
-      ...meta,
-    };
     // eslint-disable-next-line no-console
-    console.log(JSON.stringify({ payment: line }));
+    console.log(
+      JSON.stringify({
+        payment: {
+          at: new Date().toISOString(),
+          stage,
+          message,
+          ...meta,
+        },
+      }),
+    );
   }
 }

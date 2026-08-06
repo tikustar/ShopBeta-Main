@@ -49,6 +49,75 @@ export async function getOrderByNumber(
   return getOrderById(orderNumber.trim());
 }
 
+/**
+ * Watch an order until paymentStatus becomes paid (or timeout).
+ * Used on the Paystack callback page so success navigates without refresh.
+ */
+export function watchOrderUntilPaid(
+  orderIdOrNumber: string,
+  options?: {
+    timeoutMs?: number;
+    onUpdate?: (order: Order) => void;
+  },
+): Promise<Order | null> {
+  const timeoutMs = options?.timeoutMs ?? 120_000;
+
+  return new Promise((resolve) => {
+    let settled = false;
+    let unsubscribe: (() => void) | undefined;
+    let pollTimer: ReturnType<typeof setInterval> | undefined;
+    let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const finish = (order: Order | null) => {
+      if (settled) return;
+      settled = true;
+      unsubscribe?.();
+      if (pollTimer) clearInterval(pollTimer);
+      if (timeoutTimer) clearTimeout(timeoutTimer);
+      resolve(order);
+    };
+
+    const consider = (order: Order | undefined) => {
+      if (!order) return;
+      options?.onUpdate?.(order);
+      if (order.paymentStatus === "paid") {
+        finish(order);
+      }
+    };
+
+    void (async () => {
+      // Resolve document id (order number → id) then attach snapshot listener.
+      let order = await getOrderByNumber(orderIdOrNumber);
+      if (!order) {
+        order = await getOrderById(orderIdOrNumber);
+      }
+      if (!order) {
+        finish(null);
+        return;
+      }
+      consider(order);
+
+      const { onSnapshot } = await import("firebase/firestore");
+      unsubscribe = onSnapshot(
+        orderDoc(order.id),
+        (snap) => {
+          if (!snap.exists()) return;
+          consider(snap.data());
+        },
+        () => {
+          /* fall through to polling */
+        },
+      );
+
+      pollTimer = setInterval(() => {
+        void getOrderById(order!.id).then((latest) => consider(latest));
+      }, 3000);
+
+      timeoutTimer = setTimeout(() => finish(null), timeoutMs);
+    })();
+  });
+}
+
 export type PlaceOrderInput = {
   userId: string;
   customer: {

@@ -6,9 +6,10 @@ export type InitializePaystackResponse =
   | {
       ok: true;
       authorizationUrl: string;
+      accessCode?: string | null;
       reference: string;
       orderId: string;
-      orderNumber?: string;
+      orderNumber?: string | null;
     }
   | { ok: false; reason: string };
 
@@ -55,6 +56,20 @@ export type ConfirmCodResponse =
     }
   | { ok: false; reason: string; code?: string };
 
+function clientPaymentLog(
+  stage: string,
+  message: string,
+  meta?: Record<string, unknown>,
+) {
+  // Temporary flow diagnostics (browser console)
+  // eslint-disable-next-line no-console
+  console.log(
+    JSON.stringify({
+      payment: { at: new Date().toISOString(), stage, message, ...meta },
+    }),
+  );
+}
+
 async function postJson<T>(url: string, body: unknown): Promise<T> {
   const response = await fetch(url, {
     method: "POST",
@@ -70,14 +85,34 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
   return data;
 }
 
-export function initializePaystackPayment(input: {
+export async function initializePaystackPayment(input: {
   orderId: string;
   callbackUrl?: string;
-}) {
-  return postJson<InitializePaystackResponse>(
+}): Promise<InitializePaystackResponse> {
+  clientPaymentLog("init.request", "Calling /api/payments/paystack/initialize", {
+    orderId: input.orderId,
+    hasCallback: Boolean(input.callbackUrl),
+  });
+
+  const result = await postJson<InitializePaystackResponse>(
     "/api/payments/paystack/initialize",
     input,
   );
+
+  if (result.ok) {
+    clientPaymentLog("init.paystack", "Initialize API success", {
+      orderId: result.orderId,
+      reference: result.reference,
+      hasAuthorizationUrl: Boolean(result.authorizationUrl),
+      hasAccessCode: Boolean(result.accessCode),
+    });
+  } else {
+    clientPaymentLog("init.failure", "Initialize API rejected", {
+      reason: result.reason,
+    });
+  }
+
+  return result;
 }
 
 export function verifyPaystackPayment(reference: string) {
@@ -96,8 +131,17 @@ export function getPaystackPublicKey() {
   return process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY?.trim() ?? "";
 }
 
+/**
+ * Redirect checkout works without the public key (Inline JS needs it).
+ * Disable explicitly with NEXT_PUBLIC_PAYSTACK_ENABLED=false.
+ */
 export function isClientPaystackEnabled() {
-  return Boolean(getPaystackPublicKey());
+  const flag = process.env.NEXT_PUBLIC_PAYSTACK_ENABLED?.trim().toLowerCase();
+  if (flag === "0" || flag === "false") return false;
+  if (flag === "1" || flag === "true") return true;
+  // Default: enabled when public key is set, or when not explicitly disabled
+  // (server / Cloud Function still require PAYSTACK_SECRET_KEY).
+  return true;
 }
 
 export function isClientCodEnabled() {

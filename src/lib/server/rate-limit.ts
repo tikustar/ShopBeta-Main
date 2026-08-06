@@ -54,7 +54,11 @@ export function clientKeyFromRequest(request: Request, suffix: string) {
 export function publicErrorMessage(error: unknown, fallback: string) {
   if (!(error instanceof Error)) return fallback;
   const message = error.message || fallback;
-  if (/secret|credential|service.account|api.key|token/i.test(message)) {
+  // Allow actionable config guidance without leaking secret values.
+  if (/FIREBASE_SERVICE_ACCOUNT|GOOGLE_APPLICATION_CREDENTIALS|not configured/i.test(message)) {
+    return message.slice(0, 240);
+  }
+  if (/secret|credential|api\.key|token|private.?key/i.test(message)) {
     return fallback;
   }
   return message.slice(0, 240);

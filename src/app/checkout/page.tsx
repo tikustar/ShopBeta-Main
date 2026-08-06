@@ -166,6 +166,19 @@ export default function CheckoutPage() {
 
     setSubmitting(true);
     try {
+      console.log(
+        JSON.stringify({
+          payment: {
+            at: new Date().toISOString(),
+            stage: "checkout.button",
+            message: "Pay with Paystack clicked",
+            method,
+            itemCount: items.length,
+            total,
+          },
+        }),
+      );
+
       const result = await placeOrder({
         userId: authUser?.uid ?? `guest_${getGuestId()}`,
         customer: {
@@ -192,6 +205,19 @@ export default function CheckoutPage() {
         return;
       }
 
+      console.log(
+        JSON.stringify({
+          payment: {
+            at: new Date().toISOString(),
+            stage: "checkout.order",
+            message: "Pending order created",
+            orderId: result.order.id,
+            orderNumber: result.order.orderNumber,
+            paymentStatus: result.order.paymentStatus,
+          },
+        }),
+      );
+
       setLastOrder(result.order);
 
       if (method === "paystack" || method === "card") {
@@ -208,8 +234,25 @@ export default function CheckoutPage() {
           );
           return;
         }
+        if (!init.authorizationUrl) {
+          const reason = "Paystack did not return a checkout URL.";
+          setError(reason);
+          toastError("Payment setup failed", reason);
+          return;
+        }
+        console.log(
+          JSON.stringify({
+            payment: {
+              at: new Date().toISOString(),
+              stage: "init.redirect",
+              message: "Redirecting to Paystack authorization_url",
+              orderId: init.orderId,
+              reference: init.reference,
+            },
+          }),
+        );
         toastSuccess("Redirecting to Paystack");
-        window.location.href = init.authorizationUrl;
+        window.location.assign(init.authorizationUrl);
         return;
       }
 
