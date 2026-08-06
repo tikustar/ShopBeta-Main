@@ -1,13 +1,17 @@
+"use client";
+
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function Pagination({
   current = 1,
   total = 8,
+  onChange,
   className,
 }: {
   current?: number;
   total?: number;
+  onChange?: (page: number) => void;
   className?: string;
 }) {
   const pages = Array.from({ length: total }, (_, i) => i + 1).filter(
@@ -26,6 +30,7 @@ export function Pagination({
         type="button"
         aria-label="Previous page"
         disabled={current === 1}
+        onClick={() => onChange?.(current - 1)}
         className="inline-flex h-10 items-center gap-1.5 rounded-full border border-line bg-white px-4 text-[13px] font-medium text-ink transition-colors hover:bg-soft disabled:opacity-40"
       >
         <ChevronLeft className="h-4 w-4" aria-hidden />
@@ -40,6 +45,7 @@ export function Pagination({
             <button
               type="button"
               aria-current={page === current ? "page" : undefined}
+              onClick={() => onChange?.(page)}
               className={cn(
                 "grid h-10 w-10 place-items-center rounded-full text-[13px] font-medium transition-all duration-200",
                 page === current
@@ -55,7 +61,9 @@ export function Pagination({
       <button
         type="button"
         aria-label="Next page"
-        className="inline-flex h-10 items-center gap-1.5 rounded-full border border-line bg-white px-4 text-[13px] font-medium text-ink transition-colors hover:bg-soft"
+        disabled={current >= total}
+        onClick={() => onChange?.(current + 1)}
+        className="inline-flex h-10 items-center gap-1.5 rounded-full border border-line bg-white px-4 text-[13px] font-medium text-ink transition-colors hover:bg-soft disabled:opacity-40"
       >
         <span className="hidden sm:inline">Next</span>
         <ChevronRight className="h-4 w-4" aria-hidden />

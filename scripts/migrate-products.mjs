@@ -10,34 +10,19 @@
  *   node scripts/migrate-products.mjs                       # dry run
  *   node scripts/migrate-products.mjs --apply               # write
  *   node scripts/migrate-products.mjs --credentials=key.json
- *   node scripts/migrate-products.mjs --default-stock=25
+ *   node scripts/migrate-products.mjs --default-stock=25    # optional; default stock is 0
  *
  * Credentials are resolved from --credentials, GOOGLE_APPLICATION_CREDENTIALS
  * or FIREBASE_SERVICE_ACCOUNT (raw JSON).
  */
-import { readFileSync } from "node:fs";
-import { cert, initializeApp } from "firebase-admin/app";
-import { Timestamp, getFirestore } from "firebase-admin/firestore";
+import { Timestamp } from "firebase-admin/firestore";
+import { getAdminFirestore, parseArgs } from "./lib/admin.mjs";
 
-const args = process.argv.slice(2);
-const flag = (name) => args.includes(`--${name}`);
-const option = (name) =>
-  args.find((arg) => arg.startsWith(`--${name}=`))?.split("=").slice(1).join("=");
+const { flag, option } = parseArgs();
 
 const APPLY = flag("apply");
 const DEFAULT_STOCK = Number(option("default-stock") ?? 0);
 const COLLECTION = option("collection") ?? "products";
-
-function credentials() {
-  const path = option("credentials") ?? process.env.GOOGLE_APPLICATION_CREDENTIALS;
-  if (path) return JSON.parse(readFileSync(path, "utf8"));
-  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-    return JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-  }
-  throw new Error(
-    "No credentials. Pass --credentials=<service-account.json> or set GOOGLE_APPLICATION_CREDENTIALS / FIREBASE_SERVICE_ACCOUNT.",
-  );
-}
 
 function slugify(value) {
   return String(value)
@@ -45,6 +30,11 @@ function slugify(value) {
     .normalize("NFKD")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
+}
+
+/** Uppercase alphanumeric barcode consistent with the SB-* sku family. */
+function barcodeFor(id) {
+  return `SB-${String(id).replace(/[^a-zA-Z0-9]/g, "").toUpperCase()}`;
 }
 
 /** "Label: value" lines -> [{ label, value }], original field left in place. */
@@ -106,6 +96,7 @@ function buildPatch(id, data, takenSlugs, now) {
 
   set("slug", uniqueSlug(slugify(data.productName ?? id), takenSlugs));
   set("sku", `SB-${String(id).toUpperCase()}`);
+  set("barcode", barcodeFor(id));
   if (images.length) {
     set("images", images);
     set("thumbnail", images[0]);
@@ -141,8 +132,7 @@ function preview(value) {
 }
 
 async function main() {
-  initializeApp({ credential: cert(credentials()) });
-  const db = getFirestore();
+  const db = getAdminFirestore(option("credentials"));
   const snapshot = await db.collection(COLLECTION).get();
   const now = Timestamp.now();
 
@@ -155,6 +145,9 @@ async function main() {
   console.log(
     `${APPLY ? "APPLY" : "DRY RUN"} — ${snapshot.size} document(s) in "${COLLECTION}", default stock ${DEFAULT_STOCK}\n`,
   );
+  if (!Number.isFinite(DEFAULT_STOCK)) {
+    throw new Error(`Invalid --default-stock value: ${option("default-stock")}`);
+  }
 
   let changed = 0;
   for (const document of snapshot.docs) {

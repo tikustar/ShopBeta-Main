@@ -1,13 +1,27 @@
 import Link from "next/link";
 import { ArrowRight, Home } from "lucide-react";
-import { byTag, categories } from "@/lib/data";
+import { toCategoryViews } from "@/lib/catalog-view";
+import { toProductViews } from "@/lib/product-view";
+import { getPopularProducts } from "@/services/products.service";
+import { getCategories } from "@/services/catalog.service";
 import { ButtonLink } from "@/components/ui/button";
 import { NotFoundIllustration } from "@/components/ui/illustrations";
 import { SearchBar } from "@/components/commerce/search-bar";
 import { ProductCard } from "@/components/commerce/product-card";
 
-export default function NotFound() {
-  const suggestions = byTag("best-seller", 4);
+export default async function NotFound() {
+  let suggestions: ReturnType<typeof toProductViews> = [];
+  let categories: ReturnType<typeof toCategoryViews> = [];
+  try {
+    const [popular, categoryDocs] = await Promise.all([
+      getPopularProducts(4),
+      getCategories(),
+    ]);
+    suggestions = toProductViews(popular);
+    categories = toCategoryViews(categoryDocs).slice(0, 6);
+  } catch {
+    // Keep empty suggestions if Firestore is unavailable.
+  }
 
   return (
     <div className="sb-container">
@@ -19,12 +33,16 @@ export default function NotFound() {
           We cannot find that page
         </h1>
         <p className="mt-3 max-w-lg text-[15px] leading-relaxed text-muted sm:text-base">
-          The link may be out of date, or the product might have sold out and been retired.
-          Try a search instead.
+          The link may be out of date, or the product might have sold out and been
+          retired. Try a search instead.
         </p>
 
         <div className="mt-8 w-full max-w-xl">
-          <SearchBar size="lg" withSuggestions={false} placeholder="Search products…" />
+          <SearchBar
+            size="lg"
+            withSuggestions={false}
+            placeholder="Search products…"
+          />
         </div>
 
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
@@ -38,7 +56,7 @@ export default function NotFound() {
         </div>
 
         <div className="mt-10 flex flex-wrap items-center justify-center gap-2">
-          {categories.slice(0, 6).map((category) => (
+          {categories.map((category) => (
             <Link
               key={category.slug}
               href={`/category/${category.slug}`}
@@ -50,25 +68,27 @@ export default function NotFound() {
         </div>
       </section>
 
-      <section className="pb-6">
-        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-          <h2 className="text-2xl font-semibold tracking-[-0.025em] text-ink">
-            Popular right now
-          </h2>
-          <Link
-            href="/products"
-            className="inline-flex items-center gap-1.5 text-[13px] font-medium text-primary hover:underline"
-          >
-            View all
-            <ArrowRight className="h-4 w-4" aria-hidden />
-          </Link>
-        </div>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 lg:gap-5">
-          {suggestions.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
-      </section>
+      {suggestions.length ? (
+        <section className="pb-6">
+          <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+            <h2 className="text-2xl font-semibold tracking-[-0.025em] text-ink">
+              Popular right now
+            </h2>
+            <Link
+              href="/products"
+              className="inline-flex items-center gap-1.5 text-[13px] font-medium text-primary hover:underline"
+            >
+              View all
+              <ArrowRight className="h-4 w-4" aria-hidden />
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 lg:gap-5">
+            {suggestions.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

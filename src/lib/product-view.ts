@@ -10,7 +10,7 @@ import { initials, truncate } from "@/utils/string";
 /**
  * Adapter between the Firestore `Product` model and the view model the existing
  * UI components consume. The UI is unchanged, so anything Firestore does not
- * store yet (placeholder glyph, surface tone, brand) is derived here.
+ * store yet (placeholder glyph, surface tone) is derived here.
  */
 
 const TONES = [
@@ -39,7 +39,7 @@ const ICON_KEYWORDS: Array<[RegExp, IconKey]> = [
   [/cpu|processor|gpu|graphics/, "cpu"],
   [/ssd|hdd|storage|drive/, "harddrive"],
   [/bulb|light|lamp|smart home/, "lightbulb"],
-  [/chair|desk|office/, "chair"],
+  [/chair|desk|office|furniture/, "chair"],
   [/plug|socket|charger|power/, "plug"],
 ];
 
@@ -56,9 +56,15 @@ function iconFor(product: Product): IconKey {
   return ICON_KEYWORDS.find(([pattern]) => pattern.test(haystack))?.[1] ?? "cpu";
 }
 
-/** First word of the product name until a `brandId` reference exists. */
 function brandFor(product: Product) {
-  return product.brandId ?? product.name.split(/\s+/)[0] ?? "ShopBeta";
+  if (product.brand?.trim()) return product.brand.trim();
+  if (product.brandId && product.brandId !== "unbranded") {
+    return product.brandId
+      .split("-")
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ");
+  }
+  return product.name.split(/\s+/)[0] ?? "ShopBeta";
 }
 
 function badgeFor(product: Product) {
@@ -72,7 +78,6 @@ function shortDescriptionFor(product: Product) {
   return truncate(firstSentence || product.description, 140);
 }
 
-/** Firestore stores free-text categories such as "gadgets". */
 function titleCase(value: string) {
   return value.replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
 }
@@ -101,7 +106,18 @@ export function toProductView(product: Product): ProductView {
       .slice(0, 4)
       .map((spec) => `${spec.label}: ${spec.value}`),
     specs: product.specifications,
-    colors: product.variations,
+    colors:
+      product.variations.length > 0
+        ? product.variations
+        : product.variants.map((variant) => variant.value),
+    images: product.images,
+    thumbnail: product.thumbnail,
+    categoryId: product.categoryId,
+    brandId: product.brandId,
+    sku: product.sku,
+    sponsored: product.sponsored,
+    officialStore: product.officialStore,
+    createdAt: product.createdAt?.getTime(),
   };
 }
 

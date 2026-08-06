@@ -1,64 +1,93 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { Suspense } from "react";
 import { ArrowRight } from "lucide-react";
-import { categories } from "@/lib/data";
 import { cn } from "@/lib/utils";
+import { toBrandViews, toCategoryView, toCategoryViews } from "@/lib/catalog-view";
 import { toProductViews } from "@/lib/product-view";
 import {
-  getActiveProducts,
-  getProductsByCategory,
-} from "@/services/products.service";
+  breadcrumbJsonLd,
+  buildCategoryMetadata,
+  JsonLd,
+} from "@/lib/seo";
+import { getProductsByCategory } from "@/services/products.service";
+import {
+  getBrands,
+  getCategories,
+  getCategoryBySlug,
+} from "@/services/catalog.service";
+import { TrackCategoryViewed } from "@/components/commerce/catalog-analytics-beacons";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { SectionHeading } from "@/components/ui/card";
 import { ProductIcon } from "@/components/commerce/product-media";
 import { ProductCard } from "@/components/commerce/product-card";
-import { FilterPanel } from "@/components/commerce/filters";
 import { ProductBrowser } from "@/components/commerce/product-browser";
 import { CatalogEmpty, CatalogError } from "@/components/commerce/catalog-state";
 
-export function generateStaticParams() {
-  return categories.map((category) => ({ slug: category.slug }));
+export const revalidate = 60;
+export const dynamicParams = true;
+
+export async function generateStaticParams() {
+  try {
+    const categories = await getCategories();
+    return categories.map((category) => ({ slug: category.slug }));
+  } catch {
+    return [];
+  }
 }
 
-export function generateMetadata({
+export async function generateMetadata({
   params,
 }: {
   params: { slug: string };
-}): Metadata {
-  const category = categories.find((item) => item.slug === params.slug);
-  return {
-    title: category?.name ?? "Category",
-    description: category?.description,
-  };
+}): Promise<Metadata> {
+  const category = await getCategoryBySlug(params.slug);
+  if (!category) return { title: "Category" };
+  return buildCategoryMetadata(category);
 }
-
-export const revalidate = 60;
 
 export default async function CategoryPage({
   params,
 }: {
   params: { slug: string };
 }) {
-  const category = categories.find((item) => item.slug === params.slug);
-  if (!category) notFound();
+  const categoryDoc = await getCategoryBySlug(params.slug);
+  if (!categoryDoc) notFound();
+  const category = toCategoryView(categoryDoc);
 
   let listing: ReturnType<typeof toProductViews> = [];
+  let brands: ReturnType<typeof toBrandViews> = [];
+  let categories: ReturnType<typeof toCategoryViews> = [];
   let failed = false;
   try {
-    // Firestore has no `categories` collection yet, so match on the free-text
-    // `category` field and fall back to the whole catalogue.
-    const matches = await getProductsByCategory(category.name);
-    listing = toProductViews(matches.length ? matches : await getActiveProducts());
+    const [matches, brandDocs, categoryDocs] = await Promise.all([
+      getProductsByCategory(params.slug),
+      getBrands(),
+      getCategories(),
+    ]);
+    listing = toProductViews(matches);
+    brands = toBrandViews(brandDocs);
+    categories = toCategoryViews(categoryDocs);
   } catch {
     failed = true;
   }
-  const featured = listing.slice(0, 4);
+  const featured = listing.filter((item) => item.tags.includes("featured")).slice(0, 4);
+  const featuredRail = featured.length ? featured : listing.slice(0, 4);
 
   return (
     <div className="sb-container">
+      <JsonLd
+        data={breadcrumbJsonLd([
+          { name: "Home", path: "/" },
+          { name: "Categories", path: "/products" },
+          { name: category.name, path: `/category/${category.slug}` },
+        ])}
+      />
+      <TrackCategoryViewed categoryId={categoryDoc.id} slug={category.slug} />
+
       <div className="pt-6 sm:pt-8">
         <Breadcrumb
           items={[
@@ -69,7 +98,6 @@ export default async function CategoryPage({
         />
       </div>
 
-      {/* Category banner */}
       <section
         className={cn(
           "relative mt-5 overflow-hidden rounded-3xl border border-line p-7 sm:p-10",
@@ -82,7 +110,7 @@ export default async function CategoryPage({
         />
         <div className="relative max-w-xl">
           <Badge tone="primary" className="mb-4">
-            {listing.length.toLocaleString()} products
+            {(categoryDoc.productCount ?? listing.length).toLocaleString()} products
           </Badge>
           <h1 className="text-[30px] font-semibold leading-tight tracking-[-0.03em] text-ink sm:text-display-sm">
             {category.name}
@@ -106,28 +134,26 @@ export default async function CategoryPage({
         />
       </section>
 
-      {/* Subcategories */}
       <section className="pt-12">
-        <h2 className="mb-4 text-[15px] font-semibold text-ink">Subcategories</h2>
+        <h2 className="mb-4 text-[15px] font-semibold text-ink">Browse categories</h2>
         <div className="no-scrollbar -mx-4 flex gap-3 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0">
-          {category.subcategories.map((sub, index) => (
+          {categories.slice(0, 10).map((item) => (
             <Link
-              key={sub}
-              href="/products"
+              key={item.slug}
+              href={`/category/${item.slug}`}
               className={cn(
                 "shrink-0 rounded-full border px-4 py-2.5 text-[13px] font-medium transition-colors",
-                index === 0
+                item.slug === category.slug
                   ? "border-primary bg-primary text-white"
                   : "border-line bg-white text-ink-soft hover:border-ink/20 hover:bg-soft",
               )}
             >
-              {sub}
+              {item.name}
             </Link>
           ))}
         </div>
       </section>
 
-      {/* Featured in category */}
       <section className="pt-14">
         <SectionHeading
           eyebrow="Buyers' picks"
@@ -139,43 +165,33 @@ export default async function CategoryPage({
           }
         />
         {failed ? <CatalogError /> : null}
-        {!failed && !featured.length ? <CatalogEmpty /> : null}
+        {!failed && !featuredRail.length ? <CatalogEmpty /> : null}
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 lg:gap-5">
-          {featured.map((product) => (
+          {featuredRail.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
         </div>
       </section>
 
-      {/* Filters + grid */}
       <section className="pt-16">
         <SectionHeading title={`All ${category.name.toLowerCase()}`} />
-        <div className="grid gap-8 lg:grid-cols-[276px_1fr]">
-          <aside className="hidden lg:block">
-            <div className="sticky top-28">
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-[15px] font-semibold text-ink">Filters</h3>
-                <button
-                  type="button"
-                  className="text-[13px] font-medium text-primary hover:underline"
-                >
-                  Reset
-                </button>
-              </div>
-              <FilterPanel />
-            </div>
-          </aside>
-          {failed ? (
-            <CatalogError compact={false} />
-          ) : listing.length ? (
-            <ProductBrowser items={listing} />
-          ) : (
-            <CatalogEmpty
-              compact={false}
-              description={`No products are listed under ${category.name} yet.`}
+        {failed ? (
+          <CatalogError compact={false} />
+        ) : listing.length ? (
+          <Suspense fallback={null}>
+            <ProductBrowser
+              items={listing}
+              categories={categories}
+              brands={brands}
+              showSidebarFilters
             />
-          )}
-        </div>
+          </Suspense>
+        ) : (
+          <CatalogEmpty
+            compact={false}
+            description={`No products are listed under ${category.name} yet.`}
+          />
+        )}
       </section>
     </div>
   );

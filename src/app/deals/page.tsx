@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Flame, Percent, Timer, Zap } from "lucide-react";
 import { discountPercent, formatPrice } from "@/lib/utils";
 import { toProductViews } from "@/lib/product-view";
+import { buildListingMetadata } from "@/lib/seo";
 import {
   getDiscountedProducts,
   getFlashSaleProducts,
@@ -10,15 +11,17 @@ import { PageHeader } from "@/components/layout/page-header";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, SectionHeading } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Pagination } from "@/components/ui/pagination";
 import { Countdown } from "@/components/commerce/countdown";
 import { ProductCard } from "@/components/commerce/product-card";
 import { ProductMedia } from "@/components/commerce/product-media";
 import { CatalogEmpty, CatalogError } from "@/components/commerce/catalog-state";
+import { RecentlyViewedRail } from "@/components/commerce/recently-viewed";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildListingMetadata({
   title: "Deals",
-};
+  description: "Flash sales and discounted products from the ShopBeta catalogue.",
+  path: "/deals",
+});
 
 export const revalidate = 60;
 
@@ -207,8 +210,9 @@ export default async function DealsPage() {
             <ProductCard key={product.id} product={product} />
           ))}
         </div>
-        <Pagination current={1} total={5} className="mt-10" />
       </section>
+
+      <RecentlyViewedRail />
     </div>
   );
 }

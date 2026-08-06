@@ -46,6 +46,15 @@ export type Product = {
   highlights: string[];
   specs: Array<{ label: string; value: string }>;
   colors: string[];
+  /** Optional Firestore-backed media + filter metadata. */
+  images?: string[];
+  thumbnail?: string;
+  categoryId?: string;
+  brandId?: string;
+  sku?: string;
+  sponsored?: boolean;
+  officialStore?: boolean;
+  createdAt?: number;
 };
 
 export type Category = {

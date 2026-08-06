@@ -14,11 +14,11 @@ import {
   Truck,
   X,
 } from "lucide-react";
-import { categories } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/layout/logo";
 import { SearchBar } from "@/components/commerce/search-bar";
 import { ProductIcon } from "@/components/commerce/product-media";
+import { useCatalogNav } from "@/providers/catalog-nav-provider";
 
 const navLinks = [
   { label: "Deals", href: "/deals" },
@@ -59,6 +59,7 @@ export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [catOpen, setCatOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const { categories, popularSearches } = useCatalogNav();
 
   return (
     <header className="sticky top-0 z-50 border-b border-line bg-white/85 backdrop-blur-xl">
@@ -159,7 +160,7 @@ export function Header() {
         </nav>
 
         <div className="ml-auto hidden min-w-0 max-w-xl flex-1 lg:block">
-          <SearchBar />
+          <SearchBar suggestions={popularSearches} />
         </div>
 
         <div className="ml-auto flex items-center gap-0.5 lg:ml-0">
@@ -192,7 +193,7 @@ export function Header() {
 
       {searchOpen ? (
         <div className="sb-container pb-3 lg:hidden">
-          <SearchBar withSuggestions={false} />
+          <SearchBar withSuggestions={false} suggestions={popularSearches} />
         </div>
       ) : null}
 

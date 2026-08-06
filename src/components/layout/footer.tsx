@@ -1,6 +1,7 @@
+"use client";
+
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { categories } from "@/lib/data";
 import { Logo } from "@/components/layout/logo";
 import {
   FacebookMark,
@@ -9,6 +10,7 @@ import {
   XMark,
   YoutubeMark,
 } from "@/components/layout/social-icons";
+import { useCatalogNav } from "@/providers/catalog-nav-provider";
 
 const columns = [
   {
@@ -54,6 +56,7 @@ const socials = [
 const payments = ["Visa", "Mastercard", "Amex", "PayPal", "Apple Pay", "Google Pay"];
 
 export function Footer() {
+  const { categories } = useCatalogNav();
   return (
     <footer className="mt-20 border-t border-line bg-white">
       <div className="sb-container py-14">
