@@ -1,11 +1,14 @@
+"use client";
+
 import Link from "next/link";
-import { Eye, ShoppingCart } from "lucide-react";
+import { Eye } from "lucide-react";
 import type { Product } from "@/lib/data";
 import { cn, discountPercent, formatPrice } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Rating } from "@/components/ui/rating";
 import { ProductMedia } from "@/components/commerce/product-media";
 import { WishlistButton } from "@/components/commerce/wishlist-button";
+import { AddToCartButton } from "@/components/commerce/add-to-cart-button";
 
 export function ProductCard({
   product,
@@ -36,7 +39,11 @@ export function ProductCard({
           {off > 0 ? <Badge tone="primary">-{off}%</Badge> : null}
           {product.tags.includes("new") ? <Badge tone="ink">New</Badge> : null}
         </div>
-        <WishlistButton className="absolute right-2.5 top-2.5" size="sm" />
+        <WishlistButton
+          product={product}
+          className="absolute right-2.5 top-2.5"
+          size="sm"
+        />
         <Link
           href={`/product/${product.slug}`}
           className="absolute inset-x-2.5 bottom-2.5 hidden items-center justify-center gap-2 rounded-full bg-white/95 py-2.5 text-[13px] font-medium text-ink opacity-0 backdrop-blur transition-all duration-300 ease-premium group-hover:opacity-100 sm:flex sm:translate-y-2 sm:group-hover:translate-y-0"
@@ -68,13 +75,7 @@ export function ProductCard({
               </p>
             ) : null}
           </div>
-          <button
-            type="button"
-            aria-label={`Add ${product.name} to cart`}
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-ink text-white transition-all duration-200 ease-premium hover:bg-primary active:scale-90 sm:group-hover:bg-primary"
-          >
-            <ShoppingCart className="h-[18px] w-[18px]" aria-hidden />
-          </button>
+          <AddToCartButton product={product} variant="icon" />
         </div>
       </div>
     </article>
@@ -124,14 +125,8 @@ export function ProductListCard({ product }: { product: Product }) {
             ) : null}
           </div>
           <div className="flex items-center gap-2">
-            <WishlistButton />
-            <button
-              type="button"
-              className="inline-flex h-10 items-center gap-2 rounded-full bg-ink px-5 text-[13px] font-medium text-white transition-colors hover:bg-primary"
-            >
-              <ShoppingCart className="h-4 w-4" aria-hidden />
-              Add to cart
-            </button>
+            <WishlistButton product={product} />
+            <AddToCartButton product={product} variant="text" />
           </div>
         </div>
       </div>

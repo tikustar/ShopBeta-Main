@@ -13,7 +13,14 @@ import { type Product as ProductView } from "@/lib/data";
 import { formatPrice } from "@/lib/utils";
 import { toBrandViews, toCategoryViews } from "@/lib/catalog-view";
 import { toProductViews, toProductView } from "@/lib/product-view";
-import { buildListingMetadata } from "@/lib/seo";
+import { Countdown } from "@/components/commerce/countdown";
+import { endOfTodayISO } from "@/lib/datetime";
+import {
+  buildListingMetadata,
+  JsonLd,
+  organizationJsonLd,
+  websiteJsonLd,
+} from "@/lib/seo";
 import { getHomeCatalogSections } from "@/services/products.service";
 import { getBrands, getCategories } from "@/services/catalog.service";
 import { RecentlyViewedRail } from "@/components/commerce/recently-viewed";
@@ -27,7 +34,6 @@ import {
   CatalogRail,
 } from "@/components/commerce/catalog-state";
 import { BrandMark, ProductMedia } from "@/components/commerce/product-media";
-import { Countdown } from "@/components/commerce/countdown";
 
 const trustPoints = [
   {
@@ -123,6 +129,7 @@ export default async function HomePage() {
 
   return (
     <div className="sb-container">
+      <JsonLd data={[organizationJsonLd(), websiteJsonLd()]} />
       {/* Hero */}
       <section className="grid gap-4 pt-6 lg:grid-cols-[1.55fr_1fr] lg:pt-8">
         <div className="relative overflow-hidden rounded-3xl border border-line bg-soft p-7 sm:p-10 lg:p-12">
@@ -220,7 +227,7 @@ export default async function HomePage() {
           ) : (
             <CatalogEmpty
               title="No products yet"
-              description="Editor’s choice appears once the catalogue has products."
+              description="EditorΓÇÖs choice appears once the catalogue has products."
             />
           )}
 
@@ -302,7 +309,7 @@ export default async function HomePage() {
               </h2>
             </div>
             <div className="flex items-center gap-5">
-              <Countdown />
+              <Countdown endsAt={endOfTodayISO()} />
               <ButtonLink href="/deals" variant="outline" size="sm" className="hidden sm:inline-flex">
                 See all
               </ButtonLink>

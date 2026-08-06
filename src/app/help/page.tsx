@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Truck,
 } from "lucide-react";
+import { buildListingMetadata } from "@/lib/seo";
 import { faqs } from "@/lib/data";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button, ButtonLink } from "@/components/ui/button";
@@ -19,9 +20,13 @@ import { Badge } from "@/components/ui/badge";
 import { Accordion } from "@/components/ui/accordion";
 import { Alert } from "@/components/ui/alert";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildListingMetadata({
   title: "Help centre",
-};
+  description:
+    "Delivery, returns, refunds and account help for ShopBeta customers.",
+  path: "/help",
+  keywords: ["help", "support", "returns", "delivery", "ShopBeta"],
+});
 
 const topics = [
   { icon: Truck, title: "Delivery", body: "Windows, costs and rescheduling" },

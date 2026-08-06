@@ -68,6 +68,7 @@ export function ProductMedia({
   className,
   iconClassName,
   iconTone = "text-ink/75",
+  sizes = "(max-width: 768px) 50vw, 25vw",
   priority = false,
 }: {
   icon: IconKey;
@@ -77,6 +78,8 @@ export function ProductMedia({
   className?: string;
   iconClassName?: string;
   iconTone?: string;
+  /** Override next/image sizes for layout-specific CLS control. */
+  sizes?: string;
   priority?: boolean;
 }) {
   const [failed, setFailed] = useState(false);
@@ -97,7 +100,7 @@ export function ProductMedia({
           src={src!}
           alt={name}
           fill
-          sizes="(max-width: 768px) 50vw, 25vw"
+          sizes={sizes}
           className="object-contain p-4 transition-transform duration-500 ease-premium"
           onError={() => setFailed(true)}
           priority={priority}

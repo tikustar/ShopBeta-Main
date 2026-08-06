@@ -10,6 +10,7 @@ import type { Brand, Category } from "@/types/catalog";
 import type { Product } from "@/types/product";
 import { getActiveProducts } from "@/services/products.service";
 import { slugify } from "@/utils/string";
+import { cached, invalidateCache } from "@/lib/cache";
 
 function titleCase(value: string) {
   return value.replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
@@ -67,6 +68,8 @@ function deriveCategoriesFromProducts(products: Product[]): Category[] {
       productCount: 1,
       featured: false,
       active: true,
+      seoTitle: titleCase(product.category ?? "Uncategorised"),
+      seoDescription: `Shop ${titleCase(product.category ?? "products")} on ShopBeta.`,
     });
   }
   const list = Array.from(map.values()).sort(
@@ -97,6 +100,8 @@ function deriveBrandsFromProducts(products: Product[]): Brand[] {
       productCount: 1,
       featured: false,
       active: true,
+      seoTitle: name,
+      seoDescription: `${name} products available on ShopBeta.`,
     });
   }
   const list = Array.from(map.values()).sort(
@@ -109,7 +114,7 @@ function deriveBrandsFromProducts(products: Product[]): Brand[] {
 }
 
 export async function getCategories(): Promise<Category[]> {
-  return fetchCategoryDocs();
+  return cached("catalog:categories", () => fetchCategoryDocs(), 60_000);
 }
 
 export async function getFeaturedCategories(max = 8): Promise<Category[]> {
@@ -135,7 +140,12 @@ export async function getCategoryBySlug(
 }
 
 export async function getBrands(): Promise<Brand[]> {
-  return fetchBrandDocs();
+  return cached("catalog:brands", () => fetchBrandDocs(), 60_000);
+}
+
+/** Call after admin catalogue mutations when warm instances should refresh. */
+export function invalidateCatalogCaches() {
+  invalidateCache("catalog:");
 }
 
 export async function getFeaturedBrands(max = 12): Promise<Brand[]> {

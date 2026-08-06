@@ -79,6 +79,34 @@ function uniqueSlug(base, taken) {
   return candidate;
 }
 
+function stockStatusFromCount(stock) {
+  if (stock == null || stock <= 0) return "out_of_stock";
+  if (stock <= 5) return "low_stock";
+  return "in_stock";
+}
+
+function buildSearchKeywords(data) {
+  const words = new Set();
+  for (const value of [
+    data.productName,
+    data.brand,
+    data.category,
+    data.sku,
+    data.barcode,
+  ]) {
+    if (typeof value !== "string" || !value.trim()) continue;
+    for (const token of value.toLowerCase().split(/[^a-z0-9]+/)) {
+      if (token.length > 2) words.add(token);
+    }
+  }
+  if (Array.isArray(data.keywords)) {
+    for (const keyword of data.keywords) {
+      if (typeof keyword === "string" && keyword.trim()) words.add(keyword.toLowerCase());
+    }
+  }
+  return [...words];
+}
+
 function buildPatch(id, data, takenSlugs, now) {
   const patch = {};
   const set = (field, value) => {
@@ -93,6 +121,11 @@ function buildPatch(id, data, takenSlugs, now) {
   const reviews = Array.isArray(data.reviews) ? data.reviews : [];
   const specifications = parseSpecifications(data.specification);
   const variants = toVariants(data.variation);
+  const name = typeof data.productName === "string" ? data.productName : id;
+  const description =
+    typeof data.description === "string" ? data.description : "";
+  const stock = has(data, "stock") ? Number(data.stock) : DEFAULT_STOCK;
+  const searchKeywords = buildSearchKeywords(data);
 
   set("slug", uniqueSlug(slugify(data.productName ?? id), takenSlugs));
   set("sku", `SB-${String(id).toUpperCase()}`);
@@ -102,6 +135,8 @@ function buildPatch(id, data, takenSlugs, now) {
     set("thumbnail", images[0]);
   }
   set("stock", DEFAULT_STOCK);
+  set("stockStatus", stockStatusFromCount(stock));
+  set("currency", "NGN");
   set("reviewCount", reviews.length);
   if (specifications.length) set("specifications", specifications);
   if (variants.length) set("variants", variants);
@@ -118,6 +153,13 @@ function buildPatch(id, data, takenSlugs, now) {
   set("flashSale", false);
   set("bestSeller", false);
   set("active", true);
+  set("seoTitle", name);
+  set("seoDescription", description ? description.slice(0, 160) : `${name} on ShopBeta`);
+  set("seoKeywords", searchKeywords);
+  set("searchKeywords", searchKeywords);
+  set("viewCount", 0);
+  set("salesCount", 0);
+  set("wishlistCount", 0);
   set("createdAt", now);
   set("updatedAt", now);
 

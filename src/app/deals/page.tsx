@@ -4,43 +4,112 @@ import { discountPercent, formatPrice } from "@/lib/utils";
 import { toProductViews } from "@/lib/product-view";
 import { buildListingMetadata } from "@/lib/seo";
 import {
+  getBestSellers,
   getDiscountedProducts,
+  getFeaturedProducts,
   getFlashSaleProducts,
+  getLatestProducts,
+  getSponsoredProducts,
+  getTrendingProducts,
 } from "@/services/products.service";
 import { PageHeader } from "@/components/layout/page-header";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, SectionHeading } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Countdown } from "@/components/commerce/countdown";
+import { endOfTodayISO } from "@/lib/datetime";
 import { ProductCard } from "@/components/commerce/product-card";
 import { ProductMedia } from "@/components/commerce/product-media";
 import { CatalogEmpty, CatalogError } from "@/components/commerce/catalog-state";
 import { RecentlyViewedRail } from "@/components/commerce/recently-viewed";
 
+const flashEndsAt = endOfTodayISO();
+
 export const metadata: Metadata = buildListingMetadata({
   title: "Deals",
-  description: "Flash sales and discounted products from the ShopBeta catalogue.",
+  description:
+    "Flash sales, featured, trending, best sellers and discounted products from ShopBeta.",
   path: "/deals",
 });
 
 export const revalidate = 60;
 
+function ProductSection({
+  eyebrow,
+  title,
+  description,
+  items,
+  empty,
+  failed,
+  action,
+}: {
+  eyebrow: string;
+  title: string;
+  description?: string;
+  items: ReturnType<typeof toProductViews>;
+  empty: string;
+  failed: boolean;
+  action?: React.ReactNode;
+}) {
+  return (
+    <section className="pt-16 sm:pt-20">
+      <SectionHeading
+        eyebrow={eyebrow}
+        title={title}
+        description={description}
+        action={action}
+      />
+      {failed ? <CatalogError /> : null}
+      {!failed && !items.length ? <CatalogEmpty description={empty} /> : null}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 lg:gap-5">
+        {items.map((product) => (
+          <ProductCard key={product.id} product={product} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default async function DealsPage() {
   type Items = ReturnType<typeof toProductViews>;
   let flash: Items = [];
+  let featured: Items = [];
+  let trending: Items = [];
+  let bestsellers: Items = [];
+  let sponsored: Items = [];
   let discounted: Items = [];
+  let latest: Items = [];
   let failed = false;
+
   try {
-    const [flashSale, deals] = await Promise.all([
-      getFlashSaleProducts(),
-      getDiscountedProducts(),
+    const [
+      flashSale,
+      featuredProducts,
+      trendingProducts,
+      bestSellerProducts,
+      sponsoredProducts,
+      deals,
+      recent,
+    ] = await Promise.all([
+      getFlashSaleProducts(8),
+      getFeaturedProducts(8),
+      getTrendingProducts(8),
+      getBestSellers(8),
+      getSponsoredProducts(8),
+      getDiscountedProducts(24),
+      getLatestProducts(8),
     ]);
     flash = toProductViews(flashSale);
+    featured = toProductViews(featuredProducts);
+    trending = toProductViews(trendingProducts);
+    bestsellers = toProductViews(bestSellerProducts);
+    sponsored = toProductViews(sponsoredProducts);
     discounted = toProductViews(deals);
+    latest = toProductViews(recent);
   } catch {
     failed = true;
   }
-  const offers = discounted;
+
   const headline = discounted[0] as Items[number] | undefined;
 
   return (
@@ -48,10 +117,9 @@ export default async function DealsPage() {
       <PageHeader
         crumbs={[{ label: "Home", href: "/" }, { label: "Deals" }]}
         title="Deals"
-        description="Flash sales, clearance and limited offers — refreshed every morning at 09:00."
+        description="Flash sales, clearance and limited offers — powered by the live catalogue."
       />
 
-      {/* Flash sale banner */}
       <section className="relative overflow-hidden rounded-3xl bg-ink p-7 text-white sm:p-10">
         <span
           className="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-primary/30 blur-3xl"
@@ -64,21 +132,14 @@ export default async function DealsPage() {
               Flash sale live
             </p>
             <h2 className="text-[28px] font-semibold leading-tight tracking-[-0.03em] sm:text-display-sm">
-              Up to 45% off audio, storage &amp; networking
+              Limited-time savings across the catalogue
             </h2>
             <p className="mt-3 text-[15px] leading-relaxed text-white/65">
-              Stock is limited to what is in the Lagos warehouse tonight. When it is gone,
-              the price goes back up.
+              Every section below is loaded from Firestore product flags and
+              discounts.
             </p>
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <ButtonLink href="/products">Shop the sale</ButtonLink>
-              <ButtonLink
-                href="/settings"
-                variant="ghost"
-                className="text-white hover:bg-white/10"
-              >
-                Get early access with Plus
-              </ButtonLink>
             </div>
           </div>
           <div className="shrink-0">
@@ -86,12 +147,11 @@ export default async function DealsPage() {
               <Timer className="h-3.5 w-3.5" aria-hidden />
               Ends in
             </p>
-            <Countdown tone="dark" />
+            <Countdown tone="dark" endsAt={flashEndsAt} />
           </div>
         </div>
       </section>
 
-      {/* Deal of the day */}
       <section className="pt-16 sm:pt-20">
         <SectionHeading
           eyebrow="Deal of the day"
@@ -102,115 +162,108 @@ export default async function DealsPage() {
           <CatalogEmpty description="No discounted products are available right now." />
         ) : null}
         {headline ? (
-        <Card padded={false} className="overflow-hidden">
-          <div className="grid gap-0 lg:grid-cols-[1fr_1.2fr]">
-            <ProductMedia
-              icon={headline.icon}
-              tone={headline.tone}
-              name={headline.name}
-              className="aspect-[4/3] w-full rounded-none lg:aspect-auto lg:h-full"
-            />
-            <div className="p-7 sm:p-10">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge tone="primary">
-                  <Flame className="h-3 w-3" aria-hidden />
-                  Save {discountPercent(headline.price, headline.oldPrice)}%
-                </Badge>
-                <Badge tone="outline">{headline.brand}</Badge>
-              </div>
-              <h3 className="mt-4 text-2xl font-semibold tracking-[-0.025em] text-ink">
-                {headline.name}
-              </h3>
-              <p className="mt-3 text-[15px] leading-relaxed text-muted">
-                {headline.shortDescription}
-              </p>
-              <div className="mt-6 flex flex-wrap items-end gap-3">
-                <span className="text-3xl font-semibold tracking-[-0.03em] text-ink">
-                  {formatPrice(headline.price)}
-                </span>
-                <span className="text-lg text-muted line-through">
-                  {formatPrice(headline.oldPrice ?? 0)}
-                </span>
-              </div>
-              <div className="mt-6">
-                <div className="mb-2 flex items-center justify-between text-[13px]">
-                  <span className="font-medium text-ink">
-                    {headline.stock} of 40 left at this price
-                  </span>
-                  <span className="text-muted">
-                    {Math.round((headline.stock / 40) * 100)}%
-                  </span>
+          <Card padded={false} className="overflow-hidden">
+            <div className="grid gap-0 lg:grid-cols-[1fr_1.2fr]">
+              <ProductMedia
+                icon={headline.icon}
+                tone={headline.tone}
+                name={headline.name}
+                src={headline.thumbnail ?? headline.images?.[0]}
+                className="aspect-[4/3] w-full rounded-none lg:aspect-auto lg:h-full"
+              />
+              <div className="p-7 sm:p-10">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge tone="primary">
+                    <Flame className="h-3 w-3" aria-hidden />
+                    Save {discountPercent(headline.price, headline.oldPrice)}%
+                  </Badge>
+                  <Badge tone="outline">{headline.brand}</Badge>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-soft">
-                  <div
-                    className="h-full rounded-full bg-primary"
-                    style={{ width: `${(headline.stock / 40) * 100}%` }}
-                  />
+                <h3 className="mt-4 text-2xl font-semibold tracking-[-0.025em] text-ink">
+                  {headline.name}
+                </h3>
+                <p className="mt-3 text-[15px] leading-relaxed text-muted">
+                  {headline.shortDescription}
+                </p>
+                <div className="mt-6 flex flex-wrap items-end gap-3">
+                  <span className="text-3xl font-semibold tracking-[-0.03em] text-ink">
+                    {formatPrice(headline.price)}
+                  </span>
+                  {headline.oldPrice ? (
+                    <span className="text-lg text-muted line-through">
+                      {formatPrice(headline.oldPrice)}
+                    </span>
+                  ) : null}
                 </div>
-              </div>
-              <div className="mt-7 flex flex-wrap items-center gap-3">
-                <ButtonLink href={`/product/${headline.slug}`} size="lg">
-                  View deal
-                </ButtonLink>
-                <Countdown showLabels={false} />
+                <div className="mt-7 flex flex-wrap items-center gap-3">
+                  <ButtonLink href={`/product/${headline.slug}`} size="lg">
+                    View deal
+                  </ButtonLink>
+                  <Countdown showLabels={false} endsAt={flashEndsAt} />
+                </div>
               </div>
             </div>
-          </div>
-        </Card>
+          </Card>
         ) : null}
       </section>
 
-      {/* Flash sale products */}
-      <section className="pt-16 sm:pt-20">
-        <SectionHeading
-          eyebrow="Ends tonight"
-          title="Flash sale products"
-          action={<Countdown showLabels={false} />}
-        />
-        {failed ? <CatalogError /> : null}
-        {!failed && !flash.length ? (
-          <CatalogEmpty description="No flash sale products are live right now." />
-        ) : null}
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 lg:gap-5">
-          {flash.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
-      </section>
-
-      {/* Limited offers */}
-      <section className="pt-16 sm:pt-20">
-        <SectionHeading
-          eyebrow="Limited offers"
-          title="This week only"
-          description="Prices return to normal on Monday at 09:00."
-        />
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 lg:gap-5">
-          {offers.slice(0, 4).map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
-      </section>
-
-      {/* All discounted */}
-      <section className="pt-16 sm:pt-20">
-        <SectionHeading
-          eyebrow="Clearance"
-          title="Everything on discount"
-          description={`${discounted.length} products currently below their usual price.`}
-          action={
-            <Badge tone="outline" className="hidden sm:inline-flex">
-              <Percent className="h-3 w-3" aria-hidden />
-              Up to 45% off
-            </Badge>
-          }
-        />
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 lg:gap-5">
-          {discounted.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
-      </section>
+      <ProductSection
+        eyebrow="Ends tonight"
+        title="Flash sale"
+        items={flash}
+        empty="No flash sale products are live right now."
+        failed={failed}
+        action={<Countdown showLabels={false} endsAt={flashEndsAt} />}
+      />
+      <ProductSection
+        eyebrow="Editor picks"
+        title="Featured products"
+        items={featured}
+        empty="No featured products right now."
+        failed={failed}
+      />
+      <ProductSection
+        eyebrow="Popular now"
+        title="Trending"
+        items={trending}
+        empty="No trending products right now."
+        failed={failed}
+      />
+      <ProductSection
+        eyebrow="Customer favourites"
+        title="Best sellers"
+        items={bestsellers}
+        empty="No best sellers flagged yet."
+        failed={failed}
+      />
+      <ProductSection
+        eyebrow="Partner stores"
+        title="Sponsored"
+        items={sponsored}
+        empty="No sponsored products right now."
+        failed={failed}
+      />
+      <ProductSection
+        eyebrow="Clearance"
+        title="Discounted products"
+        description={`${discounted.length} products currently below their usual price.`}
+        items={discounted}
+        empty="No discounted products right now."
+        failed={failed}
+        action={
+          <Badge tone="outline" className="hidden sm:inline-flex">
+            <Percent className="h-3 w-3" aria-hidden />
+            On sale
+          </Badge>
+        }
+      />
+      <ProductSection
+        eyebrow="Just in"
+        title="Recently added"
+        items={latest}
+        empty="No recent products found."
+        failed={failed}
+      />
 
       <RecentlyViewedRail />
     </div>

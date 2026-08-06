@@ -4,6 +4,7 @@ import type {
   WithFieldValue,
 } from "firebase/firestore";
 import type { ProductTag } from "@/constants/app";
+import { CURRENCY, stockStatusFromCount } from "@/constants/app";
 import { productDocumentSchema } from "@/schemas/product.schema";
 import type { Product, ProductDocument } from "@/types/product";
 import { priceBeforeDiscount } from "@/utils/currency";
@@ -25,6 +26,17 @@ function deriveTags(document: ProductDocument): ProductTag[] {
   return tags;
 }
 
+function keywordList(document: ProductDocument): string[] {
+  if (document.searchKeywords?.length) return document.searchKeywords;
+  if (document.keywords?.length) return document.keywords;
+  return [
+    document.productName,
+    document.brand,
+    document.category,
+    document.sku,
+  ].filter((value): value is string => Boolean(value && value.trim()));
+}
+
 /** Normalize a raw `products` document into the app-level `Product` model. */
 export function toProduct(id: string, raw: unknown): Product {
   const parsed = productDocumentSchema.safeParse(raw);
@@ -33,14 +45,18 @@ export function toProduct(id: string, raw: unknown): Product {
   const price = document.price ?? 0;
   const images = document.images ?? document.imgs ?? [];
   const reviews = document.reviews ?? [];
+  const stock = document.stock ?? 0;
+  const searchKeywords = keywordList(document);
 
   return {
     id,
     name,
+    productName: name,
     slug: document.slug ?? slugify(name),
     description: document.description ?? "",
     price,
     discount: document.discount ?? 0,
+    currency: document.currency ?? CURRENCY.code,
     oldPrice: priceBeforeDiscount(price, document.discount),
     rating: document.rating ?? 0,
     reviewCount: document.reviewCount ?? reviews.length,
@@ -50,16 +66,20 @@ export function toProduct(id: string, raw: unknown): Product {
     categoryId: document.categoryId,
     brand: document.brand,
     brandId: document.brandId,
-    stock: document.stock,
+    stock,
+    stockStatus: document.stockStatus ?? stockStatusFromCount(stock),
     sku: document.sku,
     barcode: document.barcode,
     variations:
-      document.variation ?? document.variants?.map((variant) => variant.value) ?? [],
+      document.variation ??
+      document.variants?.map((variant) => variant.value) ??
+      [],
     variants:
       document.variants ??
       (document.variation ?? []).map((value) => ({ label: "Variant", value })),
     specifications:
       document.specifications ?? parseSpecificationBlock(document.specification),
+    specification: document.specification,
     reviews,
     sponsored: document.sponsored ?? false,
     officialStore: document.officialStore ?? document.officalStore ?? false,
@@ -69,20 +89,31 @@ export function toProduct(id: string, raw: unknown): Product {
     flashSale: document.flashSale ?? false,
     bestSeller: document.bestSeller ?? false,
     active: document.active ?? true,
+    seoTitle: document.seoTitle ?? name,
+    seoDescription:
+      document.seoDescription ??
+      (document.description ? document.description.slice(0, 160) : undefined),
+    seoKeywords: document.seoKeywords ?? searchKeywords,
+    searchKeywords,
+    viewCount: document.viewCount ?? 0,
+    salesCount: document.salesCount ?? 0,
+    wishlistCount: document.wishlistCount ?? 0,
     createdAt: toDate(document.createdAt),
     updatedAt: toDate(document.updatedAt),
   };
 }
 
-/** Map an app-level `Product` back onto the existing Firestore field names. */
+/** Map an app-level `Product` back onto Firestore field names. */
 export function toProductDocument(
   product: Partial<Product>,
 ): Partial<ProductDocument> {
   return stripUndefined({
-    productName: product.name,
+    productName: product.productName ?? product.name,
     description: product.description,
+    specification: product.specification,
     price: product.price,
     discount: product.discount,
+    currency: product.currency,
     rating: product.rating,
     imgs: product.images,
     variation: product.variations,
@@ -100,6 +131,7 @@ export function toProductDocument(
     thumbnail: product.thumbnail,
     images: product.images,
     stock: product.stock,
+    stockStatus: product.stockStatus,
     reviewCount: product.reviewCount,
     specifications: product.specifications,
     tags: product.tags,
@@ -108,6 +140,13 @@ export function toProductDocument(
     flashSale: product.flashSale,
     bestSeller: product.bestSeller,
     active: product.active,
+    seoTitle: product.seoTitle,
+    seoDescription: product.seoDescription,
+    seoKeywords: product.seoKeywords,
+    searchKeywords: product.searchKeywords,
+    viewCount: product.viewCount,
+    salesCount: product.salesCount,
+    wishlistCount: product.wishlistCount,
   });
 }
 

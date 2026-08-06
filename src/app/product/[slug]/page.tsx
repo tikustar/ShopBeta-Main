@@ -6,9 +6,7 @@ import {
   CreditCard,
   Package,
   RotateCcw,
-  Share2,
   ShieldCheck,
-  ShoppingCart,
   Truck,
 } from "lucide-react";
 import { discountPercent, formatPrice } from "@/lib/utils";
@@ -27,18 +25,21 @@ import {
 import {
   getActiveProducts,
   getProductBySlug,
-  getRelatedProducts,
-  getYouMayAlsoLike,
 } from "@/services/products.service";
+import { getRecommendationsForProduct } from "@/services/recommendations.service";
+import { productDetailCrumbs } from "@/lib/breadcrumbs";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Rating, RatingBar } from "@/components/ui/rating";
-import { QuantitySelector } from "@/components/ui/quantity-selector";
 import { Tabs } from "@/components/ui/tabs";
-import { ProductGallery } from "@/components/commerce/product-gallery";
-import { WishlistButton } from "@/components/commerce/wishlist-button";
+import { Countdown } from "@/components/commerce/countdown";
+import { endOfTodayISO } from "@/lib/datetime";
+import {
+  LazyProductGallery,
+  LazyProductPurchasePanel,
+} from "@/components/commerce/lazy-product-detail";
 import { TrackableProductCard } from "@/components/commerce/trackable-product-card";
 import {
   RecentlyViewedRail,
@@ -88,23 +89,20 @@ export default async function ProductDetailsPage({
   const ratingBreakdown = buildRatingBreakdown(reviews);
   const off = discountPercent(product.price, product.oldPrice);
   const totalReviews = ratingBreakdown.reduce((sum, row) => sum + row.count, 0);
-  const relatedSource = await getRelatedProducts(source, 4);
-  const relatedIds = new Set(relatedSource.map((item) => item.id));
-  const alsoLike = toProductViews(
-    await getYouMayAlsoLike(source, 4, relatedIds),
-  );
-  const related = toProductViews(relatedSource);
+  const relatedSource = await getRecommendationsForProduct(source, {
+    related: 4,
+    alsoLike: 4,
+  });
+  const related = toProductViews(relatedSource.related);
+  const alsoLike = toProductViews(relatedSource.alsoLike);
 
-  const breadcrumbItems = [
-    { label: "Home", href: "/" },
-    {
-      label: product.category,
-      href: product.categoryId
-        ? `/category/${product.categoryId}`
-        : "/products",
-    },
-    { label: product.name },
-  ];
+  const breadcrumbItems = productDetailCrumbs({
+    categoryName: product.category,
+    categorySlug: product.categoryId || undefined,
+    productName: product.name,
+  });
+  const isFlash = product.tags.includes("flash-sale");
+  const flashEndsAt = endOfTodayISO();
 
   return (
     <div className="sb-container">
@@ -132,7 +130,7 @@ export default async function ProductDetailsPage({
       </div>
 
       <div className="grid gap-8 pt-6 lg:grid-cols-[1.1fr_1fr] lg:gap-12">
-        <ProductGallery
+        <LazyProductGallery
           icon={product.icon}
           tone={product.tone}
           name={product.name}
@@ -192,6 +190,13 @@ export default async function ProductDetailsPage({
             Or {formatPrice(Math.round(product.price / 3))}/month for 3 months, interest free.
           </p>
 
+          {isFlash ? (
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <Badge tone="primary">Flash sale</Badge>
+              <Countdown endsAt={flashEndsAt} showLabels={false} />
+            </div>
+          ) : null}
+
           <div className="mt-5 flex items-center gap-2">
             {product.stock > 5 ? (
               <Badge tone="success">
@@ -211,53 +216,7 @@ export default async function ProductDetailsPage({
             {product.shortDescription}
           </p>
 
-          <div className="mt-7">
-            <p className="mb-2.5 text-[13px] font-medium text-ink">
-              Colour:{" "}
-              <span className="text-muted">
-                {product.colors[0] ?? "Default"}
-              </span>
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {(product.colors.length ? product.colors : ["Default"]).map(
-                (color, index) => (
-                  <button
-                    key={color}
-                    type="button"
-                    aria-pressed={index === 0}
-                    className={
-                      index === 0
-                        ? "rounded-full border border-primary bg-primary-50 px-4 py-2 text-[13px] font-medium text-primary-700"
-                        : "rounded-full border border-line bg-white px-4 py-2 text-[13px] text-ink-soft transition-colors hover:border-ink/25"
-                    }
-                  >
-                    {color}
-                  </button>
-                ),
-              )}
-            </div>
-          </div>
-
-          <div className="mt-7 flex flex-wrap items-center gap-3">
-            <QuantitySelector max={Math.max(product.stock, 1)} />
-            <Button className="min-w-[180px] flex-1" size="lg">
-              <ShoppingCart className="h-[18px] w-[18px]" aria-hidden />
-              Add to cart
-            </Button>
-          </div>
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            <Button variant="secondary" size="lg" className="flex-1">
-              Buy now
-            </Button>
-            <WishlistButton size="lg" />
-            <button
-              type="button"
-              aria-label="Share this product"
-              className="grid h-12 w-12 place-items-center rounded-full border border-line bg-white text-ink transition-colors hover:bg-soft"
-            >
-              <Share2 className="h-5 w-5" aria-hidden />
-            </button>
-          </div>
+          <LazyProductPurchasePanel product={product} />
 
           <ul className="mt-8 grid gap-3 sm:grid-cols-2">
             {perks.map(({ icon: Icon, title, body }) => (

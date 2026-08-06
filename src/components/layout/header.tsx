@@ -19,6 +19,11 @@ import { Logo } from "@/components/layout/logo";
 import { SearchBar } from "@/components/commerce/search-bar";
 import { ProductIcon } from "@/components/commerce/product-media";
 import { useCatalogNav } from "@/providers/catalog-nav-provider";
+import { cartItemCount } from "@/lib/cart";
+import { useCartStore } from "@/stores/cart.store";
+import { useNotificationsStore } from "@/stores/notifications.store";
+import { useUserStore } from "@/stores/user.store";
+import { useWishlistStore } from "@/stores/wishlist.store";
 
 const navLinks = [
   { label: "Deals", href: "/deals" },
@@ -60,6 +65,26 @@ export function Header() {
   const [catOpen, setCatOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const { categories, popularSearches } = useCatalogNav();
+  const cartCount = useCartStore((state) => cartItemCount(state.items));
+  const wishlistCount = useWishlistStore((state) => state.items.length);
+  const unreadNotifications = useNotificationsStore(
+    (state) => state.unreadCount,
+  );
+  const profile = useUserStore((state) => state.profile);
+  const authStatus = useUserStore((state) => state.status);
+  const initials = (
+    profile?.displayName ??
+    profile?.display_name ??
+    profile?.email ??
+    "G"
+  )
+    .split(/\s+/)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+  const profileHref =
+    authStatus === "authenticated" ? "/profile" : "/login?next=/profile";
 
   return (
     <header className="sticky top-0 z-50 border-b border-line bg-white/85 backdrop-blur-xl">
@@ -172,21 +197,25 @@ export function Header() {
           >
             <Search className="h-5 w-5" aria-hidden />
           </button>
-          <IconAction href="/wishlist" label="Wishlist" count={6}>
+          <IconAction href="/wishlist" label="Wishlist" count={wishlistCount || undefined}>
             <Heart className="h-5 w-5" aria-hidden />
           </IconAction>
-          <IconAction href="/notifications" label="Notifications" count={3}>
+          <IconAction
+            href="/notifications"
+            label="Notifications"
+            count={unreadNotifications || undefined}
+          >
             <Bell className="h-5 w-5" aria-hidden />
           </IconAction>
-          <IconAction href="/cart" label="Cart" count={4}>
+          <IconAction href="/cart" label="Cart" count={cartCount || undefined}>
             <ShoppingBag className="h-5 w-5" aria-hidden />
           </IconAction>
           <Link
-            href="/profile"
+            href={profileHref}
             aria-label="Your profile"
             className="ml-1.5 grid h-9 w-9 shrink-0 place-items-center rounded-full bg-ink text-[12px] font-semibold text-white transition-transform duration-200 hover:scale-105"
           >
-            AB
+            {initials}
           </Link>
         </div>
       </div>
@@ -276,16 +305,26 @@ export function Header() {
             </div>
             <div className="border-t border-line p-5">
               <Link
-                href="/profile"
+                href={profileHref}
                 onClick={() => setMenuOpen(false)}
                 className="flex items-center gap-3 rounded-xl border border-line p-3"
               >
                 <span className="grid h-10 w-10 place-items-center rounded-full bg-ink text-[12px] font-semibold text-white">
-                  AB
+                  {initials}
                 </span>
                 <span>
-                  <span className="block text-sm font-medium text-ink">Amara Bello</span>
-                  <span className="block text-[12px] text-muted">View profile</span>
+                  <span className="block text-sm font-medium text-ink">
+                    {authStatus === "authenticated"
+                      ? profile?.displayName ??
+                        profile?.display_name ??
+                        "Your profile"
+                      : "Sign in"}
+                  </span>
+                  <span className="block text-[12px] text-muted">
+                    {authStatus === "authenticated"
+                      ? "View profile"
+                      : "Access orders & wishlist sync"}
+                  </span>
                 </span>
               </Link>
             </div>

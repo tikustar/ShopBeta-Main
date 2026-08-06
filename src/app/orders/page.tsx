@@ -1,153 +1,176 @@
-import type { Metadata } from "next";
-import { Download, Search } from "lucide-react";
-import { orders } from "@/lib/data";
-import { formatPrice } from "@/lib/utils";
+"use client";
+
+import { useEffect, useState } from "react";
+import { RequireAuth } from "@/components/auth/require-auth";
 import { PageHeader } from "@/components/layout/page-header";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/field";
-import { Tabs } from "@/components/ui/tabs";
-import { DataTable } from "@/components/ui/table";
+import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { EmptyBoxIllustration } from "@/components/ui/illustrations";
-import { OrderCard } from "@/components/commerce/order-card";
+import { cartLineFromProduct } from "@/lib/commerce-adapters";
+import { formatPrice } from "@/lib/utils";
+import { toProductView } from "@/lib/product-view";
+import { listOrdersByUser } from "@/services/orders.service";
+import { getProductById } from "@/services/products.service";
+import { useCartStore } from "@/stores/cart.store";
+import { useUserStore } from "@/stores/user.store";
+import type { Order } from "@/types/order";
 
-export const metadata: Metadata = {
-  title: "Order history",
-};
+function OrdersContent() {
+  const uid = useUserStore((state) => state.authUser?.uid);
+  const addItem = useCartStore((state) => state.addItem);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState<string | null>(null);
 
-function OrderList({ status }: { status?: string }) {
-  const list = status ? orders.filter((order) => order.status === status) : orders;
+  useEffect(() => {
+    if (!uid) return;
+    let cancelled = false;
+    setLoading(true);
+    void listOrdersByUser(uid)
+      .then((list) => {
+        if (cancelled) return;
+        setOrders(
+          [...list].sort((a, b) => {
+            const aTime =
+              a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
+            const bTime =
+              b.createdAt instanceof Date ? b.createdAt.getTime() : 0;
+            return bTime - aTime;
+          }),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setOrders([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [uid]);
 
-  if (!list.length) {
-    return (
-      <EmptyState
-        illustration={<EmptyBoxIllustration />}
-        title={`No ${status?.toLowerCase()} orders`}
-        description="When an order reaches this stage it will appear here with tracking and invoice options."
-        compact
-      />
+  const reorder = async (order: Order) => {
+    const items = order.products ?? order.items ?? [];
+    let added = 0;
+    for (const item of items) {
+      const product = await getProductById(item.productId);
+      if (!product || product.active === false || product.stock <= 0) continue;
+      const view = toProductView(product);
+      const result = addItem(
+        cartLineFromProduct(view, {
+          quantity: Math.min(item.quantity, product.stock),
+          variation: item.variation,
+        }),
+      );
+      if (result.ok) added += 1;
+    }
+    setMessage(
+      added
+        ? `${added} item${added === 1 ? "" : "s"} added to your cart.`
+        : "No available items could be reordered.",
     );
-  }
+  };
 
   return (
-    <div className="space-y-4">
-      {list.map((order) => (
-        <OrderCard key={order.id} order={order} />
-      ))}
+    <div className="sb-container">
+      <PageHeader
+        crumbs={[{ label: "Home", href: "/" }, { label: "Orders" }]}
+        title="Order history"
+        description="Review past orders, track delivery and reorder available items."
+      />
+
+      {message ? (
+        <p className="mb-4 text-[13px] text-emerald-700">{message}</p>
+      ) : null}
+
+      {loading ? (
+        <p className="text-sm text-muted">Loading orders…</p>
+      ) : !orders.length ? (
+        <EmptyState
+          illustration={<EmptyBoxIllustration />}
+          title="No orders yet"
+          description="When you complete checkout, your orders will show up here."
+          actions={
+            <>
+              <ButtonLink href="/products">Continue shopping</ButtonLink>
+              <ButtonLink href="/track-order" variant="outline">
+                Track an order
+              </ButtonLink>
+            </>
+          }
+        />
+      ) : (
+        <div className="space-y-4">
+          {orders.map((order) => {
+            const items = order.products ?? order.items ?? [];
+            const placed =
+              order.createdAt instanceof Date
+                ? order.createdAt.toLocaleDateString("en-NG", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })
+                : "—";
+            return (
+              <Card key={order.id}>
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted">
+                      {order.orderNumber ?? order.id}
+                    </p>
+                    <p className="mt-1 text-[15px] font-semibold text-ink">
+                      {formatPrice(order.total ?? 0)}
+                    </p>
+                    <p className="mt-1 text-[13px] text-muted">
+                      {placed} · {items.length} product
+                      {items.length === 1 ? "" : "s"}
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Badge tone="outline">
+                        Order: {order.orderStatus ?? order.status ?? "pending"}
+                      </Badge>
+                      <Badge tone="neutral">
+                        Payment: {order.paymentStatus ?? "pending"}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <ButtonLink
+                      href={`/track-order?order=${encodeURIComponent(order.orderNumber ?? order.id)}`}
+                      size="sm"
+                      variant="outline"
+                    >
+                      View details
+                    </ButtonLink>
+                    <Button
+                      size="sm"
+                      onClick={() => void reorder(order)}
+                    >
+                      Reorder
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+          <div className="pt-4">
+            <ButtonLink href="/products" variant="outline">
+              Continue shopping
+            </ButtonLink>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 export default function OrderHistoryPage() {
-  const invoiceRows = orders.map((order) => [
-    <span key="id" className="font-medium text-ink">
-      {order.id}
-    </span>,
-    order.placedOn,
-    <Badge
-      key="status"
-      tone={
-        order.status === "Completed"
-          ? "success"
-          : order.status === "Pending"
-            ? "warning"
-            : order.status === "Shipped"
-              ? "info"
-              : "neutral"
-      }
-    >
-      {order.status}
-    </Badge>,
-    `${order.items.length} item${order.items.length > 1 ? "s" : ""}`,
-    <span key="total" className="font-semibold text-ink">
-      {formatPrice(order.total)}
-    </span>,
-    <button
-      key="invoice"
-      type="button"
-      className="inline-flex items-center gap-1.5 text-[13px] font-medium text-primary hover:underline"
-    >
-      <Download className="h-4 w-4" aria-hidden />
-      Invoice
-    </button>,
-  ]);
-
   return (
-    <div className="sb-container">
-      <PageHeader
-        crumbs={[
-          { label: "Home", href: "/" },
-          { label: "Profile", href: "/profile" },
-          { label: "Order history" },
-        ]}
-        title="Order history"
-        description="Every order you have placed, with invoices, tracking and one-tap reordering."
-        action={
-          <Button variant="outline" size="sm">
-            <Download className="h-4 w-4" aria-hidden />
-            Export CSV
-          </Button>
-        }
-      />
-
-      <Card className="mb-8">
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <div className="flex-1">
-            <Input
-              placeholder="Search by order number or product"
-              aria-label="Search orders"
-              icon={<Search className="h-[18px] w-[18px]" />}
-            />
-          </div>
-          <Button size="lg" variant="outline" className="sm:w-auto">
-            Last 12 months
-          </Button>
-        </div>
-      </Card>
-
-      <Tabs
-        variant="pill"
-        items={[
-          { id: "all", label: "All", count: orders.length, content: <OrderList /> },
-          {
-            id: "completed",
-            label: "Completed",
-            count: orders.filter((o) => o.status === "Completed").length,
-            content: <OrderList status="Completed" />,
-          },
-          {
-            id: "pending",
-            label: "Pending",
-            count: orders.filter((o) => o.status === "Pending").length,
-            content: <OrderList status="Pending" />,
-          },
-          {
-            id: "cancelled",
-            label: "Cancelled",
-            count: orders.filter((o) => o.status === "Cancelled").length,
-            content: <OrderList status="Cancelled" />,
-          },
-          {
-            id: "returned",
-            label: "Returned",
-            count: orders.filter((o) => o.status === "Returned").length,
-            content: <OrderList status="Returned" />,
-          },
-        ]}
-      />
-
-      <section className="pt-16 sm:pt-20">
-        <h2 className="mb-6 text-2xl font-semibold tracking-[-0.025em] text-ink">
-          Invoices
-        </h2>
-        <DataTable
-          caption="All invoices from the last 12 months"
-          columns={["Order", "Date", "Status", "Items", "Total", "Invoice"]}
-          rows={invoiceRows}
-        />
-      </section>
-    </div>
+    <RequireAuth>
+      <OrdersContent />
+    </RequireAuth>
   );
 }

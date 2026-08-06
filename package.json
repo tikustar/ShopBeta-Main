@@ -8,11 +8,14 @@
     "start": "next start",
     "lint": "next lint",
     "migrate:products": "node scripts/migrate-products.mjs",
-    "seed:catalog": "node scripts/seed-catalog.mjs"
+    "seed:catalog": "node scripts/seed-catalog.mjs",
+    "admin:bootstrap": "node scripts/bootstrap-super-admin.mjs",
+    "admin:set-role": "node scripts/set-user-role.mjs"
   },
   "dependencies": {
     "clsx": "2.1.1",
     "firebase": "^12.16.0",
+    "firebase-admin": "14.2.0",
     "lucide-react": "1.27.0",
     "next": "14.2.35",
     "react": "^18",
@@ -26,7 +29,6 @@
     "@types/react-dom": "^18",
     "eslint": "^8",
     "eslint-config-next": "14.2.35",
-    "firebase-admin": "14.2.0",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
     "typescript": "^5"

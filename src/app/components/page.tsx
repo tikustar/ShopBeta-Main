@@ -45,11 +45,13 @@ import { OrderCard } from "@/components/commerce/order-card";
 import { WishlistButton } from "@/components/commerce/wishlist-button";
 import { SearchBar } from "@/components/commerce/search-bar";
 import { Countdown } from "@/components/commerce/countdown";
+import { buildPrivateMetadata } from "@/lib/seo";
 import { BrandMark, ProductMedia } from "@/components/commerce/product-media";
 
-export const metadata: Metadata = {
-  title: "Component library",
-};
+export const metadata: Metadata = buildPrivateMetadata(
+  "Component library",
+  "Internal ShopBeta UI kit — not for public indexing.",
+);
 
 function Section({
   id,

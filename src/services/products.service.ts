@@ -255,16 +255,21 @@ export async function searchProducts(
 ): Promise<Product[]> {
   const needle = term.trim().toLowerCase();
   if (!needle) return getActiveProducts(max);
-  const products = (await fetchActive()).filter((product) =>
-    [
+  const products = (await fetchActive()).filter((product) => {
+    const tags = product.tags?.join(" ") ?? "";
+    const keywords = product.searchKeywords?.join(" ") ?? "";
+    return [
       product.name,
+      product.productName,
       product.description,
       product.category ?? "",
       product.brand ?? "",
       product.brandId ?? "",
       product.sku ?? "",
-    ].some((field) => field.toLowerCase().includes(needle)),
-  );
+      tags,
+      keywords,
+    ].some((field) => field.toLowerCase().includes(needle));
+  });
   return max ? products.slice(0, max) : products;
 }
 

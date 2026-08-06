@@ -195,11 +195,19 @@ function buildProductDocument(product, existing) {
     ? toTimestamp(existing.createdAt)
     : toTimestamp(product.meta?.createdAt, now);
 
+  const productName = String(product.title ?? docId);
+  const description = String(product.description ?? "");
+  const stock = Number(product.stock) || 0;
+  const keywords = buildKeywords(product, categoryTitle, brandName);
+  const stockStatus =
+    stock <= 0 ? "out_of_stock" : stock <= 5 ? "low_stock" : "in_stock";
+
   const doc = {
-    productName: String(product.title ?? docId),
-    description: String(product.description ?? ""),
+    productName,
+    description,
     price: ngnPrice(product.price),
     discount,
+    currency: "NGN",
     rating: Number(product.rating) || 0,
     category: categoryTitle,
     categoryId,
@@ -214,7 +222,8 @@ function buildProductDocument(product, existing) {
     barcode,
     images,
     thumbnail: String(product.thumbnail ?? images[0] ?? ""),
-    stock: Number(product.stock) || 0,
+    stock,
+    stockStatus,
     reviewCount: reviews.length,
     variants: [],
     tags,
@@ -223,9 +232,16 @@ function buildProductDocument(product, existing) {
     flashSale: flags.flashSale,
     bestSeller: flags.bestSeller,
     active: true,
+    seoTitle: productName,
+    seoDescription: description ? description.slice(0, 160) : `${productName} on ShopBeta`,
+    seoKeywords: keywords,
+    searchKeywords: keywords,
+    keywords,
+    viewCount: existing?.viewCount ?? 0,
+    salesCount: existing?.salesCount ?? 0,
+    wishlistCount: existing?.wishlistCount ?? 0,
     createdAt,
     updatedAt: now,
-    keywords: buildKeywords(product, categoryTitle, brandName),
   };
 
   if (brandName && brandId) {
@@ -266,6 +282,12 @@ async function seedProducts(db) {
       if (!next.brandId && existing.brandId) {
         next.brandId = existing.brandId;
         if (existing.brand) next.brand = existing.brand;
+      }
+      // Never reset engagement counters on re-seed.
+      if (typeof existing.viewCount === "number") next.viewCount = existing.viewCount;
+      if (typeof existing.salesCount === "number") next.salesCount = existing.salesCount;
+      if (typeof existing.wishlistCount === "number") {
+        next.wishlistCount = existing.wishlistCount;
       }
       if (coreFingerprint(existing) === coreFingerprint(next)) {
         summary.skipped += 1;
@@ -414,16 +436,14 @@ async function seedMeta(db) {
   );
 
   for (const [id, stats] of categoryStats) {
+    const description = `Browse ${stats.name} products on ShopBeta.`;
     const payload = {
       name: stats.name,
       slug: stats.slug,
-      description: `Browse ${stats.name} products on ShopBeta.`,
-      image: stats.image || "",
+      productCount: stats.productCount,
       featured: featuredCategoryIds.has(id),
       active: true,
-      productCount: stats.productCount,
       updatedAt: now,
-      createdAt: now,
     };
     summary.categoriesUpserted += 1;
     console.log(
@@ -432,24 +452,28 @@ async function seedMeta(db) {
     if (APPLY) {
       const ref = db.collection(CATEGORIES).doc(id);
       const existing = await ref.get();
-      if (existing.exists && existing.get("createdAt")) {
-        payload.createdAt = existing.get("createdAt");
-      }
-      await ref.set(payload, { merge: true });
+      const current = existing.exists ? existing.data() : {};
+      const patch = {
+        ...payload,
+        description: current.description || description,
+        image: current.image || stats.image || "",
+        seoTitle: current.seoTitle || stats.name,
+        seoDescription: current.seoDescription || description,
+        createdAt: current.createdAt || now,
+      };
+      await ref.set(patch, { merge: true });
     }
   }
 
   for (const [id, stats] of brandStats) {
+    const description = `${stats.name} products on ShopBeta.`;
     const payload = {
       name: stats.name,
       slug: stats.slug,
-      description: `${stats.name} products on ShopBeta.`,
-      logo: "",
+      productCount: stats.productCount,
       featured: featuredBrandIds.has(id),
       active: true,
-      productCount: stats.productCount,
       updatedAt: now,
-      createdAt: now,
     };
     summary.brandsUpserted += 1;
     console.log(
@@ -458,10 +482,16 @@ async function seedMeta(db) {
     if (APPLY) {
       const ref = db.collection(BRANDS).doc(id);
       const existing = await ref.get();
-      if (existing.exists && existing.get("createdAt")) {
-        payload.createdAt = existing.get("createdAt");
-      }
-      await ref.set(payload, { merge: true });
+      const current = existing.exists ? existing.data() : {};
+      const patch = {
+        ...payload,
+        description: current.description || description,
+        logo: current.logo ?? current.logoUrl ?? "",
+        seoTitle: current.seoTitle || stats.name,
+        seoDescription: current.seoDescription || description,
+        createdAt: current.createdAt || now,
+      };
+      await ref.set(patch, { merge: true });
     }
   }
 

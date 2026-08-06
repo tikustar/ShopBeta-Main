@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { PRODUCT_TAGS } from "@/constants/app";
+import { PRODUCT_TAGS, STOCK_STATUS } from "@/constants/app";
 
 const firestoreDate = z.union([
   z.date(),
@@ -36,8 +36,8 @@ export const productVariantOptionSchema = z.object({
 });
 
 /**
- * Tolerant schema for the live `products` documents: unknown keys pass through
- * and every field is optional, so legacy documents never fail to parse.
+ * Tolerant schema for live `products` documents: unknown keys pass through
+ * and every field is optional so legacy documents never fail to parse.
  */
 export const productDocumentSchema = z
   .object({
@@ -46,6 +46,7 @@ export const productDocumentSchema = z
     specification: z.string().optional(),
     price: z.number().optional(),
     discount: z.number().optional(),
+    currency: z.string().optional(),
     rating: z.number().optional(),
     imgs: z.array(z.string()).optional(),
     variation: z.array(z.string()).optional(),
@@ -65,6 +66,7 @@ export const productDocumentSchema = z
     thumbnail: z.string().optional(),
     images: z.array(z.string()).optional(),
     stock: z.number().optional(),
+    stockStatus: z.enum(STOCK_STATUS).optional(),
     reviewCount: z.number().optional(),
     specifications: z.array(productSpecificationSchema).optional(),
     variants: z.array(productVariantOptionSchema).optional(),
@@ -74,6 +76,17 @@ export const productDocumentSchema = z
     flashSale: z.boolean().optional(),
     bestSeller: z.boolean().optional(),
     active: z.boolean().optional(),
+
+    seoTitle: z.string().optional(),
+    seoDescription: z.string().optional(),
+    seoKeywords: z.array(z.string()).optional(),
+    searchKeywords: z.array(z.string()).optional(),
+    keywords: z.array(z.string()).optional(),
+
+    viewCount: z.number().optional(),
+    salesCount: z.number().optional(),
+    wishlistCount: z.number().optional(),
+
     createdAt: firestoreDate.optional(),
     updatedAt: firestoreDate.optional(),
   })

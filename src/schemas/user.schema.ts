@@ -1,5 +1,7 @@
 import { z } from "zod";
+import { USER_ROLES, USER_STATUS } from "@/constants/app";
 
+/** Embedded address shape (checkout / legacy user profile). */
 export const addressSchema = z.object({
   id: z.string().optional(),
   label: z.string().optional(),
@@ -19,14 +21,20 @@ export const userDocumentSchema = z
     uid: z.string().optional(),
     email: z.string().email().optional(),
     display_name: z.string().optional(),
-    created_time: z.unknown().optional(),
+    created_time: z.any().optional(),
     displayName: z.string().optional(),
     phone: z.string().optional(),
     photoUrl: z.string().optional(),
-    role: z.enum(["customer", "admin"]).optional(),
+    dateOfBirth: z.string().optional(),
+    gender: z.string().optional(),
+    role: z.enum(USER_ROLES).optional(),
+    status: z.enum(USER_STATUS).optional(),
     addresses: z.array(addressSchema).optional(),
     defaultAddressId: z.string().optional(),
+    searchHistory: z.array(z.string()).optional(),
     active: z.boolean().optional(),
+    createdAt: z.any().optional(),
+    updatedAt: z.any().optional(),
   })
   .loose();
 
