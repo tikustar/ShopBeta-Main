@@ -201,9 +201,19 @@ export function FilterPanel({
             onChange={() => update({ featured: !value.featured })}
           />
           <Checkbox
+            label="Trending"
+            checked={value.trending}
+            onChange={() => update({ trending: !value.trending })}
+          />
+          <Checkbox
             label="Flash sale"
             checked={value.flashSale}
             onChange={() => update({ flashSale: !value.flashSale })}
+          />
+          <Checkbox
+            label="Best seller"
+            checked={value.bestSeller}
+            onChange={() => update({ bestSeller: !value.bestSeller })}
           />
         </div>
       </Group>
@@ -292,11 +302,25 @@ export function ActiveFilters({
         clear: () => onChange({ ...filters, featured: false }),
       });
     }
+    if (filters.trending) {
+      items.push({
+        key: "trending",
+        label: "Trending",
+        clear: () => onChange({ ...filters, trending: false }),
+      });
+    }
     if (filters.flashSale) {
       items.push({
         key: "flash",
         label: "Flash sale",
         clear: () => onChange({ ...filters, flashSale: false }),
+      });
+    }
+    if (filters.bestSeller) {
+      items.push({
+        key: "best",
+        label: "Best seller",
+        clear: () => onChange({ ...filters, bestSeller: false }),
       });
     }
     return items;
@@ -350,7 +374,12 @@ export function FilterDrawer({
         Filters
       </button>
       {open ? (
-        <div className="fixed inset-0 z-[80] lg:hidden">
+        <div
+          className="fixed inset-0 z-[80] lg:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Product filters"
+        >
           <button
             type="button"
             aria-label="Close filters"
@@ -359,7 +388,9 @@ export function FilterDrawer({
           />
           <div className="absolute inset-y-0 left-0 flex w-[88%] max-w-sm flex-col bg-white">
             <div className="flex items-center justify-between border-b border-line px-5 py-4">
-              <p className="text-[15px] font-semibold text-ink">Filters</p>
+              <p className="text-[15px] font-semibold text-ink" id="filter-drawer-title">
+                Filters
+              </p>
               <button
                 type="button"
                 aria-label="Close filters"

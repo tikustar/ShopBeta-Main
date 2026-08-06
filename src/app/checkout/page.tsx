@@ -1,32 +1,273 @@
-import type { Metadata } from "next";
+"use client";
+
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Check, CreditCard, Lock, Truck } from "lucide-react";
-import { addresses, cartLines, resolve } from "@/lib/data";
+import {
+  cartSubtotal,
+  DELIVERY_OPTIONS,
+  deliveryFeeFor,
+  getGuestId,
+  orderGrandTotal,
+  type DeliveryOptionId,
+} from "@/lib/cart";
 import { formatPrice } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Input, Label, Radio, Select, Textarea } from "@/components/ui/field";
-import { Badge } from "@/components/ui/badge";
+import { ButtonLink } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { EmptyCartIllustration } from "@/components/ui/illustrations";
 import { OrderSummary } from "@/components/commerce/order-summary";
 import { ProductMedia } from "@/components/commerce/product-media";
-import { PlaceOrder } from "@/components/commerce/place-order";
-
-export const metadata: Metadata = {
-  title: "Checkout",
-};
+import { placeOrder } from "@/services/orders.service";
+import {
+  confirmCashOnDelivery,
+  initializePaystackPayment,
+  isClientCodEnabled,
+  isClientFlutterwaveEnabled,
+  isClientPaystackEnabled,
+} from "@/services/payments.service";
+import { applyCouponCode } from "@/lib/coupons";
+import { useCartStore } from "@/stores/cart.store";
+import { useCheckoutStore } from "@/stores/checkout.store";
+import { toastError, toastSuccess } from "@/stores/toast.store";
+import { useUserStore } from "@/stores/user.store";
+import type { Address } from "@/types/user";
+import type { PaymentMethod } from "@/types/order";
 
 const steps = [
-  { label: "Cart", state: "done" },
-  { label: "Shipping", state: "current" },
-  { label: "Payment", state: "upcoming" },
-  { label: "Review", state: "upcoming" },
-] as const;
+  { label: "Cart", state: "done" as const },
+  { label: "Shipping", state: "current" as const },
+  { label: "Payment", state: "upcoming" as const },
+  { label: "Review", state: "upcoming" as const },
+];
 
 export default function CheckoutPage() {
-  const lines = cartLines.map(({ slug, qty }) => ({
-    product: resolve([slug])[0],
-    qty,
-  }));
-  const subtotal = lines.reduce((sum, line) => sum + line.product.price * line.qty, 0);
+  const router = useRouter();
+  const items = useCartStore((state) => state.items);
+  const hydrated = useCartStore((state) => state.hydrated);
+  const clearCart = useCartStore((state) => state.clear);
+  const authUser = useUserStore((state) => state.authUser);
+
+  const customer = useCheckoutStore((state) => state.customer);
+  const setCustomer = useCheckoutStore((state) => state.setCustomer);
+  const deliveryNotes = useCheckoutStore((state) => state.deliveryNotes);
+  const setDeliveryNotes = useCheckoutStore((state) => state.setDeliveryNotes);
+  const deliveryOptionId = useCheckoutStore((state) => state.deliveryOptionId);
+  const setDeliveryOptionId = useCheckoutStore(
+    (state) => state.setDeliveryOptionId,
+  );
+  const paymentMethod = useCheckoutStore((state) => state.paymentMethod);
+  const setPaymentMethod = useCheckoutStore((state) => state.setPaymentMethod);
+  const couponCode = useCheckoutStore((state) => state.couponCode);
+  const couponDiscount = useCheckoutStore((state) => state.couponDiscount);
+  const setCouponCode = useCheckoutStore((state) => state.setCouponCode);
+  const setCouponDiscount = useCheckoutStore((state) => state.setCouponDiscount);
+  const submitting = useCheckoutStore((state) => state.submitting);
+  const setSubmitting = useCheckoutStore((state) => state.setSubmitting);
+  const error = useCheckoutStore((state) => state.error);
+  const setError = useCheckoutStore((state) => state.setError);
+  const setLastOrder = useCheckoutStore((state) => state.setLastOrder);
+  const setShippingAddress = useCheckoutStore(
+    (state) => state.setShippingAddress,
+  );
+
+  const [street, setStreet] = useState("");
+  const [city, setCity] = useState("");
+  const [stateName, setStateName] = useState("");
+  const [postalCode, setPostalCode] = useState("");
+  const [country, setCountry] = useState("Nigeria");
+  const [couponHint, setCouponHint] = useState<{
+    tone: "success" | "error";
+    message: string;
+  } | null>(null);
+
+  const subtotal = cartSubtotal(items);
+  const shipping = deliveryFeeFor(deliveryOptionId, subtotal);
+  const { tax, total } = orderGrandTotal({
+    subtotal,
+    discount: couponDiscount,
+    shipping,
+  });
+
+  const fullName = useMemo(
+    () => `${customer.firstName} ${customer.lastName}`.trim(),
+    [customer.firstName, customer.lastName],
+  );
+
+  const validate = (): Address | null => {
+    if (!items.length) {
+      setError("Your cart is empty.");
+      return null;
+    }
+    if (!customer.firstName.trim() || !customer.lastName.trim()) {
+      setError("Enter your first and last name.");
+      return null;
+    }
+    if (!customer.email.trim() || !customer.email.includes("@")) {
+      setError("Enter a valid email address.");
+      return null;
+    }
+    if (!customer.phone.trim() || customer.phone.trim().length < 7) {
+      setError("Enter a valid phone number.");
+      return null;
+    }
+    if (!street.trim() || !city.trim() || !country.trim()) {
+      setError("Complete your shipping address.");
+      return null;
+    }
+    for (const line of items) {
+      if (line.stock < line.quantity) {
+        setError(
+          line.stock <= 0
+            ? `"${line.name}" is out of stock.`
+            : `Only ${line.stock} of "${line.name}" left.`,
+        );
+        return null;
+      }
+    }
+
+    const address: Address = {
+      fullName,
+      phone: customer.phone.trim(),
+      line1: street.trim(),
+      city: city.trim(),
+      state: stateName.trim() || undefined,
+      postalCode: postalCode.trim() || undefined,
+      country: country.trim(),
+      isDefault: true,
+    };
+    setShippingAddress(address);
+    setError(null);
+    return address;
+  };
+
+  const handlePlaceOrder = async () => {
+    const address = validate();
+    if (!address) return;
+
+    const method = (paymentMethod ?? "paystack") as PaymentMethod;
+    if (method === "flutterwave") {
+      setError("Flutterwave is coming soon. Please pay with Paystack or COD.");
+      return;
+    }
+    if (method === "paystack" && !isClientPaystackEnabled()) {
+      setError(
+        "Card payment is temporarily unavailable. Choose cash on delivery or try again later.",
+      );
+      return;
+    }
+    if (method === "cash-on-delivery" && !isClientCodEnabled()) {
+      setError("Cash on delivery is not available right now.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const result = await placeOrder({
+        userId: authUser?.uid ?? `guest_${getGuestId()}`,
+        customer: {
+          name: fullName,
+          email: customer.email.trim(),
+          phone: customer.phone.trim(),
+        },
+        lines: items,
+        shippingAddress: address,
+        deliveryFee: shipping,
+        discount: couponDiscount,
+        tax,
+        subtotal,
+        total,
+        paymentMethod: method,
+        notes: deliveryNotes.trim() || undefined,
+        deliveryOptionId,
+        couponCode: couponCode || undefined,
+      });
+
+      if (!result.ok) {
+        setError(result.reason);
+        toastError("Order failed", result.reason);
+        return;
+      }
+
+      setLastOrder(result.order);
+
+      if (method === "paystack" || method === "card") {
+        const callbackUrl = `${window.location.origin}/payments/callback?order=${encodeURIComponent(result.order.orderNumber ?? result.order.id)}`;
+        const init = await initializePaystackPayment({
+          orderId: result.order.id,
+          callbackUrl,
+        });
+        if (!init.ok) {
+          setError(init.reason);
+          toastError("Payment setup failed", init.reason);
+          router.push(
+            `/payments/failed?order=${encodeURIComponent(result.order.orderNumber ?? result.order.id)}&reason=${encodeURIComponent(init.reason)}`,
+          );
+          return;
+        }
+        toastSuccess("Redirecting to Paystack");
+        window.location.href = init.authorizationUrl;
+        return;
+      }
+
+      if (method === "cash-on-delivery") {
+        const confirmed = await confirmCashOnDelivery(result.order.id);
+        if (!confirmed.ok) {
+          setError(confirmed.reason);
+          toastError("Could not confirm order", confirmed.reason);
+          return;
+        }
+        clearCart();
+        toastSuccess(
+          "Order placed",
+          `Order ${result.order.orderNumber ?? result.order.id} is confirmed. Pay on delivery.`,
+        );
+        router.push(
+          `/order-success?order=${encodeURIComponent(result.order.orderNumber ?? result.order.id)}`,
+        );
+        return;
+      }
+
+      setError("Unsupported payment method.");
+    } catch {
+      setError("Network error while placing your order. Please try again.");
+      toastError("Order failed", "Network error. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (!hydrated) {
+    return (
+      <div className="sb-container py-16 text-center text-sm text-muted">
+        Loading checkout…
+      </div>
+    );
+  }
+
+  if (!items.length) {
+    return (
+      <div className="sb-container">
+        <PageHeader
+          crumbs={[
+            { label: "Home", href: "/" },
+            { label: "Cart", href: "/cart" },
+            { label: "Checkout" },
+          ]}
+          title="Checkout"
+          description="Your cart is empty."
+        />
+        <EmptyState
+          illustration={<EmptyCartIllustration />}
+          title="Nothing to check out"
+          description="Add products to your cart before placing an order."
+          actions={<ButtonLink href="/products">Browse products</ButtonLink>}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="sb-container">
@@ -37,10 +278,9 @@ export default function CheckoutPage() {
           { label: "Checkout" },
         ]}
         title="Checkout"
-        description="Three steps, no account required. Your details are encrypted in transit."
+        description="Complete your details to place the order. Payment capture is not wired yet — orders are created with pending payment status."
       />
 
-      {/* Step indicator */}
       <ol className="mb-8 flex items-center gap-2 overflow-x-auto no-scrollbar sm:gap-4">
         {steps.map((step, index) => (
           <li key={step.label} className="flex shrink-0 items-center gap-2 sm:gap-4">
@@ -79,180 +319,192 @@ export default function CheckoutPage() {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_380px] lg:gap-8">
         <div className="space-y-6">
-          {/* Shipping address */}
           <Card>
-            <h2 className="text-[15px] font-semibold text-ink">Shipping address</h2>
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              {addresses.map((address) => (
-                <Radio
-                  key={address.id}
-                  name="address"
-                  defaultChecked={address.isDefault}
-                  label={
-                    <span className="flex items-center gap-2">
-                      {address.label}
-                      {address.isDefault ? <Badge tone="neutral">Default</Badge> : null}
-                    </span>
+            <h2 className="text-[15px] font-semibold text-ink">
+              Customer & shipping address
+            </h2>
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="first-name">First name</Label>
+                <Input
+                  id="first-name"
+                  value={customer.firstName}
+                  onChange={(event) =>
+                    setCustomer({ firstName: event.target.value })
                   }
-                  description={`${address.name} · ${address.line}, ${address.city} · ${address.phone}`}
+                  placeholder="First name"
                 />
-              ))}
-            </div>
-
-            <div className="mt-6 border-t border-line pt-6">
-              <p className="mb-4 text-[13px] font-medium text-ink">Or enter a new address</p>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <Label htmlFor="first-name">First name</Label>
-                  <Input id="first-name" placeholder="Amara" />
-                </div>
-                <div>
-                  <Label htmlFor="last-name">Last name</Label>
-                  <Input id="last-name" placeholder="Bello" />
-                </div>
-                <div>
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" placeholder="you@example.com" />
-                </div>
-                <div>
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input id="phone" type="tel" placeholder="+234 801 234 5678" />
-                </div>
-                <div className="sm:col-span-2">
-                  <Label htmlFor="street">Street address</Label>
-                  <Input id="street" placeholder="18 Adeola Odeku Street" />
-                </div>
-                <div>
-                  <Label htmlFor="city">City</Label>
-                  <Input id="city" placeholder="Lagos" />
-                </div>
-                <div>
-                  <Label htmlFor="postcode">Postal code</Label>
-                  <Input id="postcode" placeholder="101241" />
-                </div>
-                <div className="sm:col-span-2">
-                  <Label htmlFor="country">Country</Label>
-                  <Select id="country" defaultValue="Nigeria">
-                    <option>Nigeria</option>
-                    <option>Ghana</option>
-                    <option>Kenya</option>
-                    <option>United Kingdom</option>
-                    <option>United States</option>
-                  </Select>
-                </div>
+              </div>
+              <div>
+                <Label htmlFor="last-name">Last name</Label>
+                <Input
+                  id="last-name"
+                  value={customer.lastName}
+                  onChange={(event) =>
+                    setCustomer({ lastName: event.target.value })
+                  }
+                  placeholder="Last name"
+                />
+              </div>
+              <div>
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={customer.email}
+                  onChange={(event) =>
+                    setCustomer({ email: event.target.value })
+                  }
+                  placeholder="you@example.com"
+                />
+              </div>
+              <div>
+                <Label htmlFor="phone">Phone</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={customer.phone}
+                  onChange={(event) =>
+                    setCustomer({ phone: event.target.value })
+                  }
+                  placeholder="+234 801 234 5678"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <Label htmlFor="street">Street address</Label>
+                <Input
+                  id="street"
+                  value={street}
+                  onChange={(event) => setStreet(event.target.value)}
+                  placeholder="Street address"
+                />
+              </div>
+              <div>
+                <Label htmlFor="city">City</Label>
+                <Input
+                  id="city"
+                  value={city}
+                  onChange={(event) => setCity(event.target.value)}
+                  placeholder="City"
+                />
+              </div>
+              <div>
+                <Label htmlFor="state">State</Label>
+                <Input
+                  id="state"
+                  value={stateName}
+                  onChange={(event) => setStateName(event.target.value)}
+                  placeholder="State"
+                />
+              </div>
+              <div>
+                <Label htmlFor="postcode">Postal code</Label>
+                <Input
+                  id="postcode"
+                  value={postalCode}
+                  onChange={(event) => setPostalCode(event.target.value)}
+                  placeholder="Postal code"
+                />
+              </div>
+              <div>
+                <Label htmlFor="country">Country</Label>
+                <Select
+                  id="country"
+                  value={country}
+                  onChange={(event) => setCountry(event.target.value)}
+                >
+                  <option>Nigeria</option>
+                  <option>Ghana</option>
+                  <option>Kenya</option>
+                  <option>United Kingdom</option>
+                  <option>United States</option>
+                </Select>
               </div>
             </div>
           </Card>
 
-          {/* Delivery information */}
           <Card>
-            <h2 className="text-[15px] font-semibold text-ink">Delivery information</h2>
+            <h2 className="text-[15px] font-semibold text-ink">
+              Delivery notes
+            </h2>
             <div className="mt-5">
               <Label htmlFor="instructions" hint="Optional">
                 Delivery instructions
               </Label>
               <Textarea
                 id="instructions"
+                value={deliveryNotes}
+                onChange={(event) => setDeliveryNotes(event.target.value)}
                 placeholder="Gate code, floor, or where to leave the parcel if you are out."
               />
             </div>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <div>
-                <Label htmlFor="window">Preferred window</Label>
-                <Select id="window">
-                  <option>Any time (09:00 – 18:00)</option>
-                  <option>Morning (09:00 – 12:00)</option>
-                  <option>Afternoon (12:00 – 15:00)</option>
-                  <option>Evening (15:00 – 18:00)</option>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="recipient">Who is receiving?</Label>
-                <Select id="recipient">
-                  <option>Me</option>
-                  <option>A colleague</option>
-                  <option>Building concierge</option>
-                </Select>
-              </div>
-            </div>
           </Card>
 
-          {/* Shipping method */}
           <Card>
             <h2 className="flex items-center gap-2 text-[15px] font-semibold text-ink">
               <Truck className="h-[18px] w-[18px] text-primary" aria-hidden />
               Shipping method
             </h2>
             <div className="mt-5 space-y-3">
-              <Radio
-                name="shipping"
-                defaultChecked
-                label="Express — free (arrives tomorrow, 7 August)"
-                description="Dispatched today from the Lagos fulfilment centre"
-              />
-              <Radio
-                name="shipping"
-                label="Standard — free (2–4 working days)"
-                description="Tracked, signature on delivery"
-              />
-              <Radio
-                name="shipping"
-                label={`Scheduled 2-hour window — ${formatPrice(9)}`}
-                description="Pick an exact slot on a date that suits you"
-              />
-              <Radio
-                name="shipping"
-                label="Store pickup — free (ready in 2 hours)"
-                description="Victoria Island, Ikeja, Lekki or Yaba"
-              />
+              {DELIVERY_OPTIONS.map((option) => {
+                const fee = deliveryFeeFor(option.id, subtotal);
+                return (
+                  <Radio
+                    key={option.id}
+                    name="shipping"
+                    checked={deliveryOptionId === option.id}
+                    onChange={() =>
+                      setDeliveryOptionId(option.id as DeliveryOptionId)
+                    }
+                    label={`${option.label}${fee > 0 ? ` — ${formatPrice(fee)}` : fee === 0 ? " — free" : ""}`}
+                    description={option.estimatedDays}
+                  />
+                );
+              })}
             </div>
           </Card>
 
-          {/* Payment */}
           <Card>
             <h2 className="flex items-center gap-2 text-[15px] font-semibold text-ink">
               <CreditCard className="h-[18px] w-[18px] text-primary" aria-hidden />
               Payment method
             </h2>
             <p className="mt-1 text-[13px] text-muted">
-              Interface only — no payment processing is wired up in this design.
+              Pay securely with Paystack, or choose cash on delivery if enabled.
             </p>
             <div className="mt-5 space-y-3">
               <Radio
                 name="payment"
-                defaultChecked
-                label="Card ending 4242 (Visa)"
-                description="Expires 08/29 · Amara Bello"
+                checked={paymentMethod === "paystack" || paymentMethod === "card"}
+                onChange={() => setPaymentMethod("paystack")}
+                label="Paystack (card / bank / USSD)"
+                description={
+                  isClientPaystackEnabled()
+                    ? "You will be redirected to Paystack to complete payment"
+                    : "Configure NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY to enable"
+                }
               />
-              <Radio name="payment" label="New debit or credit card" />
-              <Radio name="payment" label="Pay in 3 — 0% interest" description={`3 × ${formatPrice(Math.round(subtotal / 3))}`} />
-              <Radio name="payment" label="Bank transfer" description="Order ships once funds clear" />
-              <Radio name="payment" label="ShopBeta wallet" description={`Balance ${formatPrice(24)}`} />
+              {isClientCodEnabled() ? (
+                <Radio
+                  name="payment"
+                  checked={paymentMethod === "cash-on-delivery"}
+                  onChange={() => setPaymentMethod("cash-on-delivery")}
+                  label="Cash on delivery"
+                  description="Pay when your order arrives"
+                />
+              ) : null}
+              <Radio
+                name="payment"
+                checked={paymentMethod === "flutterwave"}
+                onChange={() => setPaymentMethod("flutterwave")}
+                label="Flutterwave"
+                description={
+                  isClientFlutterwaveEnabled()
+                    ? "Flutterwave checkout"
+                    : "Coming soon — architecture prepared"
+                }
+              />
             </div>
-
-            <div className="mt-6 grid gap-4 border-t border-line pt-6 sm:grid-cols-2">
-              <div className="sm:col-span-2">
-                <Label htmlFor="card-number">Card number</Label>
-                <Input id="card-number" placeholder="4242 4242 4242 4242" inputMode="numeric" />
-              </div>
-              <div>
-                <Label htmlFor="expiry">Expiry</Label>
-                <Input id="expiry" placeholder="MM / YY" inputMode="numeric" />
-              </div>
-              <div>
-                <Label htmlFor="cvc">CVC</Label>
-                <Input id="cvc" placeholder="123" inputMode="numeric" />
-              </div>
-              <div className="sm:col-span-2">
-                <Label htmlFor="card-name">Name on card</Label>
-                <Input id="card-name" placeholder="Amara Bello" />
-              </div>
-            </div>
-
-            <p className="mt-5 flex items-center gap-2 text-[12px] text-muted">
-              <Lock className="h-3.5 w-3.5" aria-hidden />
-              Card details are never stored on ShopBeta servers.
-            </p>
           </Card>
         </div>
 
@@ -260,34 +512,96 @@ export default function CheckoutPage() {
           <Card padded={false}>
             <div className="border-b border-line px-5 py-4">
               <h2 className="text-[15px] font-semibold text-ink">
-                Products purchased ({lines.length})
+                Order items ({items.length})
               </h2>
             </div>
             <ul className="divide-y divide-line px-5">
-              {lines.map(({ product, qty }) => (
-                <li key={product.id} className="flex items-center gap-3 py-4">
+              {items.map((line) => (
+                <li
+                  key={`${line.productId}-${line.variation ?? ""}`}
+                  className="flex items-center gap-3 py-4"
+                >
                   <ProductMedia
-                    icon={product.icon}
-                    tone={product.tone}
-                    name={product.name}
+                    icon={line.icon}
+                    tone={line.tone}
+                    name={line.name}
+                    src={line.thumbnail}
                     className="h-14 w-14 shrink-0"
                     iconClassName="h-2/5 w-2/5"
                   />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[13px] font-medium text-ink">
-                      {product.name}
+                      {line.name}
                     </p>
-                    <p className="mt-0.5 text-[12px] text-muted">Qty {qty}</p>
+                    <p className="mt-0.5 text-[12px] text-muted">
+                      Qty {line.quantity}
+                      {line.variation ? ` · ${line.variation}` : ""}
+                    </p>
                   </div>
                   <p className="shrink-0 text-[13px] font-semibold text-ink">
-                    {formatPrice(product.price * qty)}
+                    {formatPrice(line.price * line.quantity)}
                   </p>
                 </li>
               ))}
             </ul>
           </Card>
 
-          <OrderSummary subtotal={subtotal} withCoupon footer={<PlaceOrder />} />
+          <OrderSummary
+            subtotal={subtotal}
+            shipping={shipping}
+            discount={couponDiscount}
+            couponCode={couponCode}
+            couponHint={couponHint}
+            withCoupon
+            onApplyCoupon={async (code) => {
+              if (!code) {
+                setCouponCode("");
+                setCouponDiscount(0);
+                setCouponHint(null);
+                return;
+              }
+              const result = await applyCouponCode(code, subtotal);
+              if (!result.ok) {
+                setCouponCode(code);
+                setCouponDiscount(0);
+                setCouponHint({ tone: "error", message: result.reason });
+                toastError("Coupon not applied", result.reason);
+                return;
+              }
+              setCouponCode(result.coupon.code);
+              setCouponDiscount(result.discount);
+              setCouponHint({ tone: "success", message: result.message });
+              toastSuccess("Coupon applied", result.message);
+            }}
+            footer={
+              <>
+                {error ? (
+                  <p className="mb-3 text-[13px] text-primary" role="alert">
+                    {error}
+                  </p>
+                ) : null}
+                <button
+                  type="button"
+                  disabled={submitting}
+                  onClick={handlePlaceOrder}
+                  className="inline-flex h-[52px] w-full items-center justify-center gap-2 rounded-full bg-primary px-7 text-[15px] font-medium text-white shadow-[0_8px_20px_-10px_rgba(253,70,70,0.85)] transition-all duration-200 ease-premium hover:bg-primary-600 active:scale-[0.985] disabled:opacity-50"
+                >
+                  <Lock className="h-4 w-4" aria-hidden />
+                  {submitting
+                    ? paymentMethod === "paystack" || paymentMethod === "card"
+                      ? "Redirecting to Paystack…"
+                      : "Placing order…"
+                    : paymentMethod === "paystack" || paymentMethod === "card"
+                      ? "Pay with Paystack"
+                      : "Place order"}
+                </button>
+                <p className="mt-4 text-center text-[12px] leading-relaxed text-muted">
+                  By placing this order you agree to the ShopBeta terms of
+                  service and returns policy.
+                </p>
+              </>
+            }
+          />
         </div>
       </div>
     </div>

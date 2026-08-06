@@ -112,7 +112,9 @@ export function ProductBrowser({
         sponsored: next.sponsored,
         officialStore: next.officialStore,
         featured: next.featured,
+        trending: next.trending,
         flashSale: next.flashSale,
+        bestSeller: next.bestSeller,
       },
     });
   };

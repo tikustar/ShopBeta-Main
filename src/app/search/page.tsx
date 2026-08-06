@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
-import { Clock, TrendingUp, X } from "lucide-react";
+import { TrendingUp } from "lucide-react";
 import { toBrandViews, toCategoryViews } from "@/lib/catalog-view";
+import { searchCrumbs } from "@/lib/breadcrumbs";
 import { toProductViews } from "@/lib/product-view";
-import { buildListingMetadata } from "@/lib/seo";
+import { buildListingMetadata, breadcrumbJsonLd, JsonLd } from "@/lib/seo";
 import { searchProducts } from "@/services/products.service";
 import {
   getBrands,
@@ -17,6 +18,7 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { NoResultsIllustration } from "@/components/ui/illustrations";
 import { SearchBar } from "@/components/commerce/search-bar";
+import { RecentSearchesCard } from "@/components/commerce/recent-searches";
 import { ProductBrowser } from "@/components/commerce/product-browser";
 import { CatalogError } from "@/components/commerce/catalog-state";
 import { TrackSearchPerformed } from "@/components/commerce/catalog-analytics-beacons";
@@ -65,13 +67,20 @@ export default async function SearchResultsPage({
     failed = true;
   }
 
-  const recent = popular.slice(0, 5);
+  const crumbs = searchCrumbs(queryTerm || undefined);
 
   return (
     <div className="sb-container">
+      <JsonLd
+        data={breadcrumbJsonLd(
+          crumbs
+            .filter((crumb) => crumb.href)
+            .map((crumb) => ({ name: crumb.label, path: crumb.href })),
+        )}
+      />
       <TrackSearchPerformed query={queryTerm} resultCount={results.length} />
       <PageHeader
-        crumbs={[{ label: "Home", href: "/" }, { label: "Search" }]}
+        crumbs={crumbs}
         title="Search results"
         description={
           queryTerm
@@ -83,36 +92,14 @@ export default async function SearchResultsPage({
       <div className="mb-8 max-w-3xl">
         <SearchBar
           size="lg"
-          withSuggestions={false}
+          withSuggestions
           initialQuery={queryTerm}
           suggestions={popular}
         />
       </div>
 
       <div className="mb-10 grid gap-4 lg:grid-cols-2">
-        <Card>
-          <div className="flex items-center justify-between">
-            <h2 className="flex items-center gap-2 text-[15px] font-semibold text-ink">
-              <Clock className="h-4 w-4 text-muted" aria-hidden />
-              Recent searches
-            </h2>
-          </div>
-          <ul className="mt-4 space-y-1">
-            {recent.map((term) => (
-              <li key={term} className="flex items-center gap-2">
-                <Link
-                  href={`/search?q=${encodeURIComponent(term)}`}
-                  className="flex-1 rounded-lg px-2 py-2 text-sm text-ink-soft transition-colors hover:bg-soft"
-                >
-                  {term}
-                </Link>
-                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-muted">
-                  <X className="h-3.5 w-3.5" aria-hidden />
-                </span>
-              </li>
-            ))}
-          </ul>
-        </Card>
+        <RecentSearchesCard />
 
         <Card>
           <h2 className="flex items-center gap-2 text-[15px] font-semibold text-ink">

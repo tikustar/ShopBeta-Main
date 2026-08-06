@@ -9,6 +9,7 @@ export type CatalogSort =
   | "reviews"
   | "discount"
   | "featured"
+  | "alphabetical"
   | "relevant";
 
 export type CatalogFilters = {
@@ -21,7 +22,9 @@ export type CatalogFilters = {
   sponsored: boolean;
   officialStore: boolean;
   featured: boolean;
+  trending: boolean;
   flashSale: boolean;
+  bestSeller: boolean;
 };
 
 export const DEFAULT_FILTERS: CatalogFilters = {
@@ -34,7 +37,9 @@ export const DEFAULT_FILTERS: CatalogFilters = {
   sponsored: false,
   officialStore: false,
   featured: false,
+  trending: false,
   flashSale: false,
+  bestSeller: false,
 };
 
 export const SORT_OPTIONS: Array<{ id: CatalogSort; label: string }> = [
@@ -42,14 +47,26 @@ export const SORT_OPTIONS: Array<{ id: CatalogSort; label: string }> = [
   { id: "newest", label: "Newest arrivals" },
   { id: "price-asc", label: "Price: low to high" },
   { id: "price-desc", label: "Price: high to low" },
-  { id: "rating", label: "Top rated" },
+  { id: "rating", label: "Top rated / highest rated" },
   { id: "reviews", label: "Most reviewed" },
   { id: "discount", label: "Biggest discount" },
   { id: "featured", label: "Featured" },
+  { id: "alphabetical", label: "Alphabetical" },
 ];
 
 export function emptyFilters(): CatalogFilters {
-  return { ...DEFAULT_FILTERS, categories: [], brands: [] };
+  return {
+    ...DEFAULT_FILTERS,
+    categories: [],
+    brands: [],
+  };
+}
+
+function matchesTag(
+  product: ProductView,
+  tag: ProductView["tags"][number],
+): boolean {
+  return product.tags.includes(tag);
 }
 
 export function filterProductViews(
@@ -91,8 +108,10 @@ export function filterProductViews(
     if (filters.inStockOnly && product.stock <= 0) return false;
     if (filters.sponsored && !product.sponsored) return false;
     if (filters.officialStore && !product.officialStore) return false;
-    if (filters.featured && !product.tags.includes("featured")) return false;
-    if (filters.flashSale && !product.tags.includes("flash-sale")) return false;
+    if (filters.featured && !matchesTag(product, "featured")) return false;
+    if (filters.trending && !matchesTag(product, "trending")) return false;
+    if (filters.flashSale && !matchesTag(product, "flash-sale")) return false;
+    if (filters.bestSeller && !matchesTag(product, "best-seller")) return false;
     return true;
   });
 }
@@ -105,7 +124,8 @@ export function sortProductViews(
   switch (sort) {
     case "newest":
       return next.sort(
-        (a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0) || b.id.localeCompare(a.id),
+        (a, b) =>
+          (b.createdAt ?? 0) - (a.createdAt ?? 0) || b.id.localeCompare(a.id),
       );
     case "price-asc":
       return next.sort((a, b) => a.price - b.price);
@@ -127,6 +147,8 @@ export function sortProductViews(
         const fb = b.tags.includes("featured") ? 1 : 0;
         return fb - fa || b.rating - a.rating;
       });
+    case "alphabetical":
+      return next.sort((a, b) => a.name.localeCompare(b.name));
     case "relevant":
     default:
       return next;
@@ -139,7 +161,7 @@ export function paginateProductViews(
   pageSize = PAGINATION.productsPerPage,
 ) {
   const safePage = Math.max(1, page);
-  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize) || 1);
   const current = Math.min(safePage, totalPages);
   const start = (current - 1) * pageSize;
   return {
@@ -205,6 +227,7 @@ export function filtersFromSearchParams(
     if (Array.isArray(value)) return value.filter(Boolean);
     return value ? String(value).split(",").filter(Boolean) : [];
   };
+  const flag = (key: string) => get(key) === "1" || get(key) === "true";
 
   const minRating = get("rating");
   const minPrice = get("minPrice");
@@ -216,12 +239,13 @@ export function filtersFromSearchParams(
     minPrice: minPrice ? Number(minPrice) : undefined,
     maxPrice: maxPrice ? Number(maxPrice) : undefined,
     minRating: minRating ? Number(minRating) : undefined,
-    inStockOnly: get("inStock") === "1" || get("inStock") === "true",
-    sponsored: get("sponsored") === "1" || get("sponsored") === "true",
-    officialStore:
-      get("officialStore") === "1" || get("officialStore") === "true",
-    featured: get("featured") === "1" || get("featured") === "true",
-    flashSale: get("flashSale") === "1" || get("flashSale") === "true",
+    inStockOnly: flag("inStock"),
+    sponsored: flag("sponsored"),
+    officialStore: flag("officialStore"),
+    featured: flag("featured"),
+    trending: flag("trending"),
+    flashSale: flag("flashSale"),
+    bestSeller: flag("bestSeller"),
   };
 }
 
@@ -242,8 +266,28 @@ export function searchParamsFromFilters(
   if (filters.sponsored) params.set("sponsored", "1");
   if (filters.officialStore) params.set("officialStore", "1");
   if (filters.featured) params.set("featured", "1");
+  if (filters.trending) params.set("trending", "1");
   if (filters.flashSale) params.set("flashSale", "1");
+  if (filters.bestSeller) params.set("bestSeller", "1");
   if (sort !== "relevant") params.set("sort", sort);
   if (page > 1) params.set("page", String(page));
   return params;
+}
+
+/** Count active filter chips for UI badges. */
+export function countActiveFilters(filters: CatalogFilters) {
+  return (
+    filters.categories.length +
+    filters.brands.length +
+    (filters.minPrice != null ? 1 : 0) +
+    (filters.maxPrice != null ? 1 : 0) +
+    (filters.minRating != null ? 1 : 0) +
+    (filters.inStockOnly ? 1 : 0) +
+    (filters.sponsored ? 1 : 0) +
+    (filters.officialStore ? 1 : 0) +
+    (filters.featured ? 1 : 0) +
+    (filters.trending ? 1 : 0) +
+    (filters.flashSale ? 1 : 0) +
+    (filters.bestSeller ? 1 : 0)
+  );
 }

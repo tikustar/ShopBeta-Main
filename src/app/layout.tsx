@@ -1,10 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
-import { Header } from "@/components/layout/header";
-import { Footer } from "@/components/layout/footer";
-import { MobileBottomNav } from "@/components/layout/mobile-nav";
-import { OfflineBanner } from "@/components/commerce/offline-banner";
+import { AppShell } from "@/components/layout/app-shell";
 import { AppProviders } from "@/providers/app-providers";
 import { CatalogNavProvider } from "@/providers/catalog-nav-provider";
 import { toBrandViews, toCategoryViews } from "@/lib/catalog-view";
@@ -32,12 +29,36 @@ export const metadata: Metadata = {
   },
   description:
     "ShopBeta is a premium marketplace for computers, electronics, gadgets, gaming gear, smart home devices, office equipment and networking products.",
+  keywords: [
+    "ShopBeta",
+    "electronics",
+    "gadgets",
+    "laptops",
+    "phones",
+    "gaming",
+    "smart home",
+    "Nigeria",
+  ],
+  alternates: { canonical: siteUrl },
   openGraph: {
     type: "website",
     siteName: APP_NAME,
     title: `${APP_NAME} — Premium electronics marketplace`,
     description:
       "Shop computers, electronics, gadgets and gaming gear with next-day delivery.",
+    url: siteUrl,
+    locale: "en_NG",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${APP_NAME} — Premium electronics marketplace`,
+    description:
+      "Shop computers, electronics, gadgets and gaming gear with next-day delivery.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true },
   },
 };
 
@@ -77,14 +98,7 @@ export default async function RootLayout({
         </a>
         <AppProviders>
           <CatalogNavProvider value={{ categories, brands, popularSearches }}>
-            <Header />
-            <OfflineBanner />
-            <main id="main" className="pb-20 lg:pb-0">
-              {children}
-            </main>
-            <Footer />
-            <MobileBottomNav />
-            <div className="h-16 lg:hidden" aria-hidden />
+            <AppShell>{children}</AppShell>
           </CatalogNavProvider>
         </AppProviders>
       </body>

@@ -11,6 +11,7 @@ import {
   Trash2,
   Wallet,
 } from "lucide-react";
+import { buildPrivateMetadata } from "@/lib/seo";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -18,9 +19,10 @@ import { Label, Select, Toggle } from "@/components/ui/field";
 import { Badge } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/alert";
 
-export const metadata: Metadata = {
-  title: "Settings",
-};
+export const metadata: Metadata = buildPrivateMetadata(
+  "Settings",
+  "Account and preference settings.",
+);
 
 const themes = [
   { id: "light", label: "Light", icon: Sun, active: true },

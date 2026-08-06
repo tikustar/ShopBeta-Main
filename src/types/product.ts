@@ -1,5 +1,5 @@
 import type { FirestoreDate, Timestamps } from "./firestore";
-import type { ProductTag } from "@/constants/app";
+import type { ProductTag, StockStatus } from "@/constants/app";
 
 /** Review embedded in the existing `products` documents. */
 export type EmbeddedProductReview = {
@@ -25,18 +25,20 @@ export type ProductSpecification = {
 };
 
 /**
- * Shape of a `products` document in the existing Firestore project.
- * Every field is optional because the live documents are inconsistent
- * (e.g. `officalStore` is a legacy misspelling of `officialStore`).
+ * Shape of a `products` document in Firestore.
+ * Every field is optional at the document layer because live data is additive
+ * and legacy documents are incomplete. Converters supply defaults on read.
  */
 export type ProductDocument = Timestamps & {
   productName?: string;
   description?: string;
-  /** Free-form "Label: value" block, newline separated. */
+  /** Free-form "Label: value" block, newline separated (legacy). */
   specification?: string;
   price?: number;
   /** Percentage off, 0-100. */
   discount?: number;
+  /** ISO currency code; defaults to NGN. */
+  currency?: string;
   rating?: number;
   imgs?: string[];
   variation?: string[];
@@ -47,11 +49,9 @@ export type ProductDocument = Timestamps & {
   officalStore?: boolean;
   reviews?: EmbeddedProductReview[];
 
-  // Recommended additions (absent from the live documents today).
   slug?: string;
   sku?: string;
   barcode?: string;
-  /** Free-text brand name when present (DummyJSON import). */
   brand?: string;
   brandId?: string;
   categoryId?: string;
@@ -59,6 +59,7 @@ export type ProductDocument = Timestamps & {
   thumbnail?: string;
   images?: string[];
   stock?: number;
+  stockStatus?: StockStatus;
   reviewCount?: number;
   specifications?: ProductSpecification[];
   variants?: ProductVariantOption[];
@@ -68,16 +69,28 @@ export type ProductDocument = Timestamps & {
   flashSale?: boolean;
   bestSeller?: boolean;
   active?: boolean;
+
+  seoTitle?: string;
+  seoDescription?: string;
+  seoKeywords?: string[];
+  searchKeywords?: string[];
+  keywords?: string[];
+
+  viewCount?: number;
+  salesCount?: number;
+  wishlistCount?: number;
 };
 
-/** Normalized product used by the UI layer. */
+/** Normalized product used by the app layer. */
 export type Product = {
   id: string;
   name: string;
+  productName: string;
   slug: string;
   description: string;
   price: number;
   discount: number;
+  currency: string;
   /** Price before discount, derived from `price` and `discount`. */
   oldPrice?: number;
   rating: number;
@@ -88,13 +101,16 @@ export type Product = {
   categoryId?: string;
   brand?: string;
   brandId?: string;
-  stock?: number;
+  stock: number;
+  stockStatus: StockStatus;
   sku?: string;
   barcode?: string;
   /** Legacy `variation` strings, kept for UI colour/variant pickers. */
   variations: string[];
   variants: ProductVariantOption[];
   specifications: ProductSpecification[];
+  /** Legacy free-text specification block when present. */
+  specification?: string;
   reviews: EmbeddedProductReview[];
   sponsored: boolean;
   officialStore: boolean;
@@ -104,6 +120,13 @@ export type Product = {
   flashSale: boolean;
   bestSeller: boolean;
   active: boolean;
+  seoTitle?: string;
+  seoDescription?: string;
+  seoKeywords: string[];
+  searchKeywords: string[];
+  viewCount: number;
+  salesCount: number;
+  wishlistCount: number;
   createdAt?: Date;
   updatedAt?: Date;
 };

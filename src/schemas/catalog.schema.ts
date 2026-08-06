@@ -1,5 +1,18 @@
 import { z } from "zod";
 
+const firestoreDate = z.union([
+  z.date(),
+  z.string(),
+  z.number(),
+  z.object({ seconds: z.number(), nanoseconds: z.number() }),
+  z.custom<{ toDate: () => Date }>(
+    (value) =>
+      typeof value === "object" &&
+      value !== null &&
+      typeof (value as { toDate?: unknown }).toDate === "function",
+  ),
+]);
+
 export const categoryDocumentSchema = z
   .object({
     name: z.string(),
@@ -12,8 +25,10 @@ export const categoryDocumentSchema = z
     productCount: z.number().optional(),
     featured: z.boolean().optional(),
     active: z.boolean().optional(),
-    createdAt: z.any().optional(),
-    updatedAt: z.any().optional(),
+    seoTitle: z.string().optional(),
+    seoDescription: z.string().optional(),
+    createdAt: firestoreDate.optional(),
+    updatedAt: firestoreDate.optional(),
   })
   .loose();
 
@@ -28,7 +43,9 @@ export const brandDocumentSchema = z
     productCount: z.number().optional(),
     featured: z.boolean().optional(),
     active: z.boolean().optional(),
-    createdAt: z.any().optional(),
-    updatedAt: z.any().optional(),
+    seoTitle: z.string().optional(),
+    seoDescription: z.string().optional(),
+    createdAt: firestoreDate.optional(),
+    updatedAt: firestoreDate.optional(),
   })
   .loose();

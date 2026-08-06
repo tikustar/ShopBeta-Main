@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { buildPrivateMetadata } from "@/lib/seo";
 import { PageHeader } from "@/components/layout/page-header";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -13,9 +14,7 @@ import {
   SuccessIllustration,
 } from "@/components/ui/illustrations";
 
-export const metadata: Metadata = {
-  title: "Empty states",
-};
+export const metadata: Metadata = buildPrivateMetadata("Empty states");
 
 export default function EmptyStatesPage() {
   return (

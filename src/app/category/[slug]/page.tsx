@@ -9,6 +9,7 @@ import { toProductViews } from "@/lib/product-view";
 import {
   breadcrumbJsonLd,
   buildCategoryMetadata,
+  categoryItemListJsonLd,
   JsonLd,
 } from "@/lib/seo";
 import { getProductsByCategory } from "@/services/products.service";
@@ -85,6 +86,12 @@ export default async function CategoryPage({
           { name: "Categories", path: "/products" },
           { name: category.name, path: `/category/${category.slug}` },
         ])}
+      />
+      <JsonLd
+        data={categoryItemListJsonLd(
+          categoryDoc,
+          listing.map((item) => ({ name: item.name, slug: item.slug })),
+        )}
       />
       <TrackCategoryViewed categoryId={categoryDoc.id} slug={category.slug} />
 

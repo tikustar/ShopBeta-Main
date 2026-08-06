@@ -1,9 +1,11 @@
 import type {
-  BrandDocument,
+  AddressDocument,
+  AppSettingsDocument,
   CartDocument,
-  CategoryDocument,
+  CouponDocument,
   NotificationDocument,
   OrderDocument,
+  PaymentDocument,
   ReviewDocument,
   UserDocument,
   WishlistDocument,
@@ -16,12 +18,20 @@ export {
   toProduct,
   toProductDocument,
 } from "./product";
+export {
+  brandConverter,
+  categoryConverter,
+  toBrand,
+  toCategory,
+} from "./catalog";
 
-export const categoryConverter = createConverter<CategoryDocument>();
-export const brandConverter = createConverter<BrandDocument>();
 export const userConverter = createConverter<UserDocument>();
+export const addressConverter = createConverter<AddressDocument>();
 export const orderConverter = createConverter<OrderDocument>();
 export const cartConverter = createConverter<CartDocument>();
 export const wishlistConverter = createConverter<WishlistDocument>();
 export const reviewConverter = createConverter<ReviewDocument>();
 export const notificationConverter = createConverter<NotificationDocument>();
+export const couponConverter = createConverter<CouponDocument>();
+export const paymentConverter = createConverter<PaymentDocument>();
+export const settingsConverter = createConverter<AppSettingsDocument>();

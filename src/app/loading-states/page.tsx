@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { buildPrivateMetadata } from "@/lib/seo";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import {
@@ -12,9 +13,7 @@ import {
   TableSkeleton,
 } from "@/components/ui/skeleton";
 
-export const metadata: Metadata = {
-  title: "Loading states",
-};
+export const metadata: Metadata = buildPrivateMetadata("Loading states");
 
 function Block({
   title,

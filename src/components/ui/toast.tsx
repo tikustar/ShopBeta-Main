@@ -28,7 +28,7 @@ export function Toast({
 }) {
   return (
     <div
-      role="status"
+      role={tone === "danger" ? "alert" : "status"}
       className={cn(
         "sb-fade-up flex w-full max-w-sm items-start gap-3 rounded-2xl border border-line bg-white p-4 sb-shadow-soft",
         className,

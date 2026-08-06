@@ -1,5 +1,7 @@
+import type { UserRole, UserStatus } from "@/constants/app";
 import type { FirestoreDate, Timestamps } from "./firestore";
 
+/** Embedded address shape used by checkout / legacy user profiles. */
 export type Address = {
   id?: string;
   label?: string;
@@ -14,28 +16,31 @@ export type Address = {
   isDefault?: boolean;
 };
 
-export type UserRole = "customer" | "admin";
+export type { UserRole, UserStatus };
 
 /**
- * Shape of a `users` document in the existing Firestore project. The live
- * document uses snake_case (`created_time`, `display_name`) and mirrors the
- * Auth record; camelCase fields below are the ShopBeta additions.
+ * Shape of a `users` document. Live docs may use snake_case
+ * (`created_time`, `display_name`); camelCase fields are ShopBeta additions.
  */
 export type UserDocument = Timestamps & {
-  /** Duplicates the document id, which is the Firebase Auth uid. */
   uid?: string;
   email?: string;
-  /** Legacy snake_case field written by the existing app. */
   display_name?: string;
-  /** Legacy snake_case creation timestamp. */
   created_time?: FirestoreDate;
 
   displayName?: string;
   phone?: string;
   photoUrl?: string;
+  dateOfBirth?: string;
+  gender?: string;
   role?: UserRole;
+  status?: UserStatus;
+  /** @deprecated Prefer the standalone `addresses` collection. */
   addresses?: Address[];
   defaultAddressId?: string;
+  /** Recent search terms synced for authenticated users. */
+  searchHistory?: string[];
+  /** @deprecated Prefer `status`. */
   active?: boolean;
 };
 
