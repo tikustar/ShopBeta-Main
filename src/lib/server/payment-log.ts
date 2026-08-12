@@ -18,6 +18,7 @@ export type PaymentLogStage =
   | "callback.success"
   | "callback.failure"
   | "webhook.incoming"
+  | "webhook.functions"
   | "webhook.signature"
   | "webhook.event"
   | "webhook.verify"
