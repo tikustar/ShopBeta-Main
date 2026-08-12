@@ -14,7 +14,14 @@ import {
 import { notifyMakeOrderPaid } from "@/lib/server/make-webhook";
 import { paymentLog } from "@/lib/server/payment-log";
 import { COLLECTIONS } from "@/constants/collections";
-import { getAdminDb } from "@/lib/server/firebase-admin";
+import {
+  getPaystackFunctionsBaseUrl,
+  isPaystackConfigured,
+} from "@/lib/server/env";
+import {
+  getAdminDb,
+  isFirebaseAdminConfigured,
+} from "@/lib/server/firebase-admin";
 import { reportPaymentFailure } from "@/lib/monitoring";
 import { publicErrorMessage } from "@/lib/server/rate-limit";
 import { FieldValue } from "firebase-admin/firestore";
@@ -38,6 +45,43 @@ const SUPPORTED = new Set([
   "refund.processed",
 ]);
 
+async function proxyWebhookToCloudFunction(
+  rawBody: string,
+  signature: string | null,
+) {
+  const url = `${getPaystackFunctionsBaseUrl()}/paystackWebhook`;
+  paymentLog("webhook.functions", "Proxying webhook to Cloud Function", {
+    url,
+    bytes: rawBody.length,
+    hasSignature: Boolean(signature),
+  });
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      ...(signature ? { "x-paystack-signature": signature } : {}),
+    },
+    body: rawBody,
+    cache: "no-store",
+  });
+
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    body = { ok: false, reason: "Cloud Function returned an invalid response." };
+  }
+
+  paymentLog("webhook.functions", "Cloud Function webhook response", {
+    status: response.status,
+    ok: typeof body === "object" && body !== null && "ok" in body ? body.ok : null,
+  });
+
+  return NextResponse.json(body, { status: response.status });
+}
+
 /**
  * Paystack webhook — production ready:
  * signature → verify with Paystack API → atomic Firestore → Make.com (best-effort).
@@ -49,7 +93,13 @@ export async function POST(request: Request) {
   paymentLog("webhook.incoming", "Paystack webhook received", {
     bytes: rawBody.length,
     hasSignature: Boolean(signature),
+    adminConfigured: isFirebaseAdminConfigured(),
+    paystackConfigured: isPaystackConfigured(),
   });
+
+  if (!isFirebaseAdminConfigured() || !isPaystackConfigured()) {
+    return proxyWebhookToCloudFunction(rawBody, signature);
+  }
 
   if (!verifyPaystackWebhookSignature(rawBody, signature)) {
     paymentLog("webhook.signature", "Invalid Paystack signature", {});

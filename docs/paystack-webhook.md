@@ -21,21 +21,21 @@ Never commit secrets. Rotate any key that was pasted into chat.
 
 Used by `POST /api/payments/paystack/initialize` when Firebase Admin is not configured locally (falls back automatically).
 
-**Firebase Cloud Function — Webhook:**
+**Firebase Cloud Function — Webhook (preferred if Paystack points here directly):**
 
 `POST https://us-central1-shop-day84j.cloudfunctions.net/paystackWebhook`
 
 - Project: `shop-day84j`
 - Region: `us-central1`
+- Runtime: Node.js 20 (Firebase Functions v2)
 - Secret: `PAYSTACK_SECRET_KEY` (Secret Manager)
-- Param: `MAKE_WEBHOOK_URL` (`functions/.env` at deploy)
+- Param: `MAKE_WEBHOOK_URL` (`functions/.env` at deploy — see `functions/.env.example`)
 
-**Next.js / Vercel (also supported):**
+**Next.js / Vercel (also supported — proxies to Cloud Function when Admin SDK is not on Vercel):**
 
 `POST /api/payments/paystack/webhook`
-`POST /api/payments/paystack/initialize`
 
-Point Paystack Dashboard webhooks at **one** URL (prefer the Cloud Function webhook). Both share the same processing rules.
+When `FIREBASE_SERVICE_ACCOUNT` and `PAYSTACK_SECRET_KEY` are **not** set on Vercel, this route forwards the raw body and `x-paystack-signature` to the Cloud Function above (same pattern as initialize). Point Paystack at **either** URL — not both.
 
 Flow:
 
