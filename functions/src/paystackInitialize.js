@@ -110,7 +110,7 @@ exports.paystackInitialize = onRequest(
       return;
     }
 
-    const secret = paystackSecret.value();
+    const secret = paystackSecret.value()?.trim();
     if (!secret) {
       log("init.failure", "PAYSTACK_SECRET_KEY missing", {});
       res.status(500).json({

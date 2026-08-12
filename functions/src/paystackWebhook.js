@@ -55,7 +55,10 @@ function amountsMatch(expectedNaira, paidKobo) {
 
 function verifySignature(rawBody, signature, secret) {
   if (!signature || !secret) return false;
-  const hash = createHmac("sha512", secret).update(rawBody).digest("hex");
+  const bodyBuffer = Buffer.isBuffer(rawBody)
+    ? rawBody
+    : Buffer.from(String(rawBody), "utf8");
+  const hash = createHmac("sha512", secret.trim()).update(bodyBuffer).digest("hex");
   try {
     const expected = Buffer.from(hash, "utf8");
     const received = Buffer.from(signature, "utf8");
@@ -64,6 +67,12 @@ function verifySignature(rawBody, signature, secret) {
   } catch {
     return false;
   }
+}
+
+function readRawBody(req) {
+  if (Buffer.isBuffer(req.rawBody)) return req.rawBody;
+  if (typeof req.rawBody === "string") return Buffer.from(req.rawBody, "utf8");
+  return null;
 }
 
 async function verifyWithPaystack(reference, secret) {
@@ -433,23 +442,33 @@ exports.paystackWebhook = onRequest(
       return;
     }
 
-    const secret = paystackSecret.value();
-    const rawBody =
-      typeof req.rawBody === "string"
-        ? req.rawBody
-        : Buffer.isBuffer(req.rawBody)
-          ? req.rawBody.toString("utf8")
-          : JSON.stringify(req.body || {});
+    const secret = paystackSecret.value()?.trim();
+    const rawBodyBuffer = readRawBody(req);
 
     const signature = req.get("x-paystack-signature");
 
     log("webhook.incoming", "Paystack webhook received", {
-      bytes: rawBody.length,
+      bytes: rawBodyBuffer?.length ?? 0,
       hasSignature: Boolean(signature),
+      hasRawBody: Boolean(rawBodyBuffer),
     });
 
-    if (!verifySignature(rawBody, signature, secret)) {
-      log("webhook.signature", "Invalid Paystack signature", {});
+    if (!rawBodyBuffer) {
+      log("webhook.failure", "Missing rawBody — cannot verify Paystack signature", {});
+      res.status(500).json({ ok: false, reason: "Raw body unavailable." });
+      return;
+    }
+
+    if (!secret) {
+      log("webhook.failure", "PAYSTACK_SECRET_KEY missing", {});
+      res.status(500).json({ ok: false, reason: "Paystack is not configured." });
+      return;
+    }
+
+    if (!verifySignature(rawBodyBuffer, signature, secret)) {
+      log("webhook.signature", "Invalid Paystack signature", {
+        hint: "Check Firebase PAYSTACK_SECRET_KEY matches Paystack dashboard mode (test vs live).",
+      });
       res.status(401).json({ ok: false, reason: "Invalid signature." });
       return;
     }
@@ -457,9 +476,7 @@ exports.paystackWebhook = onRequest(
 
     let payload;
     try {
-      payload = typeof req.body === "object" && req.body
-        ? req.body
-        : JSON.parse(rawBody);
+      payload = JSON.parse(rawBodyBuffer.toString("utf8"));
     } catch {
       res.status(400).json({ ok: false, reason: "Invalid JSON." });
       return;
