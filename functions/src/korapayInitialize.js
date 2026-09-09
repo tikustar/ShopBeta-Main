@@ -36,10 +36,6 @@ function paymentReferenceForOrder(order) {
   return `SB_${base}_${Date.now()}`.slice(0, 100);
 }
 
-function toKobo(amountNaira) {
-  return Math.round(amountNaira * 100);
-}
-
 exports.korapayInitialize = onCall(async (request) => {
   const { orderId, callbackUrl } = request.data;
 
@@ -85,7 +81,7 @@ exports.korapayInitialize = onCall(async (request) => {
     const initialized = await korapayFetch("/charges/initialize", {
       method: "POST",
       body: JSON.stringify({
-        amount: toKobo(amount),
+        amount: amount, // KoraPay expects Naira, not kobo
         currency: "NGN",
         reference,
         customer: {
@@ -110,7 +106,7 @@ exports.korapayInitialize = onCall(async (request) => {
         gateway: "korapay",
         reference: initialized.data.reference,
         amount,
-        amountKobo: toKobo(amount),
+        // KoraPay uses Naira directly, not kobo like Paystack
         currency: "NGN",
         status: "processing",
         customerEmail: email,

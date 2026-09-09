@@ -1,8 +1,6 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import {
-  fromKobo,
   getKorapaySecretKey,
-  toKobo,
 } from "@/lib/server/env";
 import type { NormalizedPaymentResult } from "@/types/payment";
 
@@ -101,14 +99,15 @@ export async function initializeKorapayTransaction(input: {
     redirectUrl: input.redirectUrl,
   });
 
-  const amountKobo = toKobo(input.amountNaira);
-  if (amountKobo < 100) {
-    console.error("[initializeKorapayTransaction] Amount too small", { amountKobo });
+  // KoraPay expects amount in Naira, not kobo (unlike Paystack)
+  const amountNaira = input.amountNaira;
+  if (amountNaira < 1) {
+    console.error("[initializeKorapayTransaction] Amount too small", { amountNaira });
     throw new Error("Order total is too small to charge.");
   }
 
   const requestBody = {
-    amount: amountKobo,
+    amount: amountNaira,
     currency: "NGN",
     reference: input.reference,
     customer: {
@@ -166,7 +165,7 @@ export function normalizeKorapayVerification(
   return {
     reference: data.reference,
     status: mapKorapayStatus(data.status),
-    amount: fromKobo(data.amount),
+    amount: data.amount, // KoraPay returns amount in Naira, not kobo
     currency: data.currency || "NGN",
     gateway: "korapay",
     paidAt: data.paid_at,
@@ -197,8 +196,19 @@ export function verifyKorapayWebhookSignature(
 
 export function amountsMatch(
   expectedNaira: number,
-  paidKobo: number,
+  paidNaira: number,
 ): boolean {
-  const expectedKobo = toKobo(expectedNaira);
-  return Math.abs(expectedKobo - paidKobo) < 1; // Allow 1 kobo tolerance
+  // KoraPay uses Naira directly, so compare Naira amounts
+  return Math.abs(expectedNaira - paidNaira) < 1; // Allow 1 Naira tolerance
 }
+
+/**
+ * IMPORTANT: KoraPay vs Paystack amount handling
+ * 
+ * Paystack: Requires amounts in kobo (Naira * 100)
+ * KoraPay: Requires amounts in Naira directly
+ * 
+ * This file handles KoraPay's Naira-based amounts internally.
+ * The toKobo/fromKobo functions are imported from env.ts for Paystack compatibility
+ * but are NOT used for KoraPay operations.
+ */

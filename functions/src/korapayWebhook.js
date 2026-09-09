@@ -51,8 +51,9 @@ function mapKorapayStatus(status) {
   return "pending";
 }
 
-function fromKobo(amountKobo) {
-  return amountKobo / 100;
+// KoraPay returns amounts in Naira, not kobo
+function fromNaira(amountNaira) {
+  return amountNaira;
 }
 
 exports.korapayWebhook = onRequest(async (req, res) => {
@@ -125,7 +126,7 @@ exports.korapayWebhook = onRequest(async (req, res) => {
 
       const order = { id: orderSnap.id, ...orderSnap.data() };
       const expectedTotal = Number(order.total ?? order.totals?.total ?? 0);
-      const paidAmount = fromKobo(verified.data.amount);
+      const paidAmount = fromNaira(verified.data.amount);
 
       if (Math.abs(expectedTotal - paidAmount) > 1) {
         console.error("Amount mismatch:", { expectedTotal, paidAmount });

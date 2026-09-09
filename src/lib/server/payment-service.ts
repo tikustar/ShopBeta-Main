@@ -30,6 +30,13 @@ import type { Order } from "@/types/order";
 import { stripUndefined } from "@/utils/firestore";
 import { paymentLog } from "@/lib/server/payment-log";
 
+// IMPORTANT: Paystack vs KoraPay amount handling
+// Paystack: Requires amounts in kobo (Naira * 100) - uses toKobo()
+// KoraPay: Requires amounts in Naira directly - does NOT use toKobo()
+
+// Re-export toKobo for Paystack compatibility
+export { toKobo } from "@/lib/server/env";
+
 function paymentReferenceForOrder(order: Order) {
   const base = (order.orderNumber || order.id).replace(/[^a-zA-Z0-9]/g, "");
   return `SB_${base}_${Date.now()}`.slice(0, 100);
@@ -269,7 +276,7 @@ export async function initializeKorapayForOrder(input: {
       gateway: "korapay",
       reference: initialized.reference,
       amount,
-      amountKobo: toKobo(amount),
+      // KoraPay uses Naira directly, not kobo like Paystack
       currency: "NGN",
       status: "processing",
       customerEmail: email,
@@ -490,6 +497,10 @@ export async function verifyKorapayForReference(reference: string) {
     expectedAmount != null &&
     !korapayAmountsMatch(expectedAmount, verified.amount)
   ) {
+    console.error("[verifyKorapayForReference] Amount mismatch", {
+      expectedAmount,
+      paidAmount: verified.amount,
+    });
     return {
       ok: false as const,
       reason: "Paid amount does not match the recorded payment.",
