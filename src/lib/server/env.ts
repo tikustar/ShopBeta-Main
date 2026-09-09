@@ -54,8 +54,10 @@ export function isKorapayEnabled() {
 export function getKorapaySecretKey() {
   const key = process.env.KORAPAY_SECRET_KEY?.trim();
   if (!key) {
+    console.error("KORAPAY_SECRET_KEY is not configured in environment");
     throw new Error("KORAPAY_SECRET_KEY is not configured.");
   }
+  console.log("KoraPay secret key found (length):", key.length);
   return key;
 }
 

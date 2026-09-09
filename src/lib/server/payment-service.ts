@@ -152,29 +152,44 @@ export async function initializeKorapayForOrder(input: {
   orderId: string;
   callbackUrl?: string;
 }) {
+  console.log("[initializeKorapayForOrder] Starting initialization", { orderId: input.orderId });
+  
   if (!isKorapayEnabled()) {
+    console.log("[initializeKorapayForOrder] KoraPay is disabled");
     return {
       ok: false as const,
       reason: "KoraPay is currently disabled.",
     };
   }
   if (!isKorapayConfigured()) {
+    console.log("[initializeKorapayForOrder] KoraPay is not configured");
     return {
       ok: false as const,
       reason: "KoraPay is not configured on the server.",
     };
   }
 
+  console.log("[initializeKorapayForOrder] Getting Admin DB");
   const db = getAdminDb();
   const orderRef = db.collection(COLLECTIONS.orders).doc(input.orderId);
+  console.log("[initializeKorapayForOrder] Fetching order", { orderId: input.orderId });
+  
   const orderSnap = await orderRef.get();
   if (!orderSnap.exists) {
+    console.log("[initializeKorapayForOrder] Order not found");
     return { ok: false as const, reason: "Order not found." };
   }
 
   const order = { id: orderSnap.id, ...orderSnap.data() } as Order;
+  console.log("[initializeKorapayForOrder] Order found", { 
+    orderId: order.id, 
+    paymentMethod: order.paymentMethod,
+    paymentStatus: order.paymentStatus 
+  });
+  
   const method = String(order.paymentMethod ?? "");
   if (method !== "korapay") {
+    console.log("[initializeKorapayForOrder] Order not set up for KoraPay", { method });
     return {
       ok: false as const,
       reason: "This order is not set up for KoraPay.",
@@ -182,16 +197,19 @@ export async function initializeKorapayForOrder(input: {
   }
 
   if (order.paymentStatus === "paid") {
+    console.log("[initializeKorapayForOrder] Order already paid");
     return { ok: false as const, reason: "This order is already paid." };
   }
 
   const email = order.customer?.email?.trim();
   if (!email) {
+    console.log("[initializeKorapayForOrder] Missing customer email");
     return { ok: false as const, reason: "Order is missing a customer email." };
   }
 
   const amount = Number(order.total ?? order.totals?.total ?? 0);
   if (!(amount > 0)) {
+    console.log("[initializeKorapayForOrder] Invalid order total", { amount });
     return { ok: false as const, reason: "Order total is invalid." };
   }
 
@@ -200,17 +218,38 @@ export async function initializeKorapayForOrder(input: {
     input.callbackUrl ||
     `${getAppUrl()}/payments/callback?order=${encodeURIComponent(order.orderNumber ?? order.id)}`;
 
-  const initialized = await initializeKorapayTransaction({
+  console.log("[initializeKorapayForOrder] Calling KoraPay API", {
     email,
-    amountNaira: amount,
+    amount,
     reference,
     redirectUrl,
-    metadata: {
-      orderId: order.id,
-      orderNumber: order.orderNumber,
-      userId: order.userId,
-      customerName: order.customer?.name,
-    },
+  });
+
+  let initialized;
+  try {
+    initialized = await initializeKorapayTransaction({
+      email,
+      amountNaira: amount,
+      reference,
+      redirectUrl,
+      metadata: {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        userId: order.userId,
+        customerName: order.customer?.name,
+      },
+    });
+  } catch (error) {
+    console.error("[initializeKorapayForOrder] KoraPay API error", error);
+    return {
+      ok: false as const,
+      reason: error instanceof Error ? error.message : "Failed to initialize KoraPay payment",
+    };
+  }
+
+  console.log("[initializeKorapayForOrder] KoraPay API response", {
+    hasCheckoutUrl: Boolean(initialized.checkout_url),
+    reference: initialized.reference,
   });
 
   paymentLog("init.korapay", "KoraPay Initialize API OK", {
@@ -220,6 +259,8 @@ export async function initializeKorapayForOrder(input: {
   });
 
   const paymentRef = db.collection(COLLECTIONS.payments).doc();
+  console.log("[initializeKorapayForOrder] Creating payment document", { paymentId: paymentRef.id });
+  
   await paymentRef.set(
     stripUndefined({
       orderId: order.id,
@@ -237,6 +278,7 @@ export async function initializeKorapayForOrder(input: {
     }),
   );
 
+  console.log("[initializeKorapayForOrder] Updating order with payment reference");
   await orderRef.update(
     stripUndefined({
       paymentMethod: "korapay",
@@ -247,6 +289,11 @@ export async function initializeKorapayForOrder(input: {
       updatedAt: FieldValue.serverTimestamp(),
     }),
   );
+
+  console.log("[initializeKorapayForOrder] Initialization successful", {
+    authorizationUrl: initialized.checkout_url,
+    reference: initialized.reference,
+  });
 
   return {
     ok: true as const,

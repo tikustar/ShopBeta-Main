@@ -2,7 +2,7 @@
   "name": "shopbeta-functions",
   "description": "ShopBeta Firebase Cloud Functions — Paystack webhook",
   "engines": {
-    "node": "20"
+    "node": "22"
   },
   "main": "index.js",
   "private": true,

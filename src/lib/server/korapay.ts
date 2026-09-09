@@ -42,6 +42,12 @@ async function korapayFetch<T>(
   init?: RequestInit,
 ): Promise<KorapayResponse<T>> {
   const secret = getKorapaySecretKey();
+  console.log("[korapayFetch] Making request", { 
+    path, 
+    hasSecret: Boolean(secret),
+    url: `${KORAPAY_BASE}${path}`
+  });
+  
   const response = await fetch(`${KORAPAY_BASE}${path}`, {
     ...init,
     headers: {
@@ -53,14 +59,29 @@ async function korapayFetch<T>(
     cache: "no-store",
   });
 
+  console.log("[korapayFetch] Response status", { 
+    status: response.status, 
+    ok: response.ok 
+  });
+
   let body: KorapayResponse<T>;
   try {
     body = (await response.json()) as KorapayResponse<T>;
-  } catch {
+    console.log("[korapayFetch] Response body", { 
+      status: body.status, 
+      message: body.message 
+    });
+  } catch (error) {
+    console.error("[korapayFetch] Failed to parse response", error);
     throw new Error("KoraPay returned an invalid response.");
   }
 
   if (!response.ok || !body.status) {
+    console.error("[korapayFetch] KoraPay error", { 
+      status: response.status, 
+      bodyStatus: body.status, 
+      message: body.message 
+    });
     throw new Error(body.message || `KoraPay error (${response.status}).`);
   }
   return body;
@@ -73,28 +94,45 @@ export async function initializeKorapayTransaction(input: {
   redirectUrl: string;
   metadata?: Record<string, unknown>;
 }): Promise<KorapayInitializeResult> {
+  console.log("[initializeKorapayTransaction] Starting", {
+    email: input.email,
+    amountNaira: input.amountNaira,
+    reference: input.reference,
+    redirectUrl: input.redirectUrl,
+  });
+
   const amountKobo = toKobo(input.amountNaira);
   if (amountKobo < 100) {
+    console.error("[initializeKorapayTransaction] Amount too small", { amountKobo });
     throw new Error("Order total is too small to charge.");
   }
+
+  const requestBody = {
+    amount: amountKobo,
+    currency: "NGN",
+    reference: input.reference,
+    customer: {
+      name: input.metadata?.customerName as string || "",
+      email: input.email,
+    },
+    redirect_url: input.redirectUrl,
+    metadata: input.metadata,
+  };
+
+  console.log("[initializeKorapayTransaction] Request body", requestBody);
 
   const result = await korapayFetch<KorapayInitializeResult>(
     "/charges/initialize",
     {
       method: "POST",
-      body: JSON.stringify({
-        amount: amountKobo,
-        currency: "NGN",
-        reference: input.reference,
-        customer: {
-          name: input.metadata?.customerName as string || "",
-          email: input.email,
-        },
-        redirect_url: input.redirectUrl,
-        metadata: input.metadata,
-      }),
+      body: JSON.stringify(requestBody),
     },
   );
+
+  console.log("[initializeKorapayTransaction] Success", {
+    checkoutUrl: result.data.checkout_url,
+    reference: result.data.reference,
+  });
 
   return result.data;
 }

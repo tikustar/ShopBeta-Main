@@ -34,8 +34,11 @@ export async function POST(request: Request) {
 
   try {
     const json = await request.json();
+    console.log("[KoraPay Initialize API] Request received", json);
+    
     const parsed = initializePaystackBodySchema.safeParse(json);
     if (!parsed.success) {
+      console.error("[KoraPay Initialize API] Invalid body", parsed.error);
       paymentLog("init.failure", "Invalid initialize body", {});
       return NextResponse.json(
         { ok: false, reason: "Invalid request body." },
@@ -51,7 +54,14 @@ export async function POST(request: Request) {
       korapayEnabled: isKorapayEnabled(),
     });
 
+    console.log("[KoraPay Initialize API] Configuration check", {
+      adminConfigured: isFirebaseAdminConfigured(),
+      korapayConfigured: isKorapayConfigured(),
+      korapayEnabled: isKorapayEnabled(),
+    });
+
     if (!isFirebaseAdminConfigured() || !isKorapayConfigured() || !isKorapayEnabled()) {
+      console.error("[KoraPay Initialize API] Configuration failed");
       paymentLog("init.failure", "KoraPay not configured or disabled", {});
       return NextResponse.json(
         { ok: false, reason: "KoraPay is not configured or is currently disabled." },
@@ -63,10 +73,13 @@ export async function POST(request: Request) {
       orderId: parsed.data.orderId,
     });
 
+    console.log("[KoraPay Initialize API] Calling initializeKorapayForOrder");
     const result = await initializeKorapayForOrder({
       orderId: parsed.data.orderId,
       callbackUrl: parsed.data.callbackUrl,
     });
+
+    console.log("[KoraPay Initialize API] Result", { ok: result.ok, reason: result.reason });
 
     if (!result.ok) {
       paymentLog("init.failure", "KoraPay initialize failed", {
@@ -90,6 +103,7 @@ export async function POST(request: Request) {
       paymentId: result.paymentId,
     });
   } catch (error) {
+    console.error("[KoraPay Initialize API] Error", error);
     reportPaymentFailure("KoraPay initialize failed", {
       message: error instanceof Error ? error.message : "unknown",
     });
