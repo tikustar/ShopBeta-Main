@@ -3,6 +3,9 @@ import { COLLECTIONS } from "@/constants/collections";
 import {
   getAppUrl,
   isPaystackConfigured,
+  isKorapayConfigured,
+  isPaystackEnabled,
+  isKorapayEnabled,
   toKobo,
 } from "@/lib/server/env";
 import { getAdminDb } from "@/lib/server/firebase-admin";
@@ -13,6 +16,12 @@ import {
   verifyPaystackTransaction,
   amountsMatch,
 } from "@/lib/server/paystack";
+import {
+  initializeKorapayTransaction,
+  normalizeKorapayVerification,
+  verifyKorapayTransaction,
+  amountsMatch as korapayAmountsMatch,
+} from "@/lib/server/korapay";
 import {
   finalizeSuccessfulPayment,
   markPaymentFailed,
@@ -30,6 +39,12 @@ export async function initializePaystackForOrder(input: {
   orderId: string;
   callbackUrl?: string;
 }) {
+  if (!isPaystackEnabled()) {
+    return {
+      ok: false as const,
+      reason: "Paystack is currently disabled.",
+    };
+  }
   if (!isPaystackConfigured()) {
     return {
       ok: false as const,
@@ -133,7 +148,123 @@ export async function initializePaystackForOrder(input: {
   };
 }
 
+export async function initializeKorapayForOrder(input: {
+  orderId: string;
+  callbackUrl?: string;
+}) {
+  if (!isKorapayEnabled()) {
+    return {
+      ok: false as const,
+      reason: "KoraPay is currently disabled.",
+    };
+  }
+  if (!isKorapayConfigured()) {
+    return {
+      ok: false as const,
+      reason: "KoraPay is not configured on the server.",
+    };
+  }
+
+  const db = getAdminDb();
+  const orderRef = db.collection(COLLECTIONS.orders).doc(input.orderId);
+  const orderSnap = await orderRef.get();
+  if (!orderSnap.exists) {
+    return { ok: false as const, reason: "Order not found." };
+  }
+
+  const order = { id: orderSnap.id, ...orderSnap.data() } as Order;
+  const method = String(order.paymentMethod ?? "");
+  if (method !== "korapay") {
+    return {
+      ok: false as const,
+      reason: "This order is not set up for KoraPay.",
+    };
+  }
+
+  if (order.paymentStatus === "paid") {
+    return { ok: false as const, reason: "This order is already paid." };
+  }
+
+  const email = order.customer?.email?.trim();
+  if (!email) {
+    return { ok: false as const, reason: "Order is missing a customer email." };
+  }
+
+  const amount = Number(order.total ?? order.totals?.total ?? 0);
+  if (!(amount > 0)) {
+    return { ok: false as const, reason: "Order total is invalid." };
+  }
+
+  const reference = paymentReferenceForOrder(order);
+  const redirectUrl =
+    input.callbackUrl ||
+    `${getAppUrl()}/payments/callback?order=${encodeURIComponent(order.orderNumber ?? order.id)}`;
+
+  const initialized = await initializeKorapayTransaction({
+    email,
+    amountNaira: amount,
+    reference,
+    redirectUrl,
+    metadata: {
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      userId: order.userId,
+      customerName: order.customer?.name,
+    },
+  });
+
+  paymentLog("init.korapay", "KoraPay Initialize API OK", {
+    orderId: order.id,
+    reference: initialized.reference,
+    hasCheckoutUrl: Boolean(initialized.checkout_url),
+  });
+
+  const paymentRef = db.collection(COLLECTIONS.payments).doc();
+  await paymentRef.set(
+    stripUndefined({
+      orderId: order.id,
+      orderNumber: order.orderNumber ?? "",
+      userId: order.userId,
+      gateway: "korapay",
+      reference: initialized.reference,
+      amount,
+      amountKobo: toKobo(amount),
+      currency: "NGN",
+      status: "processing",
+      customerEmail: email,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    }),
+  );
+
+  await orderRef.update(
+    stripUndefined({
+      paymentMethod: "korapay",
+      paymentStatus: "processing",
+      paymentReference: initialized.reference,
+      paymentId: paymentRef.id,
+      timeline: appendTimelineAdmin(order.timeline, "payment_processing"),
+      updatedAt: FieldValue.serverTimestamp(),
+    }),
+  );
+
+  return {
+    ok: true as const,
+    authorizationUrl: initialized.checkout_url,
+    reference: initialized.reference,
+    orderId: order.id,
+    orderNumber: order.orderNumber,
+    paymentId: paymentRef.id,
+  };
+}
+
 export async function verifyPaystackForReference(reference: string) {
+  if (!isPaystackEnabled()) {
+    return {
+      ok: false as const,
+      reason: "Paystack is currently disabled.",
+    };
+  }
   if (!isPaystackConfigured()) {
     return {
       ok: false as const,
@@ -199,6 +330,118 @@ export async function verifyPaystackForReference(reference: string) {
   if (
     expectedAmount != null &&
     !amountsMatch(expectedAmount, verified.amount)
+  ) {
+    return {
+      ok: false as const,
+      reason: "Paid amount does not match the recorded payment.",
+      code: "amount_mismatch",
+    };
+  }
+
+  const finalized = await finalizeSuccessfulPayment({
+    orderId,
+    payment: normalized,
+    paymentDocId,
+  });
+
+  if (!finalized.ok) {
+    return {
+      ok: false as const,
+      reason: finalized.reason,
+      code: finalized.code,
+      orderId,
+      reference,
+    };
+  }
+
+  // Best-effort Make.com notify (same path as webhook).
+  const { notifyMakeOrderPaid } = await import("@/lib/server/make-webhook");
+  await notifyMakeOrderPaid({
+    order: finalized.order,
+    reference,
+  });
+
+  return {
+    ok: true as const,
+    order: finalized.order,
+    alreadyProcessed: finalized.alreadyProcessed,
+    payment: normalized,
+    reference,
+  };
+}
+
+export async function verifyKorapayForReference(reference: string) {
+  if (!isKorapayEnabled()) {
+    return {
+      ok: false as const,
+      reason: "KoraPay is currently disabled.",
+    };
+  }
+  if (!isKorapayConfigured()) {
+    return {
+      ok: false as const,
+      reason: "KoraPay is not configured on the server.",
+    };
+  }
+
+  const db = getAdminDb();
+  const paymentSnap = await db
+    .collection(COLLECTIONS.payments)
+    .where("reference", "==", reference)
+    .limit(1)
+    .get();
+
+  let orderId: string | undefined;
+  let paymentDocId: string | undefined;
+  let expectedAmount: number | undefined;
+
+  if (!paymentSnap.empty) {
+    const doc = paymentSnap.docs[0]!;
+    paymentDocId = doc.id;
+    const data = doc.data();
+    orderId = data.orderId as string;
+    expectedAmount = Number(data.amount);
+  }
+
+  const verified = await verifyKorapayTransaction(reference);
+  const normalized = normalizeKorapayVerification(verified);
+
+  if (!orderId) {
+    const meta = verified.metadata as { orderId?: string } | undefined;
+    orderId = meta?.orderId;
+  }
+
+  if (!orderId) {
+    return {
+      ok: false as const,
+      reason: "Could not resolve the order for this payment reference.",
+    };
+  }
+
+  if (normalized.status !== "paid") {
+    await markPaymentFailed({
+      orderId,
+      reference,
+      status:
+        normalized.status === "cancelled"
+          ? "cancelled"
+          : normalized.status === "expired"
+            ? "expired"
+            : "failed",
+      reason: `Payment ${verified.status}`,
+    });
+    return {
+      ok: false as const,
+      reason: `Payment ${verified.status}`,
+      status: normalized.status,
+      orderId,
+      reference,
+    };
+  }
+
+  if (
+    expectedAmount != null &&
+    !korapayAmountsMatch(expectedAmount, verified.amount)
   ) {
     return {
       ok: false as const,

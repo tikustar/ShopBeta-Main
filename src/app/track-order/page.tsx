@@ -10,7 +10,6 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/field";
 import { ProductMedia } from "@/components/commerce/product-media";
-import { getOrderByNumber } from "@/services/orders.service";
 import type { Order, OrderStatus } from "@/types/order";
 
 const TIMELINE: Array<{ status: OrderStatus; label: string; description: string }> = [
@@ -73,16 +72,25 @@ export default function TrackOrderPage() {
     setLoading(true);
     setError(null);
     try {
-      const result = await getOrderByNumber(value);
-      if (!result) {
+      const response = await fetch(`/api/track-order?order=${encodeURIComponent(value)}`);
+      const data = await response.json();
+      
+      if (!response.ok) {
         setOrder(null);
-        setError("No order found for that number.");
+        setError(data.reason || "Could not load that order.");
         return;
       }
-      setOrder(result);
+      
+      if (!data.ok) {
+        setOrder(null);
+        setError(data.reason || "No order found for that number.");
+        return;
+      }
+      
+      setOrder(data.order);
     } catch {
       setOrder(null);
-      setError("Could not load that order. Check your connection and try again.");
+      setError("Network error. Check your connection and try again.");
     } finally {
       setLoading(false);
     }

@@ -76,6 +76,7 @@ export type PaymentStatus = (typeof PAYMENT_STATUS)[number];
 
 export const PAYMENT_METHODS = [
   "paystack",
+  "korapay",
   "flutterwave",
   "cash-on-delivery",
   /** @deprecated Prefer `paystack` — kept for legacy orders. */
@@ -88,6 +89,7 @@ export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
 export const PAYMENT_GATEWAYS = [
   "paystack",
+  "korapay",
   "flutterwave",
   "cod",
   "none",

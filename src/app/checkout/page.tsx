@@ -24,9 +24,11 @@ import { placeOrder } from "@/services/orders.service";
 import {
   confirmCashOnDelivery,
   initializePaystackPayment,
+  initializeKorapayPayment,
   isClientCodEnabled,
   isClientFlutterwaveEnabled,
   isClientPaystackEnabled,
+  isClientKorapayEnabled,
 } from "@/services/payments.service";
 import { applyCouponCode } from "@/lib/coupons";
 import { useCartStore } from "@/stores/cart.store";
@@ -159,6 +161,12 @@ export default function CheckoutPage() {
       );
       return;
     }
+    if (method === "korapay" && !isClientKorapayEnabled()) {
+      setError(
+        "KoraPay payment is temporarily unavailable. Choose cash on delivery or try again later.",
+      );
+      return;
+    }
     if (method === "cash-on-delivery" && !isClientCodEnabled()) {
       setError("Cash on delivery is not available right now.");
       return;
@@ -252,6 +260,42 @@ export default function CheckoutPage() {
           }),
         );
         toastSuccess("Redirecting to Paystack");
+        window.location.assign(init.authorizationUrl);
+        return;
+      }
+
+      if (method === "korapay") {
+        const callbackUrl = `${window.location.origin}/payments/callback?order=${encodeURIComponent(result.order.orderNumber ?? result.order.id)}`;
+        const init = await initializeKorapayPayment({
+          orderId: result.order.id,
+          callbackUrl,
+        });
+        if (!init.ok) {
+          setError(init.reason);
+          toastError("Payment setup failed", init.reason);
+          router.push(
+            `/payments/failed?order=${encodeURIComponent(result.order.orderNumber ?? result.order.id)}&reason=${encodeURIComponent(init.reason)}`,
+          );
+          return;
+        }
+        if (!init.authorizationUrl) {
+          const reason = "KoraPay did not return a checkout URL.";
+          setError(reason);
+          toastError("Payment setup failed", reason);
+          return;
+        }
+        console.log(
+          JSON.stringify({
+            payment: {
+              at: new Date().toISOString(),
+              stage: "init.redirect",
+              message: "Redirecting to KoraPay checkout_url",
+              orderId: init.orderId,
+              reference: init.reference,
+            },
+          }),
+        );
+        toastSuccess("Redirecting to KoraPay");
         window.location.assign(init.authorizationUrl);
         return;
       }
@@ -514,20 +558,27 @@ export default function CheckoutPage() {
               Payment method
             </h2>
             <p className="mt-1 text-[13px] text-muted">
-              Pay securely with Paystack, or choose cash on delivery if enabled.
+              Pay securely with your preferred payment method.
             </p>
             <div className="mt-5 space-y-3">
-              <Radio
-                name="payment"
-                checked={paymentMethod === "paystack" || paymentMethod === "card"}
-                onChange={() => setPaymentMethod("paystack")}
-                label="Paystack (card / bank / USSD)"
-                description={
-                  isClientPaystackEnabled()
-                    ? "You will be redirected to Paystack to complete payment"
-                    : "Configure NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY to enable"
-                }
-              />
+              {isClientPaystackEnabled() ? (
+                <Radio
+                  name="payment"
+                  checked={paymentMethod === "paystack" || paymentMethod === "card"}
+                  onChange={() => setPaymentMethod("paystack")}
+                  label="Paystack (card / bank / USSD)"
+                  description="You will be redirected to Paystack to complete payment"
+                />
+              ) : null}
+              {isClientKorapayEnabled() ? (
+                <Radio
+                  name="payment"
+                  checked={paymentMethod === "korapay"}
+                  onChange={() => setPaymentMethod("korapay")}
+                  label="KoraPay (card / bank / USSD)"
+                  description="You will be redirected to KoraPay to complete payment"
+                />
+              ) : null}
               {isClientCodEnabled() ? (
                 <Radio
                   name="payment"
@@ -537,17 +588,15 @@ export default function CheckoutPage() {
                   description="Pay when your order arrives"
                 />
               ) : null}
-              <Radio
-                name="payment"
-                checked={paymentMethod === "flutterwave"}
-                onChange={() => setPaymentMethod("flutterwave")}
-                label="Flutterwave"
-                description={
-                  isClientFlutterwaveEnabled()
-                    ? "Flutterwave checkout"
-                    : "Coming soon — architecture prepared"
-                }
-              />
+              {isClientFlutterwaveEnabled() ? (
+                <Radio
+                  name="payment"
+                  checked={paymentMethod === "flutterwave"}
+                  onChange={() => setPaymentMethod("flutterwave")}
+                  label="Flutterwave"
+                  description="Flutterwave checkout"
+                />
+              ) : null}
             </div>
           </Card>
         </div>

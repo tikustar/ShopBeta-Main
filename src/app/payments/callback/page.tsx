@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
-import { verifyPaystackPayment } from "@/services/payments.service";
+import { verifyPaystackPayment, verifyKorapayPayment } from "@/services/payments.service";
 import {
   getOrderByNumber,
   watchOrderUntilPaid,
@@ -80,10 +80,19 @@ function PaymentCallbackContent() {
     void (async () => {
       // 1) Best-effort server verify (needs Firebase Admin on the Next server).
       if (reference) {
-        setMessage("Verifying payment with Paystack…");
+        setMessage("Verifying payment…");
         try {
           clientLog("callback.verify", "Calling verify API", { reference });
-          const result = await verifyPaystackPayment(reference);
+          // Try Paystack first, then KoraPay
+          let result = await verifyPaystackPayment(reference);
+          if (!result.ok) {
+            // Try KoraPay if Paystack fails
+            try {
+              result = await verifyKorapayPayment(reference);
+            } catch {
+              // KoraPay also failed, stick with Paystack result
+            }
+          }
           if (!active) return;
           if (result.ok) {
             const orderNumber =
@@ -138,7 +147,14 @@ function PaymentCallbackContent() {
       // 3) One more verify attempt if we have a reference.
       if (reference) {
         try {
-          const result = await verifyPaystackPayment(reference);
+          let result = await verifyPaystackPayment(reference);
+          if (!result.ok) {
+            try {
+              result = await verifyKorapayPayment(reference);
+            } catch {
+              // KoraPay also failed, stick with Paystack result
+            }
+          }
           if (!active) return;
           if (result.ok) {
             await goSuccess(

@@ -46,10 +46,36 @@ export function isFlutterwaveEnabled() {
   return raw === "1" || raw.toLowerCase() === "true";
 }
 
+export function isKorapayEnabled() {
+  const raw = process.env.NEXT_PUBLIC_KORAPAY_ENABLED ?? "false";
+  return raw === "1" || raw.toLowerCase() === "true";
+}
+
+export function getKorapaySecretKey() {
+  const key = process.env.KORAPAY_SECRET_KEY?.trim();
+  if (!key) {
+    throw new Error("KORAPAY_SECRET_KEY is not configured.");
+  }
+  return key;
+}
+
+export function getKorapayPublicKey() {
+  return process.env.NEXT_PUBLIC_KORAPAY_PUBLIC_KEY?.trim() ?? "";
+}
+
+export function isKorapayConfigured() {
+  return Boolean(process.env.KORAPAY_SECRET_KEY?.trim());
+}
+
 export function isPaystackConfigured() {
   // Server initialize / verify only need the secret. Public key is optional
   // (required only for client-side Paystack Inline JS, not redirect checkout).
   return Boolean(process.env.PAYSTACK_SECRET_KEY?.trim());
+}
+
+export function isPaystackEnabled() {
+  const raw = process.env.NEXT_PUBLIC_PAYSTACK_ENABLED ?? "true";
+  return raw === "1" || raw.toLowerCase() === "true";
 }
 
 /** HTTPS base for Paystack Cloud Functions (initialize + webhook). */

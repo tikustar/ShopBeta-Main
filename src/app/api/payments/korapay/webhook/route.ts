@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import {
-  mapPaystackStatus,
-  normalizePaystackVerification,
-  verifyPaystackTransaction,
-  verifyPaystackWebhookSignature,
+  mapKorapayStatus,
+  normalizeKorapayVerification,
+  verifyKorapayTransaction,
+  verifyKorapayWebhookSignature,
   amountsMatch,
-  type PaystackVerifyData,
-} from "@/lib/server/paystack";
+  type KorapayVerifyData,
+} from "@/lib/server/korapay";
 import {
   finalizeSuccessfulPayment,
   markPaymentFailed,
@@ -14,11 +14,7 @@ import {
 import { notifyMakeOrderPaid } from "@/lib/server/make-webhook";
 import { paymentLog } from "@/lib/server/payment-log";
 import { COLLECTIONS } from "@/constants/collections";
-import {
-  getPaystackFunctionsBaseUrl,
-  isPaystackConfigured,
-  isPaystackEnabled,
-} from "@/lib/server/env";
+import { isKorapayConfigured, isKorapayEnabled } from "@/lib/server/env";
 import {
   getAdminDb,
   isFirebaseAdminConfigured,
@@ -31,10 +27,10 @@ import type { Order } from "@/types/order";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type PaystackEvent = {
+type KorapayEvent = {
   event?: string;
-  data?: PaystackVerifyData & {
-    id?: number;
+  data?: KorapayVerifyData & {
+    id?: string;
     metadata?: { orderId?: string; orderNumber?: string };
   };
 };
@@ -46,66 +42,33 @@ const SUPPORTED = new Set([
   "refund.processed",
 ]);
 
-async function proxyWebhookToCloudFunction(
-  rawBody: string,
-  signature: string | null,
-) {
-  const url = `${getPaystackFunctionsBaseUrl()}/paystackWebhook`;
-  paymentLog("webhook.functions", "Proxying webhook to Cloud Function", {
-    url,
-    bytes: rawBody.length,
-    hasSignature: Boolean(signature),
-  });
-
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      ...(signature ? { "x-paystack-signature": signature } : {}),
-    },
-    body: rawBody,
-    cache: "no-store",
-  });
-
-  let body: unknown;
-  try {
-    body = await response.json();
-  } catch {
-    body = { ok: false, reason: "Cloud Function returned an invalid response." };
-  }
-
-  paymentLog("webhook.functions", "Cloud Function webhook response", {
-    status: response.status,
-    ok: typeof body === "object" && body !== null && "ok" in body ? body.ok : null,
-  });
-
-  return NextResponse.json(body, { status: response.status });
-}
-
 /**
- * Paystack webhook — production ready:
- * signature → verify with Paystack API → atomic Firestore → Make.com (best-effort).
+ * KoraPay webhook — production ready:
+ * signature → verify with KoraPay API → atomic Firestore → Make.com (best-effort).
  */
 export async function POST(request: Request) {
   const rawBody = await request.text();
-  const signature = request.headers.get("x-paystack-signature");
+  const signature = request.headers.get("x-korapay-signature");
 
-  paymentLog("webhook.incoming", "Paystack webhook received", {
+  paymentLog("webhook.incoming", "KoraPay webhook received", {
     bytes: rawBody.length,
     hasSignature: Boolean(signature),
     adminConfigured: isFirebaseAdminConfigured(),
-    paystackConfigured: isPaystackConfigured(),
-    paystackEnabled: isPaystackEnabled(),
+    korapayConfigured: isKorapayConfigured(),
+    korapayEnabled: isKorapayEnabled(),
   });
 
-  if (!isFirebaseAdminConfigured() || !isPaystackConfigured() || !isPaystackEnabled()) {
-    return proxyWebhookToCloudFunction(rawBody, signature);
+  if (!isFirebaseAdminConfigured() || !isKorapayConfigured() || !isKorapayEnabled()) {
+    paymentLog("webhook.failure", "KoraPay not configured", {});
+    return NextResponse.json(
+      { ok: false, reason: "KoraPay is not configured." },
+      { status: 503 },
+    );
   }
 
-  if (!verifyPaystackWebhookSignature(rawBody, signature)) {
-    paymentLog("webhook.signature", "Invalid Paystack signature", {});
-    reportPaymentFailure("Paystack webhook invalid signature");
+  if (!verifyKorapayWebhookSignature(rawBody, signature)) {
+    paymentLog("webhook.signature", "Invalid KoraPay signature", {});
+    reportPaymentFailure("KoraPay webhook invalid signature");
     return NextResponse.json(
       { ok: false, reason: "Invalid signature." },
       { status: 401 },
@@ -114,9 +77,9 @@ export async function POST(request: Request) {
 
   paymentLog("webhook.signature", "Signature valid", {});
 
-  let payload: PaystackEvent;
+  let payload: KorapayEvent;
   try {
-    payload = JSON.parse(rawBody) as PaystackEvent;
+    payload = JSON.parse(rawBody) as KorapayEvent;
   } catch {
     paymentLog("webhook.failure", "Invalid JSON body", {});
     return NextResponse.json(
@@ -128,10 +91,10 @@ export async function POST(request: Request) {
   const event = payload.event ?? "";
   const data = payload.data;
 
-  paymentLog("webhook.event", "Parsed Paystack event", {
+  paymentLog("webhook.event", "Parsed KoraPay event", {
     event,
     reference: data?.reference,
-    paystackId: data?.id,
+    korapayId: data?.id,
   });
 
   if (!data?.reference) {
@@ -175,16 +138,16 @@ export async function POST(request: Request) {
 
     // ---------- charge.success ----------
     if (event === "charge.success") {
-      // Never trust webhook payload alone — verify with Paystack.
-      let verified: PaystackVerifyData;
+      // Never trust webhook payload alone — verify with KoraPay.
+      let verified: KorapayVerifyData;
       try {
-        verified = await verifyPaystackTransaction(data.reference);
+        verified = await verifyKorapayTransaction(data.reference);
       } catch (error) {
-        paymentLog("webhook.verify", "Paystack verify API failed", {
+        paymentLog("webhook.verify", "KoraPay verify API failed", {
           reference: data.reference,
           message: error instanceof Error ? error.message : "unknown",
         });
-        reportPaymentFailure("Paystack verify API failed on webhook", {
+        reportPaymentFailure("KoraPay verify API failed on webhook", {
           reference: data.reference,
         });
         return NextResponse.json(
@@ -193,9 +156,9 @@ export async function POST(request: Request) {
         );
       }
 
-      const normalized = normalizePaystackVerification(verified);
+      const normalized = normalizeKorapayVerification(verified);
 
-      paymentLog("webhook.verify", "Paystack verification result", {
+      paymentLog("webhook.verify", "KoraPay verification result", {
         reference: verified.reference,
         status: verified.status,
         amountKobo: verified.amount,
@@ -301,7 +264,7 @@ export async function POST(request: Request) {
         alreadyProcessed: result.alreadyProcessed,
       });
 
-      // Make.com — after successful Firestore only; never fail Paystack ACK.
+      // Make.com — after successful Firestore only; never fail KoraPay ACK.
       await notifyMakeOrderPaid({
         order: result.order,
         reference: verified.reference,
@@ -323,7 +286,7 @@ export async function POST(request: Request) {
 
     // ---------- charge.failed ----------
     if (event === "charge.failed") {
-      const status = mapPaystackStatus(data.status || "failed");
+      const status = mapKorapayStatus(data.status || "failed");
       paymentLog("webhook.firestore", "Marking payment failed", {
         orderId,
         eventId,
@@ -332,7 +295,7 @@ export async function POST(request: Request) {
         orderId,
         reference: data.reference,
         status: status === "cancelled" ? "cancelled" : "failed",
-        reason: data.gateway_response,
+        reason: `Payment ${data.status}`,
         eventId,
       });
       paymentLog("webhook.success", "charge.failed handled", {
@@ -400,7 +363,7 @@ export async function POST(request: Request) {
     paymentLog("webhook.failure", "Unhandled webhook error", {
       message: error instanceof Error ? error.message : "unknown",
     });
-    reportPaymentFailure("Paystack webhook processing failed", {
+    reportPaymentFailure("KoraPay webhook processing failed", {
       message: error instanceof Error ? error.message : "unknown",
     });
     return NextResponse.json(

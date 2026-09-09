@@ -10,6 +10,8 @@ export type PaymentLogStage =
   | "init.admin"
   | "init.functions"
   | "init.paystack"
+  | "init.korapay"
+  | "init.success"
   | "init.redirect"
   | "init.failure"
   | "callback.start"

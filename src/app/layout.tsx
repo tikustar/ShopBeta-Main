@@ -40,6 +40,10 @@ export const metadata: Metadata = {
     "Nigeria",
   ],
   alternates: { canonical: siteUrl },
+  icons: {
+    icon: "/ShopBet logo icon.png",
+    apple: "/ShopBet logo icon.png",
+  },
   openGraph: {
     type: "website",
     siteName: APP_NAME,

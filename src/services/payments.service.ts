@@ -153,3 +153,54 @@ export function isClientFlutterwaveEnabled() {
   const raw = process.env.NEXT_PUBLIC_FLUTTERWAVE_ENABLED ?? "false";
   return raw === "1" || raw.toLowerCase() === "true";
 }
+
+export function isClientKorapayEnabled() {
+  const raw = process.env.NEXT_PUBLIC_KORAPAY_ENABLED ?? "false";
+  return raw === "1" || raw.toLowerCase() === "true";
+}
+
+export type InitializeKorapayResponse =
+  | {
+      ok: true;
+      authorizationUrl: string;
+      reference: string;
+      orderId: string;
+      orderNumber?: string | null;
+      paymentId?: string;
+    }
+  | { ok: false; reason: string };
+
+export async function initializeKorapayPayment(input: {
+  orderId: string;
+  callbackUrl?: string;
+}): Promise<InitializeKorapayResponse> {
+  clientPaymentLog("init.request", "Calling /api/payments/korapay/initialize", {
+    orderId: input.orderId,
+    hasCallback: Boolean(input.callbackUrl),
+  });
+
+  const result = await postJson<InitializeKorapayResponse>(
+    "/api/payments/korapay/initialize",
+    input,
+  );
+
+  if (result.ok) {
+    clientPaymentLog("init.korapay", "Initialize API success", {
+      orderId: result.orderId,
+      reference: result.reference,
+      hasAuthorizationUrl: Boolean(result.authorizationUrl),
+    });
+  } else {
+    clientPaymentLog("init.failure", "Initialize API rejected", {
+      reason: result.reason,
+    });
+  }
+
+  return result;
+}
+
+export function verifyKorapayPayment(reference: string) {
+  return postJson<VerifyPaystackResponse>("/api/payments/korapay/verify", {
+    reference,
+  });
+}
