@@ -1,28 +1,33 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
-import { ArrowRight, Calendar, Mail, MapPin, Truck } from "lucide-react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { ArrowRight, Calendar, Loader2, Mail, MapPin, RefreshCw, Truck } from "lucide-react";
 import {
   LAST_ORDER_KEY,
   estimatedDeliveryLabel,
   readJsonStorage,
 } from "@/lib/cart";
 import { formatPrice } from "@/lib/utils";
-import { ButtonLink } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SuccessIllustration } from "@/components/ui/illustrations";
 import { getOrderByNumber } from "@/services/orders.service";
+import { verifyPaystackPayment, verifyKorapayPayment } from "@/services/payments.service";
 import { useCheckoutStore } from "@/stores/checkout.store";
+import { toastError, toastSuccess } from "@/stores/toast.store";
 import type { Order } from "@/types/order";
 
 function OrderSuccessContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const orderParam = searchParams.get("order") ?? "";
   const lastOrder = useCheckoutStore((state) => state.lastOrder);
   const [order, setOrder] = useState<Order | null>(lastOrder);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [verifying, setVerifying] = useState(false);
+  const [showManualVerify, setShowManualVerify] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -61,6 +66,55 @@ function OrderSuccessContent() {
       cancelled = true;
     };
   }, [orderParam, lastOrder]);
+
+  const handleManualVerify = async () => {
+    if (!order || verifying) return;
+    
+    setVerifying(true);
+    try {
+      const reference = order.paymentReference;
+      if (!reference) {
+        toastError("Verification failed", "No payment reference found");
+        return;
+      }
+
+      const paymentMethod = order.paymentMethod?.toLowerCase();
+      let result;
+      
+      if (paymentMethod === "korapay") {
+        result = await verifyKorapayPayment(reference);
+      } else {
+        result = await verifyPaystackPayment(reference);
+      }
+
+      if (result.ok) {
+        toastSuccess("Payment verified", "Your order has been confirmed");
+        // Reload the order to get updated status
+        const updatedOrder = await getOrderByNumber(order.orderNumber || order.id);
+        if (updatedOrder) {
+          setOrder(updatedOrder);
+        }
+        // Navigate to track order
+        const orderNumber = order.orderNumber || order.id;
+        router.push(`/track-order?order=${encodeURIComponent(orderNumber)}`);
+      } else {
+        toastError("Verification failed", result.reason || "Payment could not be confirmed yet");
+      }
+    } catch {
+      toastError("Verification failed", "Please try again shortly");
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  // Show manual verify button if order is not paid
+  useEffect(() => {
+    if (order && order.paymentStatus !== "paid" && order.paymentStatus !== "processing") {
+      setShowManualVerify(true);
+    } else {
+      setShowManualVerify(false);
+    }
+  }, [order]);
 
   const facts = useMemo(() => {
     if (!order) return [];
@@ -140,6 +194,31 @@ function OrderSuccessContent() {
                 {items.length}
               </p>
             </div>
+          </div>
+        ) : null}
+
+        {!loading && showManualVerify && order ? (
+          <div className="mt-6 text-center">
+            <p className="text-[13px] text-muted mb-3">
+              Confirmation taking too long?
+            </p>
+            <Button
+              onClick={handleManualVerify}
+              disabled={verifying}
+              variant="outline"
+            >
+              {verifying ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Verifying payment...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Verify manually
+                </>
+              )}
+            </Button>
           </div>
         ) : null}
 

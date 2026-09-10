@@ -4,16 +4,10 @@
  * signature → Paystack verify API → atomic Firestore → Make.com (best-effort).
  */
 const { onRequest } = require("firebase-functions/v2/https");
-const { defineSecret, defineString } = require("firebase-functions/params");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { createHmac, timingSafeEqual } = require("crypto");
 const { stripUndefined } = require("./stripUndefined");
-
-const paystackSecret = defineSecret("PAYSTACK_SECRET_KEY");
-const makeWebhookUrl = defineString("MAKE_WEBHOOK_URL", {
-  default: "",
-  description: "Make.com hook URL (optional)",
-});
+const { getPaystackSecretKey } = require("./env");
 
 const COLLECTIONS = {
   orders: "orders",
@@ -53,8 +47,13 @@ function amountsMatch(expectedNaira, paidKobo) {
   return Math.abs(toKobo(expectedNaira) - Number(paidKobo)) === 0;
 }
 
-function verifySignature(rawBody, signature, secret) {
-  if (!signature || !secret) return false;
+function verifySignature(rawBody, signature) {
+  if (!signature) return false;
+  const secret = getPaystackSecretKey();
+  if (!secret) {
+    log("webhook.signature", "PAYSTACK_SECRET_KEY not configured", {});
+    return false;
+  }
   const bodyBuffer = Buffer.isBuffer(rawBody)
     ? rawBody
     : Buffer.from(String(rawBody), "utf8");
@@ -75,7 +74,8 @@ function readRawBody(req) {
   return null;
 }
 
-async function verifyWithPaystack(reference, secret) {
+async function verifyWithPaystack(reference) {
+  const secret = getPaystackSecretKey();
   const encoded = encodeURIComponent(reference.trim());
   const response = await fetch(
     `https://api.paystack.co/transaction/verify/${encoded}`,
@@ -359,7 +359,8 @@ function buildMakePayload(order, reference) {
   };
 }
 
-async function notifyMake(order, reference, makeUrl) {
+async function notifyMake(order, reference) {
+  const makeUrl = process.env.MAKE_WEBHOOK_URL;
   if (!makeUrl) {
     log("webhook.make", "Make.com URL not configured — skipped", {
       orderId: order.id,
@@ -432,7 +433,6 @@ async function notifyMake(order, reference, makeUrl) {
 exports.paystackWebhook = onRequest(
   {
     region: "us-central1",
-    secrets: [paystackSecret],
     timeoutSeconds: 60,
     memory: "256MiB",
   },
@@ -442,9 +442,7 @@ exports.paystackWebhook = onRequest(
       return;
     }
 
-    const secret = paystackSecret.value()?.trim();
     const rawBodyBuffer = readRawBody(req);
-
     const signature = req.get("x-paystack-signature");
 
     log("webhook.incoming", "Paystack webhook received", {
@@ -459,13 +457,13 @@ exports.paystackWebhook = onRequest(
       return;
     }
 
-    if (!secret) {
-      log("webhook.failure", "PAYSTACK_SECRET_KEY missing", {});
+    if (!getPaystackSecretKey()) {
+      log("webhook.failure", "PAYSTACK_SECRET_KEY not configured", {});
       res.status(500).json({ ok: false, reason: "Paystack is not configured." });
       return;
     }
 
-    if (!verifySignature(rawBodyBuffer, signature, secret)) {
+    if (!verifySignature(rawBodyBuffer, signature)) {
       log("webhook.signature", "Invalid Paystack signature", {
         hint: "Check Firebase PAYSTACK_SECRET_KEY matches Paystack dashboard mode (test vs live).",
       });
@@ -524,7 +522,7 @@ exports.paystackWebhook = onRequest(
       if (event === "charge.success") {
         let verified;
         try {
-          verified = await verifyWithPaystack(data.reference, secret);
+          verified = await verifyWithPaystack(data.reference);
         } catch (error) {
           log("webhook.verify", "Paystack verify API failed", {
             reference: data.reference,
@@ -598,7 +596,7 @@ exports.paystackWebhook = onRequest(
           alreadyProcessed: result.alreadyProcessed,
         });
 
-        await notifyMake(result.order, verified.reference, makeWebhookUrl.value());
+        await notifyMake(result.order, verified.reference);
 
         log("webhook.success", "charge.success handled", {
           orderId,

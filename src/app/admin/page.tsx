@@ -10,6 +10,21 @@ import {
 } from "@/services/admin-stats.service";
 import { formatPrice } from "@/lib/utils";
 
+function formatOrderDate(date: Date): string {
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const month = months[date.getMonth()];
+  const day = date.getDate();
+  const year = date.getFullYear();
+  
+  const hours = date.getHours();
+  const minutes = date.getMinutes();
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  const hours12 = hours % 12 || 12;
+  const minutesStr = minutes.toString().padStart(2, '0');
+  
+  return `${month} ${day}, ${year} • ${hours12}:${minutesStr} ${ampm}`;
+}
+
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -73,7 +88,7 @@ export default function AdminDashboardPage() {
               <h2 className="mb-3 text-sm font-semibold text-ink">
                 Recent orders
               </h2>
-              <AdminTable headers={["Order", "Customer", "Total", "Status"]}>
+              <AdminTable headers={["Order", "Customer", "Total", "Status", "Date"]}>
                 {stats.recentOrders.map((order) => (
                   <tr key={order.id} className="text-[13px]">
                     <td className="px-4 py-3">
@@ -92,6 +107,19 @@ export default function AdminDashboardPage() {
                     </td>
                     <td className="px-4 py-3 capitalize text-muted">
                       {order.orderStatus ?? order.status ?? "pending"}
+                    </td>
+                    <td className="px-4 py-3 text-muted">
+                      {order.createdAt ? (
+                        order.createdAt instanceof Date ? (
+                          formatOrderDate(order.createdAt)
+                        ) : typeof order.createdAt === 'object' && 'toDate' in order.createdAt ? (
+                          formatOrderDate((order.createdAt as { toDate: () => Date }).toDate())
+                        ) : (
+                          "—"
+                        )
+                      ) : (
+                        "—"
+                      )}
                     </td>
                   </tr>
                 ))}

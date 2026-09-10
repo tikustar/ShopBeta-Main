@@ -100,7 +100,7 @@ export async function getAdminDashboardStats(): Promise<DashboardStats> {
     notifications: notifications.length,
     lowStock: lowStockProducts.length,
     outOfStock: products.filter((p) => p.stock <= 0).length,
-    recentOrders: orders.slice(0, 8),
+    recentOrders: [...orders].sort((a, b) => orderTime(b) - orderTime(a)).slice(0, 8),
     lowStockProducts: lowStockProducts.slice(0, 8),
   };
 }

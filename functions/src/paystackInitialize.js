@@ -5,11 +5,9 @@
  * FIREBASE_SERVICE_ACCOUNT for the redirect checkout path.
  */
 const { onRequest } = require("firebase-functions/v2/https");
-const { defineSecret } = require("firebase-functions/params");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { stripUndefined } = require("./stripUndefined");
-
-const paystackSecret = defineSecret("PAYSTACK_SECRET_KEY");
+const { getPaystackSecretKey } = require("./env");
 
 const COLLECTIONS = {
   orders: "orders",
@@ -56,7 +54,8 @@ function appendTimeline(timeline, event) {
   return Array.isArray(timeline) ? [...timeline, entry] : [entry];
 }
 
-async function callPaystackInitialize(secret, payload) {
+async function callPaystackInitialize(payload) {
+  const secret = getPaystackSecretKey();
   const response = await fetch("https://api.paystack.co/transaction/initialize", {
     method: "POST",
     headers: {
@@ -76,7 +75,6 @@ async function callPaystackInitialize(secret, payload) {
 exports.paystackInitialize = onRequest(
   {
     region: "us-central1",
-    secrets: [paystackSecret],
     timeoutSeconds: 60,
     memory: "256MiB",
     cors: true,
@@ -110,8 +108,7 @@ exports.paystackInitialize = onRequest(
       return;
     }
 
-    const secret = paystackSecret.value()?.trim();
-    if (!secret) {
+    if (!getPaystackSecretKey()) {
       log("init.failure", "PAYSTACK_SECRET_KEY missing", {});
       res.status(500).json({
         ok: false,
@@ -181,7 +178,7 @@ exports.paystackInitialize = onRequest(
         email,
       });
 
-      const initialized = await callPaystackInitialize(secret, {
+      const initialized = await callPaystackInitialize({
         email,
         amount: amountKobo,
         reference,

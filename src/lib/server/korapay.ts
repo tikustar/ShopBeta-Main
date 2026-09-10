@@ -176,15 +176,16 @@ export function normalizeKorapayVerification(
 
 /** Validate KoraPay webhook signature (x-korapay-signature). */
 export function verifyKorapayWebhookSignature(
-  rawBody: string,
+  payload: { data?: unknown },
   signature: string | null,
 ): boolean {
   if (!signature) return false;
   const secret = getKorapaySecretKey();
   if (!secret) return false;
   
-  // KoraPay signature is HMAC-SHA256 of the data object only
-  const hash = createHmac("sha256", secret).update(rawBody).digest("hex");
+  // KoraPay signature is HMAC-SHA256 of the data object only (per official docs)
+  const dataString = JSON.stringify(payload.data);
+  const hash = createHmac("sha256", secret).update(dataString).digest("hex");
   try {
     const expected = Buffer.from(hash, "utf8");
     const provided = Buffer.from(signature, "utf8");

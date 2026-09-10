@@ -11,6 +11,9 @@ const KORAPAY_BASE = "https://api.korapay.com/merchant/api/v1";
 
 async function korapayFetch(path, init) {
   const secret = getKorapaySecretKey();
+  if (!secret) {
+    throw new HttpsError("internal", "KoraPay is not configured");
+  }
   const response = await fetch(`${KORAPAY_BASE}${path}`, {
     ...init,
     headers: {
@@ -38,6 +41,10 @@ function paymentReferenceForOrder(order) {
 
 exports.korapayInitialize = onCall(async (request) => {
   const { orderId, callbackUrl } = request.data;
+
+  if (!getKorapaySecretKey()) {
+    throw new HttpsError("internal", "KoraPay is not configured");
+  }
 
   if (!orderId) {
     throw new HttpsError("invalid-argument", "Order ID is required");

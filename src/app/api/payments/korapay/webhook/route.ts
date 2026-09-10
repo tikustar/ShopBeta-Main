@@ -66,17 +66,6 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!verifyKorapayWebhookSignature(rawBody, signature)) {
-    paymentLog("webhook.signature", "Invalid KoraPay signature", {});
-    reportPaymentFailure("KoraPay webhook invalid signature");
-    return NextResponse.json(
-      { ok: false, reason: "Invalid signature." },
-      { status: 401 },
-    );
-  }
-
-  paymentLog("webhook.signature", "Signature valid", {});
-
   let payload: KorapayEvent;
   try {
     payload = JSON.parse(rawBody) as KorapayEvent;
@@ -87,6 +76,17 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+
+  if (!verifyKorapayWebhookSignature(payload, signature)) {
+    paymentLog("webhook.signature", "Invalid KoraPay signature", {});
+    reportPaymentFailure("KoraPay webhook invalid signature");
+    return NextResponse.json(
+      { ok: false, reason: "Invalid signature." },
+      { status: 401 },
+    );
+  }
+
+  paymentLog("webhook.signature", "Signature valid", {});
 
   const event = payload.event ?? "";
   const data = payload.data;
