@@ -7,7 +7,14 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { getOrderByNumber } from "@/services/orders.service";
-import { initializePaystackPayment } from "@/services/payments.service";
+import { 
+  initializePaystackPayment, 
+  initializeKorapayPayment,
+  isClientPaystackEnabled,
+  isClientKorapayEnabled,
+  isClientFlutterwaveEnabled,
+  isClientCodEnabled
+} from "@/services/payments.service";
 import { toastError, toastSuccess } from "@/stores/toast.store";
 import type { Order } from "@/types/order";
 import { formatPrice } from "@/lib/utils";
@@ -20,6 +27,7 @@ function PaymentRetryContent() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -44,6 +52,19 @@ function PaymentRetryContent() {
           return;
         }
         setOrder(found);
+        
+        // Auto-select first available payment provider
+        if (!selectedProvider) {
+          if (isClientPaystackEnabled()) {
+            setSelectedProvider("paystack");
+          } else if (isClientKorapayEnabled()) {
+            setSelectedProvider("korapay");
+          } else if (isClientFlutterwaveEnabled()) {
+            setSelectedProvider("flutterwave");
+          } else if (isClientCodEnabled()) {
+            setSelectedProvider("cash-on-delivery");
+          }
+        }
       } catch {
         if (active) setError("Could not load this order.");
       } finally {
@@ -53,24 +74,42 @@ function PaymentRetryContent() {
     return () => {
       active = false;
     };
-  }, [orderParam, router]);
+  }, [orderParam, router, selectedProvider]);
 
   const onRetry = async () => {
-    if (!order) return;
+    if (!order || !selectedProvider) return;
     setSubmitting(true);
     setError(null);
     try {
       const callbackUrl = `${window.location.origin}/payments/callback?order=${encodeURIComponent(order.orderNumber ?? order.id)}`;
-      const init = await initializePaystackPayment({
-        orderId: order.id,
-        callbackUrl,
-      });
+      let init;
+      
+      if (selectedProvider === "paystack") {
+        init = await initializePaystackPayment({
+          orderId: order.id,
+          callbackUrl,
+        });
+      } else if (selectedProvider === "korapay") {
+        init = await initializeKorapayPayment({
+          orderId: order.id,
+          callbackUrl,
+        });
+      } else {
+        setError("Selected payment method is not available.");
+        setSubmitting(false);
+        return;
+      }
+      
       if (!init.ok) {
         setError(init.reason);
         toastError("Could not start payment", init.reason);
         return;
       }
-      toastSuccess("Redirecting to Paystack");
+      
+      const providerName = selectedProvider === "paystack" ? "Paystack" : 
+                          selectedProvider === "korapay" ? "KoraPay" : 
+                          selectedProvider === "flutterwave" ? "Flutterwave" : "payment";
+      toastSuccess(`Redirecting to ${providerName}`);
       window.location.href = init.authorizationUrl;
     } catch {
       setError("Network error while starting payment.");
@@ -133,11 +172,19 @@ function PaymentRetryContent() {
               <Button
                 type="button"
                 size="lg"
-                disabled={submitting}
+                disabled={submitting || !selectedProvider}
                 onClick={onRetry}
               >
                 <RefreshCw className="h-4 w-4" aria-hidden />
-                {submitting ? "Starting Paystack…" : "Pay with Paystack"}
+                {submitting 
+                  ? "Starting payment…" 
+                  : selectedProvider === "paystack"
+                    ? "Pay with Paystack"
+                    : selectedProvider === "korapay"
+                      ? "Pay with KoraPay"
+                      : selectedProvider === "flutterwave"
+                        ? "Pay with Flutterwave"
+                        : "Place order"}
               </Button>
               <ButtonLink href="/cart" variant="outline" size="lg">
                 View cart

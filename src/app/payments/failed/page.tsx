@@ -118,24 +118,49 @@ function PaymentFailedContent() {
             <p className="text-[13px] text-muted mb-3">
               Confirmation taking too long?
             </p>
-            <Button
-              onClick={handleManualVerify}
-              disabled={verifying}
-              variant="outline"
-              size="sm"
-            >
-              {verifying ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Verifying payment...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Verify manually
-                </>
-              )}
-            </Button>
+            <div className="flex flex-col gap-3">
+              <Button
+                onClick={handleManualVerify}
+                disabled={verifying}
+                variant="outline"
+                size="sm"
+              >
+                {verifying ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Verifying payment...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Verify manually
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  const subject = encodeURIComponent("To Support - Payment Verification");
+                  const body = encodeURIComponent(
+                    `Dear Support Team,\n\n` +
+                    `I am writing to report a payment verification issue.\n\n` +
+                    `Transaction Details:\n` +
+                    `Order ID: ${order || 'N/A'}\n` +
+                    `Transaction Reference: ${reference}\n` +
+                    `Payment Provider: KoraPay\n` +
+                    `Transaction Status: ${reason}\n\n` +
+                    `Additional Information:\n` +
+                    `Please provide any additional details about your issue here.\n\n` +
+                    `Thank you,\n` +
+                    `Customer`
+                  );
+                  window.open(`mailto:support@shopbeta.ng?subject=${subject}&body=${body}`);
+                }}
+              >
+                Contact Support
+              </Button>
+            </div>
           </div>
         )}
         

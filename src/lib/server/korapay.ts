@@ -139,9 +139,21 @@ export async function initializeKorapayTransaction(input: {
 export async function verifyKorapayTransaction(
   reference: string,
 ): Promise<KorapayVerifyData> {
+  console.log("[verifyKorapayTransaction] Starting verification", { reference });
+  
   const result = await korapayFetch<KorapayVerifyData>(
-    `/transactions/${reference}`,
+    `/charges/${reference}`,
   );
+  
+  console.log("[verifyKorapayTransaction] KoraPay verification successful", {
+    reference,
+    status: result.data.status,
+    amount: result.data.amount,
+    currency: result.data.currency,
+    korapayReference: result.data.reference,
+    metadata: result.data.metadata,
+  });
+  
   return result.data;
 }
 
