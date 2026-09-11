@@ -42,13 +42,33 @@ function PaymentCallbackContent() {
     setVerifying(true);
     setMessage("Verifying payment manually…");
     
+    clientLog("manual_verify.start", "Starting manual verification", {
+      reference,
+      orderParam,
+      hasReference: Boolean(reference),
+      hasOrderParam: Boolean(orderParam),
+    });
+    
     try {
       // Try Paystack first, then KoraPay
       let result = await verifyPaystackPayment(reference);
       if (!result.ok) {
+        clientLog("manual_verify.paystack_failed", "Paystack verification failed", {
+          reference,
+          reason: result.reason,
+        });
         try {
           result = await verifyKorapayPayment(reference);
-        } catch {
+          clientLog("manual_verify.korapay_result", "KoraPay verification result", {
+            reference,
+            ok: result.ok,
+            reason: result.ok ? "success" : result.reason,
+          });
+        } catch (error) {
+          clientLog("manual_verify.korapay_error", "KoraPay verification error", {
+            reference,
+            error: error instanceof Error ? error.message : "unknown",
+          });
           // KoraPay also failed, stick with Paystack result
         }
       }
@@ -58,15 +78,23 @@ function PaymentCallbackContent() {
         clearCart();
         const fullOrder = await getOrderByNumber(orderNumber).catch(() => undefined);
         if (fullOrder) setLastOrder(fullOrder);
-        clientLog("callback.success", "Manual verification successful", { orderNumber });
+        clientLog("manual_verify.success", "Manual verification successful", { orderNumber });
         toastSuccess("Payment verified", `Order ${orderNumber}`);
         router.replace(`/track-order?order=${encodeURIComponent(orderNumber)}`);
         return;
       }
       
+      clientLog("manual_verify.failed", "Manual verification failed", {
+        reference,
+        reason: result.reason,
+      });
       setMessage("Payment could not be confirmed yet. Please try again shortly.");
       toastError("Verification failed", result.reason || "Payment could not be confirmed");
-    } catch {
+    } catch (error) {
+      clientLog("manual_verify.exception", "Manual verification exception", {
+        reference,
+        error: error instanceof Error ? error.message : "unknown",
+      });
       setMessage("Verification failed. Please try again shortly.");
       toastError("Verification failed", "Please try again shortly");
     } finally {
@@ -121,10 +149,10 @@ function PaymentCallbackContent() {
       router.replace(`/payments/failed?${query.toString()}`);
     };
 
-    // Show manual verify button after 10 seconds if still processing
+    // Show manual verify button after 6 seconds if still processing
     const manualVerifyTimeout = setTimeout(() => {
       if (active) setShowManualVerify(true);
-    }, 10000);
+    }, 6000);
 
     void (async () => {
       // 1) Best-effort server verify (needs Firebase Admin on the Next server).

@@ -438,12 +438,22 @@ export async function verifyKorapayForReference(reference: string) {
     };
   }
 
+  console.log("[verifyKorapayForReference] Starting verification", { reference });
+
   const db = getAdminDb();
+  
+  // First try to find payment by the exact reference
   const paymentSnap = await db
     .collection(COLLECTIONS.payments)
     .where("reference", "==", reference)
     .limit(1)
     .get();
+
+  console.log("[verifyKorapayForReference] Initial payment lookup", {
+    reference,
+    found: !paymentSnap.empty,
+    count: paymentSnap.size,
+  });
 
   let orderId: string | undefined;
   let paymentDocId: string | undefined;
@@ -455,22 +465,170 @@ export async function verifyKorapayForReference(reference: string) {
     const data = doc.data();
     orderId = data.orderId as string;
     expectedAmount = Number(data.amount);
+    console.log("[verifyKorapayForReference] Found payment by reference", {
+      orderId,
+      paymentDocId,
+      storedReference: data.reference,
+    });
   }
+
+  // If not found by reference, try to find by orderId from metadata or by looking up the order
+  if (!orderId) {
+    console.log("[verifyKorapayForReference] No payment found by reference, trying KoraPay verification");
+    
+    // Try to verify with KoraPay first to get the actual transaction details
+    let verified;
+    try {
+      verified = await verifyKorapayTransaction(reference);
+      console.log("[verifyKorapayForReference] KoraPay verification response", {
+        reference,
+        status: verified.status,
+        korapayReference: verified.reference,
+        metadata: verified.metadata,
+      });
+    } catch (error) {
+      console.error("[verifyKorapayForReference] KoraPay verification failed", {
+        reference,
+        error: error instanceof Error ? error.message : "unknown",
+      });
+      return {
+        ok: false as const,
+        reason: "Transaction not found or verification failed.",
+      };
+    }
+
+    const normalized = normalizeKorapayVerification(verified);
+    
+    // Extract orderId from KoraPay metadata
+    const meta = verified.metadata as { orderId?: string; orderNumber?: string } | undefined;
+    orderId = meta?.orderId;
+    
+    console.log("[verifyKorapayForReference] Extracted orderId from KoraPay metadata", {
+      orderId,
+      orderNumber: meta?.orderNumber,
+    });
+
+    if (!orderId) {
+      return {
+        ok: false as const,
+        reason: "Could not resolve the order for this payment reference.",
+      };
+    }
+
+    // Now look up the payment by orderId
+    const orderSnap = await db.collection(COLLECTIONS.orders).doc(orderId).get();
+    if (!orderSnap.exists) {
+      console.log("[verifyKorapayForReference] Order not found", { orderId });
+      return {
+        ok: false as const,
+        reason: "Order not found.",
+      };
+    }
+
+    const order = { id: orderSnap.id, ...orderSnap.data() } as Order;
+    expectedAmount = Number(order.total ?? order.totals?.total ?? 0);
+
+    // Look for payment by orderId
+    const paymentsByOrder = await db
+      .collection(COLLECTIONS.payments)
+      .where("orderId", "==", orderId)
+      .where("gateway", "==", "korapay")
+      .limit(1)
+      .get();
+
+    if (!paymentsByOrder.empty) {
+      const doc = paymentsByOrder.docs[0]!;
+      paymentDocId = doc.id;
+      console.log("[verifyKorapayForReference] Found payment by orderId", {
+        paymentDocId,
+        storedReference: doc.data().reference,
+      });
+    }
+
+    if (normalized.status !== "paid") {
+      await markPaymentFailed({
+        orderId,
+        reference,
+        status:
+          normalized.status === "cancelled"
+            ? "cancelled"
+            : normalized.status === "expired"
+              ? "expired"
+              : "failed",
+        reason: `Payment ${verified.status}`,
+      });
+      return {
+        ok: false as const,
+        reason: `Payment ${verified.status}`,
+        status: normalized.status,
+        orderId,
+        reference,
+      };
+    }
+
+    if (
+      expectedAmount != null &&
+      !korapayAmountsMatch(expectedAmount, verified.amount)
+    ) {
+      console.error("[verifyKorapayForReference] Amount mismatch", {
+        expectedAmount,
+        paidAmount: verified.amount,
+      });
+      return {
+        ok: false as const,
+        reason: "Paid amount does not match the recorded payment.",
+        code: "amount_mismatch",
+      };
+    }
+
+    const finalized = await finalizeSuccessfulPayment({
+      orderId,
+      payment: normalized,
+      paymentDocId,
+    });
+
+    if (!finalized.ok) {
+      return {
+        ok: false as const,
+        reason: finalized.reason,
+        code: finalized.code,
+        orderId,
+        reference,
+      };
+    }
+
+    // Best-effort Make.com notify (same path as webhook).
+    const { notifyMakeOrderPaid } = await import("@/lib/server/make-webhook");
+    await notifyMakeOrderPaid({
+      order: finalized.order,
+      reference,
+    });
+
+    return {
+      ok: true as const,
+      order: finalized.order,
+      alreadyProcessed: finalized.alreadyProcessed,
+      payment: normalized,
+      reference,
+    };
+  }
+
+  // Payment found by reference, proceed with verification
+  console.log("[verifyKorapayForReference] Proceeding with found payment", {
+    orderId,
+    paymentDocId,
+    expectedAmount,
+  });
 
   const verified = await verifyKorapayTransaction(reference);
   const normalized = normalizeKorapayVerification(verified);
 
-  if (!orderId) {
-    const meta = verified.metadata as { orderId?: string } | undefined;
-    orderId = meta?.orderId;
-  }
-
-  if (!orderId) {
-    return {
-      ok: false as const,
-      reason: "Could not resolve the order for this payment reference.",
-    };
-  }
+  console.log("[verifyKorapayForReference] KoraPay verification result", {
+    reference,
+    status: verified.status,
+    amount: verified.amount,
+    normalizedStatus: normalized.status,
+  });
 
   if (normalized.status !== "paid") {
     await markPaymentFailed({

@@ -28,26 +28,56 @@ function PaymentFailedContent() {
     
     setVerifying(true);
     
+    // Add diagnostic logging
+    console.log("[ManualVerify] Starting verification", {
+      reference,
+      order,
+      hasReference: Boolean(reference),
+      hasOrder: Boolean(order),
+    });
+    
     try {
       // Try Paystack first, then KoraPay
       let result = await verifyPaystackPayment(reference);
       if (!result.ok) {
+        console.log("[ManualVerify] Paystack verification failed", {
+          reference,
+          reason: result.reason,
+        });
         try {
           result = await verifyKorapayPayment(reference);
-        } catch {
+          console.log("[ManualVerify] KoraPay verification result", {
+            reference,
+            ok: result.ok,
+            reason: result.ok ? "success" : result.reason,
+          });
+        } catch (error) {
+          console.log("[ManualVerify] KoraPay verification error", {
+            reference,
+            error: error instanceof Error ? error.message : "unknown",
+          });
           // KoraPay also failed, stick with Paystack result
         }
       }
       
       if (result.ok) {
         const orderNumber = result.order.orderNumber || order || result.order.id;
+        console.log("[ManualVerify] Verification successful", { orderNumber });
         toastSuccess("Payment verified", `Order ${orderNumber}`);
         router.push(`/track-order?order=${encodeURIComponent(orderNumber)}`);
         return;
       }
       
+      console.log("[ManualVerify] Verification failed", {
+        reference,
+        reason: result.reason,
+      });
       toastError("Verification failed", result.reason || "Payment could not be confirmed");
-    } catch {
+    } catch (error) {
+      console.log("[ManualVerify] Verification exception", {
+        reference,
+        error: error instanceof Error ? error.message : "unknown",
+      });
       toastError("Verification failed", "Please try again shortly");
     } finally {
       setVerifying(false);
