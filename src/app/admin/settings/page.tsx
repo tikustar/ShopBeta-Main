@@ -30,10 +30,15 @@ export default function AdminSettingsPage() {
     taxRate: "0.075",
     countries: "Nigeria,Ghana,Kenya",
     codEnabled: true,
+    paystackEnabled: false,
+    korapayEnabled: false,
     flutterwaveEnabled: false,
     orderEmailEnabled: true,
     promoPushEnabled: true,
     brandColor: "#FD4646",
+    paystackSecretKey: "",
+    korapaySecretKey: "",
+    flutterwaveSecretKey: "",
   });
   const [saving, setSaving] = useState(false);
 
@@ -55,10 +60,15 @@ export default function AdminSettingsPage() {
           taxRate: String(settings.taxRate ?? 0.075),
           countries: (settings.supportedCountries ?? []).join(",") || f.countries,
           codEnabled: settings.payments?.codEnabled ?? true,
+          paystackEnabled: settings.payments?.paystackEnabled ?? false,
+          korapayEnabled: settings.payments?.korapayEnabled ?? false,
           flutterwaveEnabled: settings.payments?.flutterwaveEnabled ?? false,
           orderEmailEnabled: settings.notifications?.orderEmailEnabled ?? true,
           promoPushEnabled: settings.notifications?.promoPushEnabled ?? true,
           brandColor: settings.theme?.brandColor ?? f.brandColor,
+          paystackSecretKey: "", // Never pre-fill secret keys
+          korapaySecretKey: "", // Never pre-fill secret keys
+          flutterwaveSecretKey: "", // Never pre-fill secret keys
         }));
       })
       .catch(() => undefined);
@@ -93,8 +103,14 @@ export default function AdminSettingsPage() {
           taxRate: Number(form.taxRate) || 0.075,
           payments: {
             codEnabled: form.codEnabled,
+            paystackEnabled: form.paystackEnabled,
+            korapayEnabled: form.korapayEnabled,
             flutterwaveEnabled: form.flutterwaveEnabled,
-            paystackPublicKeyHint: "Configured via environment variables",
+          },
+          paymentSecrets: {
+            ...(form.paystackSecretKey ? { paystackSecretKey: form.paystackSecretKey } : {}),
+            ...(form.korapaySecretKey ? { korapaySecretKey: form.korapaySecretKey } : {}),
+            ...(form.flutterwaveSecretKey ? { flutterwaveSecretKey: form.flutterwaveSecretKey } : {}),
           },
           notifications: {
             orderEmailEnabled: form.orderEmailEnabled,
@@ -235,26 +251,83 @@ export default function AdminSettingsPage() {
         <section className="space-y-3">
           <h2 className="text-sm font-semibold text-ink">Payments</h2>
           <p className="text-[12px] text-muted">
-            Paystack secret keys are never stored here — use Vercel / `.env`
-            (`PAYSTACK_SECRET_KEY`, `NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY`).
+            Configure payment providers. Secret keys are stored securely in Firestore and never exposed to the client.
           </p>
-          <Checkbox
-            label="Cash on delivery enabled"
-            checked={form.codEnabled}
-            onChange={() =>
-              setForm((f) => ({ ...f, codEnabled: !f.codEnabled }))
-            }
-          />
-          <Checkbox
-            label="Flutterwave toggle (prepared)"
-            checked={form.flutterwaveEnabled}
-            onChange={() =>
-              setForm((f) => ({
-                ...f,
-                flutterwaveEnabled: !f.flutterwaveEnabled,
-              }))
-            }
-          />
+          
+          <div className="space-y-3">
+            <h3 className="text-[13px] font-medium text-ink">Provider Availability</h3>
+            <Checkbox
+              label="Paystack enabled"
+              checked={form.paystackEnabled}
+              onChange={() =>
+                setForm((f) => ({ ...f, paystackEnabled: !f.paystackEnabled }))
+              }
+            />
+            <Checkbox
+              label="KoraPay enabled"
+              checked={form.korapayEnabled}
+              onChange={() =>
+                setForm((f) => ({ ...f, korapayEnabled: !f.korapayEnabled }))
+              }
+            />
+            <Checkbox
+              label="Flutterwave enabled"
+              checked={form.flutterwaveEnabled}
+              onChange={() =>
+                setForm((f) => ({ ...f, flutterwaveEnabled: !f.flutterwaveEnabled }))
+              }
+            />
+            <Checkbox
+              label="Cash on delivery enabled"
+              checked={form.codEnabled}
+              onChange={() =>
+                setForm((f) => ({ ...f, codEnabled: !f.codEnabled }))
+              }
+            />
+          </div>
+
+          <div className="space-y-3">
+            <h3 className="text-[13px] font-medium text-ink">Secret Keys</h3>
+            <p className="text-[11px] text-muted">
+              Enter secret keys to configure payment providers. Keys are stored securely and never displayed after saving.
+            </p>
+            <div>
+              <Label htmlFor="paystackSecret">Paystack Secret Key</Label>
+              <Input
+                id="paystackSecret"
+                type="password"
+                placeholder="Enter Paystack secret key"
+                value={form.paystackSecretKey}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, paystackSecretKey: e.target.value }))
+                }
+              />
+            </div>
+            <div>
+              <Label htmlFor="korapaySecret">KoraPay Secret Key</Label>
+              <Input
+                id="korapaySecret"
+                type="password"
+                placeholder="Enter KoraPay secret key"
+                value={form.korapaySecretKey}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, korapaySecretKey: e.target.value }))
+                }
+              />
+            </div>
+            <div>
+              <Label htmlFor="flutterwaveSecret">Flutterwave Secret Key</Label>
+              <Input
+                id="flutterwaveSecret"
+                type="password"
+                placeholder="Enter Flutterwave secret key"
+                value={form.flutterwaveSecretKey}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, flutterwaveSecretKey: e.target.value }))
+                }
+              />
+            </div>
+          </div>
         </section>
 
         <section className="space-y-3">

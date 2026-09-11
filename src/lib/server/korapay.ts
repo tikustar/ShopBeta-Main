@@ -39,7 +39,7 @@ async function korapayFetch<T>(
   path: string,
   init?: RequestInit,
 ): Promise<KorapayResponse<T>> {
-  const secret = getKorapaySecretKey();
+  const secret = await getKorapaySecretKey();
   console.log("[korapayFetch] Making request", { 
     path, 
     hasSecret: Boolean(secret),
@@ -187,12 +187,12 @@ export function normalizeKorapayVerification(
 }
 
 /** Validate KoraPay webhook signature (x-korapay-signature). */
-export function verifyKorapayWebhookSignature(
+export async function verifyKorapayWebhookSignature(
   payload: { data?: unknown },
   signature: string | null,
-): boolean {
+): Promise<boolean> {
   if (!signature) return false;
-  const secret = getKorapaySecretKey();
+  const secret = await getKorapaySecretKey();
   if (!secret) return false;
   
   // KoraPay signature is HMAC-SHA256 of the data object only (per official docs)

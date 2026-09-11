@@ -46,13 +46,13 @@ export async function initializePaystackForOrder(input: {
   orderId: string;
   callbackUrl?: string;
 }) {
-  if (!isPaystackEnabled()) {
+  if (!(await isPaystackEnabled())) {
     return {
       ok: false as const,
       reason: "Paystack is currently disabled.",
     };
   }
-  if (!isPaystackConfigured()) {
+  if (!(await isPaystackConfigured())) {
     return {
       ok: false as const,
       reason: "Paystack is not configured on the server.",
@@ -161,14 +161,14 @@ export async function initializeKorapayForOrder(input: {
 }) {
   console.log("[initializeKorapayForOrder] Starting initialization", { orderId: input.orderId });
   
-  if (!isKorapayEnabled()) {
+  if (!(await isKorapayEnabled())) {
     console.log("[initializeKorapayForOrder] KoraPay is disabled");
     return {
       ok: false as const,
       reason: "KoraPay is currently disabled.",
     };
   }
-  if (!isKorapayConfigured()) {
+  if (!(await isKorapayConfigured())) {
     console.log("[initializeKorapayForOrder] KoraPay is not configured");
     return {
       ok: false as const,
@@ -313,13 +313,13 @@ export async function initializeKorapayForOrder(input: {
 }
 
 export async function verifyPaystackForReference(reference: string) {
-  if (!isPaystackEnabled()) {
+  if (!(await isPaystackEnabled())) {
     return {
       ok: false as const,
       reason: "Paystack is currently disabled.",
     };
   }
-  if (!isPaystackConfigured()) {
+  if (!(await isPaystackConfigured())) {
     return {
       ok: false as const,
       reason: "Paystack is not configured on the server.",
@@ -425,13 +425,13 @@ export async function verifyPaystackForReference(reference: string) {
 }
 
 export async function verifyKorapayForReference(reference: string) {
-  if (!isKorapayEnabled()) {
+  if (!(await isKorapayEnabled())) {
     return {
       ok: false as const,
       reason: "KoraPay is currently disabled.",
     };
   }
-  if (!isKorapayConfigured()) {
+  if (!(await isKorapayConfigured())) {
     return {
       ok: false as const,
       reason: "KoraPay is not configured on the server.",

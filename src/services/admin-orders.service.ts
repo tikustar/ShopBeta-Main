@@ -1,4 +1,5 @@
 import {
+  deleteDoc,
   getDoc,
   getDocs,
   serverTimestamp,
@@ -7,7 +8,7 @@ import {
 import { orderDoc, ordersCollection } from "@/firebase/collections";
 import { appendTimeline } from "@/lib/order-timeline";
 import { writeAuditLog } from "@/services/audit.service";
-import type { Order, OrderStatus, PaymentStatus } from "@/types/order";
+import type { Order, OrderItem, OrderStatus, PaymentStatus } from "@/types/order";
 import { stripUndefined } from "@/utils/firestore";
 
 type Actor = { id: string; email?: string };
@@ -17,8 +18,20 @@ export async function listOrdersAdmin(): Promise<Order[]> {
   return snapshot.docs
     .map((d) => d.data())
     .sort((a, b) => {
-      const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
-      const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : 0;
+      const aTime = a.createdAt instanceof Date 
+        ? a.createdAt.getTime() 
+        : a.createdAt && typeof a.createdAt === 'object' && 'toDate' in a.createdAt
+          ? (a.createdAt as { toDate: () => Date }).toDate().getTime()
+          : typeof a.createdAt === 'string' || typeof a.createdAt === 'number'
+            ? new Date(a.createdAt).getTime()
+            : 0;
+      const bTime = b.createdAt instanceof Date 
+        ? b.createdAt.getTime() 
+        : b.createdAt && typeof b.createdAt === 'object' && 'toDate' in b.createdAt
+          ? (b.createdAt as { toDate: () => Date }).toDate().getTime()
+          : typeof b.createdAt === 'string' || typeof b.createdAt === 'number'
+            ? new Date(b.createdAt).getTime()
+            : 0;
       return bTime - aTime;
     });
 }
@@ -112,5 +125,81 @@ export async function setOrderTrackingAdmin(
     resourceType: "order",
     resourceId: id,
     newValue: { trackingNumber },
+  });
+}
+
+export async function deleteOrderAdmin(id: string, actor: Actor) {
+  const existing = await getOrderAdmin(id);
+  if (!existing) throw new Error("Order not found.");
+  
+  await deleteDoc(orderDoc(id));
+  
+  await writeAuditLog({
+    actorId: actor.id,
+    actorEmail: actor.email,
+    action: "order.deleted",
+    resourceType: "order",
+    resourceId: id,
+    previousValue: {
+      orderNumber: existing.orderNumber,
+      total: existing.total,
+      paymentStatus: existing.paymentStatus,
+    },
+  });
+}
+
+export async function sendOrderEmailAdmin(id: string, actor: Actor) {
+  const existing = await getOrderAdmin(id);
+  if (!existing) throw new Error("Order not found.");
+  
+  if (existing.paymentStatus !== "paid") {
+    throw new Error("Cannot send email for unpaid order.");
+  }
+  
+  // Build the order payload for Make.com
+  const orderPayload = {
+    customerName: existing.customer?.name || "",
+    customerEmail: existing.customer?.email || "",
+    phoneNumber: existing.customer?.phone || "",
+    orderId: existing.orderNumber || existing.id,
+    orderDate: existing.createdAt,
+    expectedDelivery: (existing as Order & { expectedDelivery?: string }).expectedDelivery,
+    shippingAddress: existing.shippingAddress,
+    subtotal: existing.subtotal || 0,
+    products: (existing.products || existing.items || []).map(item => ({
+      productName: item.name,
+      quantity: item.quantity,
+      price: (item as OrderItem & { price?: number }).price || 0,
+      subtotal: ((item as OrderItem & { price?: number }).price || 0) * item.quantity,
+    })),
+    deliveryFee: existing.deliveryFee || 0,
+    discount: existing.discount || 0,
+    totalPrice: existing.total || 0,
+    paymentStatus: existing.paymentStatus,
+    paymentMethod: existing.paymentMethod,
+    reference: existing.paymentReference,
+    orderStatus: existing.orderStatus || existing.status,
+  };
+  
+  // Send to Make.com webhook
+  const response = await fetch("/api/make-webhook", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(orderPayload),
+  });
+  
+  if (!response.ok) {
+    throw new Error("Failed to send order email.");
+  }
+  
+  await writeAuditLog({
+    actorId: actor.id,
+    actorEmail: actor.email,
+    action: "order.email_sent",
+    resourceType: "order",
+    resourceId: id,
+    newValue: { orderNumber: existing.orderNumber },
   });
 }

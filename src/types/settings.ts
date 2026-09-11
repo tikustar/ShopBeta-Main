@@ -50,8 +50,16 @@ export type AppSettingsDocument = {
   /** Public payment toggles — never store secret keys here. */
   payments?: {
     codEnabled?: boolean;
+    paystackEnabled?: boolean;
+    korapayEnabled?: boolean;
     flutterwaveEnabled?: boolean;
     paystackPublicKeyHint?: string;
+  };
+  /** Secret payment keys — server-side only, never expose to client */
+  paymentSecrets?: {
+    paystackSecretKey?: string;
+    korapaySecretKey?: string;
+    flutterwaveSecretKey?: string;
   };
   notifications?: {
     orderEmailEnabled?: boolean;

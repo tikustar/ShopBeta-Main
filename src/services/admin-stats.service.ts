@@ -20,7 +20,15 @@ function startOfMonth(date = new Date()) {
 }
 
 function orderTime(order: Order) {
-  if (order.createdAt instanceof Date) return order.createdAt.getTime();
+  const createdAt = order.createdAt;
+  if (createdAt instanceof Date) return createdAt.getTime();
+  if (createdAt && typeof createdAt === 'object' && 'toDate' in createdAt) {
+    return (createdAt as { toDate: () => Date }).toDate().getTime();
+  }
+  if (typeof createdAt === 'string' || typeof createdAt === 'number') {
+    const date = new Date(createdAt);
+    return isNaN(date.getTime()) ? 0 : date.getTime();
+  }
   return 0;
 }
 

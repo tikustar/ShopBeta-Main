@@ -43,7 +43,7 @@ async function paystackFetch<T>(
   path: string,
   init?: RequestInit,
 ): Promise<PaystackResponse<T>> {
-  const secret = getPaystackSecretKey();
+  const secret = await getPaystackSecretKey();
   const response = await fetch(`${PAYSTACK_BASE}${path}`, {
     ...init,
     headers: {
@@ -143,12 +143,12 @@ export function normalizePaystackVerification(
 }
 
 /** Validate Paystack webhook signature (x-paystack-signature). */
-export function verifyPaystackWebhookSignature(
+export async function verifyPaystackWebhookSignature(
   rawBody: string,
   signature: string | null,
-): boolean {
+): Promise<boolean> {
   if (!signature) return false;
-  const secret = getPaystackWebhookSecret();
+  const secret = await getPaystackWebhookSecret();
   if (!secret) return false;
   const hash = createHmac("sha512", secret).update(rawBody).digest("hex");
   try {

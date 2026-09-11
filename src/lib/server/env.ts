@@ -8,10 +8,11 @@ export function getAppUrl() {
   );
 }
 
-export function getPaystackSecretKey() {
-  const key = process.env.PAYSTACK_SECRET_KEY?.trim();
+export async function getPaystackSecretKey() {
+  const { getPaymentSecretKey } = await import("@/services/settings.service");
+  const key = await getPaymentSecretKey('paystack');
   if (!key) {
-    throw new Error("PAYSTACK_SECRET_KEY is not configured.");
+    throw new Error("Paystack secret key is not configured.");
   }
   return key;
 }
@@ -20,12 +21,9 @@ export function getPaystackPublicKey() {
   return process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY?.trim() ?? "";
 }
 
-export function getPaystackWebhookSecret() {
-  return (
-    process.env.PAYSTACK_WEBHOOK_SECRET?.trim() ||
-    process.env.PAYSTACK_SECRET_KEY?.trim() ||
-    ""
-  );
+export async function getPaystackWebhookSecret() {
+  const secretKey = await getPaystackSecretKey();
+  return secretKey;
 }
 
 export function getMakeWebhookUrl() {
@@ -36,28 +34,36 @@ export function getMakeWebhookUrl() {
   );
 }
 
-export function isCodEnabled() {
+export async function isCodEnabled() {
+  // COD is handled differently - check settings or fallback to env
+  const settings = await import("@/services/settings.service").then(m => m.getAppSettings());
+  const codEnabled = settings?.payments?.codEnabled;
+  
+  if (codEnabled !== undefined) {
+    return codEnabled;
+  }
+  
+  // Fallback to environment variable
   const raw = process.env.NEXT_PUBLIC_COD_ENABLED ?? "true";
   return raw !== "0" && raw.toLowerCase() !== "false";
 }
 
-export function isFlutterwaveEnabled() {
-  const raw = process.env.NEXT_PUBLIC_FLUTTERWAVE_ENABLED ?? "false";
-  return raw === "1" || raw.toLowerCase() === "true";
+export async function isFlutterwaveEnabled() {
+  const { isPaymentProviderEnabled } = await import("@/services/settings.service");
+  return await isPaymentProviderEnabled('flutterwave');
 }
 
-export function isKorapayEnabled() {
-  const raw = process.env.NEXT_PUBLIC_KORAPAY_ENABLED ?? "false";
-  return raw === "1" || raw.toLowerCase() === "true";
+export async function isKorapayEnabled() {
+  const { isPaymentProviderEnabled } = await import("@/services/settings.service");
+  return await isPaymentProviderEnabled('korapay');
 }
 
-export function getKorapaySecretKey() {
-  const key = process.env.KORAPAY_SECRET_KEY?.trim();
+export async function getKorapaySecretKey() {
+  const { getPaymentSecretKey } = await import("@/services/settings.service");
+  const key = await getPaymentSecretKey('korapay');
   if (!key) {
-    console.error("KORAPAY_SECRET_KEY is not configured in environment");
-    throw new Error("KORAPAY_SECRET_KEY is not configured.");
+    throw new Error("KoraPay secret key is not configured.");
   }
-  console.log("KoraPay secret key found (length):", key.length);
   return key;
 }
 
@@ -65,19 +71,21 @@ export function getKorapayPublicKey() {
   return process.env.NEXT_PUBLIC_KORAPAY_PUBLIC_KEY?.trim() ?? "";
 }
 
-export function isKorapayConfigured() {
-  return Boolean(process.env.KORAPAY_SECRET_KEY?.trim());
+export async function isKorapayConfigured() {
+  const { getPaymentSecretKey } = await import("@/services/settings.service");
+  const key = await getPaymentSecretKey('korapay');
+  return Boolean(key);
 }
 
-export function isPaystackConfigured() {
-  // Server initialize / verify only need the secret. Public key is optional
-  // (required only for client-side Paystack Inline JS, not redirect checkout).
-  return Boolean(process.env.PAYSTACK_SECRET_KEY?.trim());
+export async function isPaystackConfigured() {
+  const { getPaymentSecretKey } = await import("@/services/settings.service");
+  const key = await getPaymentSecretKey('paystack');
+  return Boolean(key);
 }
 
-export function isPaystackEnabled() {
-  const raw = process.env.NEXT_PUBLIC_PAYSTACK_ENABLED ?? "true";
-  return raw === "1" || raw.toLowerCase() === "true";
+export async function isPaystackEnabled() {
+  const { isPaymentProviderEnabled } = await import("@/services/settings.service");
+  return await isPaymentProviderEnabled('paystack');
 }
 
 /** HTTPS base for Paystack Cloud Functions (initialize + webhook). */

@@ -131,32 +131,57 @@ export function getPaystackPublicKey() {
   return process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY?.trim() ?? "";
 }
 
-/**
- * Redirect checkout works without the public key (Inline JS needs it).
- * Disable explicitly with NEXT_PUBLIC_PAYSTACK_ENABLED=false.
- */
-export function isClientPaystackEnabled() {
-  const flag = process.env.NEXT_PUBLIC_PAYSTACK_ENABLED?.trim().toLowerCase();
-  if (flag === "0" || flag === "false") return false;
-  if (flag === "1" || flag === "true") return true;
-  // Default: enabled when public key is set, or when not explicitly disabled
-  // (server / Cloud Function still require PAYSTACK_SECRET_KEY).
-  return true;
+// Payment provider availability cache
+let providerSettings: {
+  paystack: boolean;
+  korapay: boolean;
+  flutterwave: boolean;
+  cod: boolean;
+} | null = null;
+
+async function fetchProviderSettings() {
+  try {
+    const response = await fetch('/api/payment-settings');
+    const data = await response.json();
+    providerSettings = data;
+    return data;
+  } catch (error) {
+    console.error('Failed to fetch payment settings:', error);
+    // Fallback to environment variables during migration
+    return {
+      paystack: process.env.NEXT_PUBLIC_PAYSTACK_ENABLED === 'true',
+      korapay: process.env.NEXT_PUBLIC_KORAPAY_ENABLED === 'true',
+      flutterwave: process.env.NEXT_PUBLIC_FLUTTERWAVE_ENABLED === 'true',
+      cod: process.env.NEXT_PUBLIC_COD_ENABLED !== 'false',
+    };
+  }
 }
 
-export function isClientCodEnabled() {
-  const raw = process.env.NEXT_PUBLIC_COD_ENABLED ?? "true";
-  return raw !== "0" && raw.toLowerCase() !== "false";
+export async function getPaymentProviderSettings() {
+  if (!providerSettings) {
+    await fetchProviderSettings();
+  }
+  return providerSettings!;
 }
 
-export function isClientFlutterwaveEnabled() {
-  const raw = process.env.NEXT_PUBLIC_FLUTTERWAVE_ENABLED ?? "false";
-  return raw === "1" || raw.toLowerCase() === "true";
+export async function isClientPaystackEnabled() {
+  const settings = await getPaymentProviderSettings();
+  return settings.paystack;
 }
 
-export function isClientKorapayEnabled() {
-  const raw = process.env.NEXT_PUBLIC_KORAPAY_ENABLED ?? "false";
-  return raw === "1" || raw.toLowerCase() === "true";
+export async function isClientKorapayEnabled() {
+  const settings = await getPaymentProviderSettings();
+  return settings.korapay;
+}
+
+export async function isClientFlutterwaveEnabled() {
+  const settings = await getPaymentProviderSettings();
+  return settings.flutterwave;
+}
+
+export async function isClientCodEnabled() {
+  const settings = await getPaymentProviderSettings();
+  return settings.cod;
 }
 
 export type InitializeKorapayResponse =

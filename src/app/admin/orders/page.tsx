@@ -16,9 +16,11 @@ import {
   setOrderTrackingAdmin,
   updateOrderPaymentStatusAdmin,
   updateOrderStatusAdmin,
+  deleteOrderAdmin,
+  sendOrderEmailAdmin,
 } from "@/services/admin-orders.service";
 import { useUserStore } from "@/stores/user.store";
-import { toastSuccess } from "@/stores/toast.store";
+import { toastError, toastSuccess } from "@/stores/toast.store";
 import { formatPrice } from "@/lib/utils";
 import type { Order, OrderStatus, PaymentStatus } from "@/types/order";
 
@@ -35,6 +37,40 @@ function OrdersInner() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selected, setSelected] = useState<Order | null>(null);
   const [tracking, setTracking] = useState("");
+  const [deletingOrder, setDeletingOrder] = useState<string | null>(null);
+  const [sendingEmail, setSendingEmail] = useState<string | null>(null);
+
+  const orderTime = (order: Order) => {
+    const createdAt = order.createdAt;
+    if (createdAt instanceof Date) return createdAt.getTime();
+    if (createdAt && typeof createdAt === 'object' && 'toDate' in createdAt) {
+      return (createdAt as { toDate: () => Date }).toDate().getTime();
+    }
+    if (typeof createdAt === 'string' || typeof createdAt === 'number') {
+      const date = new Date(createdAt);
+      return isNaN(date.getTime()) ? 0 : date.getTime();
+    }
+    return 0;
+  };
+
+  const formatOrderDate = (order: Order): string => {
+    const timestamp = orderTime(order);
+    if (!timestamp) return "—";
+    
+    const date = new Date(timestamp);
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const month = months[date.getMonth()];
+    const day = date.getDate();
+    const year = date.getFullYear();
+    
+    const hours = date.getHours();
+    const minutes = date.getMinutes();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const hours12 = hours % 12 || 12;
+    const minutesStr = minutes.toString().padStart(2, '0');
+    
+    return `${month} ${day}, ${year} • ${hours12}:${minutesStr} ${ampm}`;
+  };
 
   const reload = () => listOrdersAdmin().then(setOrders).catch(() => undefined);
   useEffect(() => {
@@ -67,6 +103,8 @@ function OrdersInner() {
         (o) => (o.orderStatus ?? o.status) === statusFilter,
       );
     }
+    // Sort by creation time, newest first
+    next = [...next].sort((a, b) => orderTime(b) - orderTime(a));
     return next;
   }, [orders, query, statusFilter]);
 
@@ -102,7 +140,7 @@ function OrdersInner() {
           <AdminEmpty title="No orders found" />
         ) : (
           <AdminTable
-            headers={["Order", "Customer", "Total", "Payment", "Status"]}
+            headers={["Order", "Customer", "Total", "Payment", "Status", "Date", "Actions"]}
           >
             {filtered.map((order) => (
               <tr
@@ -127,6 +165,60 @@ function OrdersInner() {
                 </td>
                 <td className="px-4 py-3 capitalize text-muted">
                   {order.orderStatus ?? order.status ?? "pending"}
+                </td>
+                <td className="px-4 py-3 text-muted">
+                  {formatOrderDate(order)}
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex gap-2">
+                    {order.paymentStatus === "paid" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          setSendingEmail(order.id);
+                          try {
+                            await sendOrderEmailAdmin(order.id, actor);
+                            toastSuccess("Email sent successfully");
+                          } catch (error) {
+                            toastError("Failed to send email", error instanceof Error ? error.message : "Unknown error");
+                          } finally {
+                            setSendingEmail(null);
+                          }
+                        }}
+                        disabled={sendingEmail === order.id}
+                      >
+                        {sendingEmail === order.id ? "Sending..." : "Send Email"}
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        if (confirm(`Are you sure you want to delete order ${order.orderNumber ?? order.id}? This action cannot be undone.`)) {
+                          setDeletingOrder(order.id);
+                          try {
+                            await deleteOrderAdmin(order.id, actor);
+                            setOrders(prev => prev.filter(o => o.id !== order.id));
+                            toastSuccess("Order deleted successfully");
+                            if (selected?.id === order.id) {
+                              setSelected(null);
+                            }
+                          } catch (error) {
+                            toastError("Failed to delete order", error instanceof Error ? error.message : "Unknown error");
+                          } finally {
+                            setDeletingOrder(null);
+                          }
+                        }
+                      }}
+                      disabled={deletingOrder === order.id}
+                      className="text-red-600 hover:text-red-700"
+                    >
+                      {deletingOrder === order.id ? "Deleting..." : "Delete"}
+                    </Button>
+                  </div>
                 </td>
               </tr>
             ))}

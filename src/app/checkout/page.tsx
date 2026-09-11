@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, CreditCard, Lock, Truck } from "lucide-react";
 import {
@@ -25,10 +25,7 @@ import {
   confirmCashOnDelivery,
   initializePaystackPayment,
   initializeKorapayPayment,
-  isClientCodEnabled,
-  isClientFlutterwaveEnabled,
-  isClientPaystackEnabled,
-  isClientKorapayEnabled,
+  getPaymentProviderSettings,
 } from "@/services/payments.service";
 import { applyCouponCode } from "@/lib/coupons";
 import { useCartStore } from "@/stores/cart.store";
@@ -37,6 +34,75 @@ import { toastError, toastSuccess } from "@/stores/toast.store";
 import { useUserStore } from "@/stores/user.store";
 import type { Address } from "@/types/user";
 import type { PaymentMethod } from "@/types/order";
+
+// Payment Provider Options Component
+function PaymentProviderOptions({ 
+  selectedProvider, 
+  onSelectProvider 
+}: { 
+  selectedProvider: PaymentMethod | null; 
+  onSelectProvider: (provider: PaymentMethod) => void;
+}) {
+  const [providers, setProviders] = useState<{
+    paystack: boolean;
+    korapay: boolean;
+    flutterwave: boolean;
+    cod: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    const loadProviders = async () => {
+      const settings = await getPaymentProviderSettings();
+      setProviders(settings);
+    };
+    void loadProviders();
+  }, []);
+
+  if (!providers) {
+    return <div className="text-sm text-muted">Loading payment options...</div>;
+  }
+
+  return (
+    <>
+      {providers.paystack && (
+        <Radio
+          name="payment"
+          checked={selectedProvider === "paystack" || selectedProvider === "card"}
+          onChange={() => onSelectProvider("paystack")}
+          label="Paystack (card / bank / USSD)"
+          description="You will be redirected to Paystack to complete payment"
+        />
+      )}
+      {providers.korapay && (
+        <Radio
+          name="payment"
+          checked={selectedProvider === "korapay"}
+          onChange={() => onSelectProvider("korapay")}
+          label="KoraPay (card / bank / USSD)"
+          description="You will be redirected to KoraPay to complete payment"
+        />
+      )}
+      {providers.cod && (
+        <Radio
+          name="payment"
+          checked={selectedProvider === "cash-on-delivery"}
+          onChange={() => onSelectProvider("cash-on-delivery")}
+          label="Cash on delivery"
+          description="Pay when your order arrives"
+        />
+      )}
+      {providers.flutterwave && (
+        <Radio
+          name="payment"
+          checked={selectedProvider === "flutterwave"}
+          onChange={() => onSelectProvider("flutterwave")}
+          label="Flutterwave"
+          description="Flutterwave checkout"
+        />
+      )}
+    </>
+  );
+}
 
 const steps = [
   { label: "Cart", state: "done" as const },
@@ -89,15 +155,22 @@ export default function CheckoutPage() {
   useMemo(() => {
     if (paymentMethod) return;
     
-    if (isClientPaystackEnabled()) {
-      setPaymentMethod("paystack");
-    } else if (isClientKorapayEnabled()) {
-      setPaymentMethod("korapay");
-    } else if (isClientFlutterwaveEnabled()) {
-      setPaymentMethod("flutterwave");
-    } else if (isClientCodEnabled()) {
-      setPaymentMethod("cash-on-delivery");
-    }
+    // Get payment provider settings
+    const loadSettings = async () => {
+      const settings = await getPaymentProviderSettings();
+      
+      if (settings.paystack) {
+        setPaymentMethod("paystack");
+      } else if (settings.korapay) {
+        setPaymentMethod("korapay");
+      } else if (settings.flutterwave) {
+        setPaymentMethod("flutterwave");
+      } else if (settings.cod) {
+        setPaymentMethod("cash-on-delivery");
+      }
+    };
+    
+    void loadSettings();
   }, [paymentMethod, setPaymentMethod]);
 
   const subtotal = cartSubtotal(items);
@@ -170,19 +243,23 @@ export default function CheckoutPage() {
       setError("Flutterwave is coming soon. Please pay with Paystack or COD.");
       return;
     }
-    if (method === "paystack" && !isClientPaystackEnabled()) {
+    
+    // Get payment provider settings
+    const settings = await getPaymentProviderSettings();
+    
+    if (method === "paystack" && !settings.paystack) {
       setError(
         "Card payment is temporarily unavailable. Choose cash on delivery or try again later.",
       );
       return;
     }
-    if (method === "korapay" && !isClientKorapayEnabled()) {
+    if (method === "korapay" && !settings.korapay) {
       setError(
         "KoraPay payment is temporarily unavailable. Choose cash on delivery or try again later.",
       );
       return;
     }
-    if (method === "cash-on-delivery" && !isClientCodEnabled()) {
+    if (method === "cash-on-delivery" && !settings.cod) {
       setError("Cash on delivery is not available right now.");
       return;
     }
@@ -576,42 +653,10 @@ export default function CheckoutPage() {
               Pay securely with your preferred payment method.
             </p>
             <div className="mt-5 space-y-3">
-              {isClientPaystackEnabled() ? (
-                <Radio
-                  name="payment"
-                  checked={paymentMethod === "paystack" || paymentMethod === "card"}
-                  onChange={() => setPaymentMethod("paystack")}
-                  label="Paystack (card / bank / USSD)"
-                  description="You will be redirected to Paystack to complete payment"
-                />
-              ) : null}
-              {isClientKorapayEnabled() ? (
-                <Radio
-                  name="payment"
-                  checked={paymentMethod === "korapay"}
-                  onChange={() => setPaymentMethod("korapay")}
-                  label="KoraPay (card / bank / USSD)"
-                  description="You will be redirected to KoraPay to complete payment"
-                />
-              ) : null}
-              {isClientCodEnabled() ? (
-                <Radio
-                  name="payment"
-                  checked={paymentMethod === "cash-on-delivery"}
-                  onChange={() => setPaymentMethod("cash-on-delivery")}
-                  label="Cash on delivery"
-                  description="Pay when your order arrives"
-                />
-              ) : null}
-              {isClientFlutterwaveEnabled() ? (
-                <Radio
-                  name="payment"
-                  checked={paymentMethod === "flutterwave"}
-                  onChange={() => setPaymentMethod("flutterwave")}
-                  label="Flutterwave"
-                  description="Flutterwave checkout"
-                />
-              ) : null}
+              <PaymentProviderOptions 
+                selectedProvider={paymentMethod}
+                onSelectProvider={setPaymentMethod}
+              />
             </div>
           </Card>
         </div>

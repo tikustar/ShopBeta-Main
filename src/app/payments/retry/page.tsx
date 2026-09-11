@@ -10,10 +10,7 @@ import { getOrderByNumber } from "@/services/orders.service";
 import { 
   initializePaystackPayment, 
   initializeKorapayPayment,
-  isClientPaystackEnabled,
-  isClientKorapayEnabled,
-  isClientFlutterwaveEnabled,
-  isClientCodEnabled
+  getPaymentProviderSettings
 } from "@/services/payments.service";
 import { toastError, toastSuccess } from "@/stores/toast.store";
 import type { Order } from "@/types/order";
@@ -28,6 +25,12 @@ function PaymentRetryContent() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
+  const [providers, setProviders] = useState<{
+    paystack: boolean;
+    korapay: boolean;
+    flutterwave: boolean;
+    cod: boolean;
+  } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -53,15 +56,18 @@ function PaymentRetryContent() {
         }
         setOrder(found);
         
-        // Auto-select first available payment provider
+        // Load payment providers and auto-select first available
         if (!selectedProvider) {
-          if (isClientPaystackEnabled()) {
+          const settings = await getPaymentProviderSettings();
+          setProviders(settings);
+          
+          if (settings.paystack) {
             setSelectedProvider("paystack");
-          } else if (isClientKorapayEnabled()) {
+          } else if (settings.korapay) {
             setSelectedProvider("korapay");
-          } else if (isClientFlutterwaveEnabled()) {
+          } else if (settings.flutterwave) {
             setSelectedProvider("flutterwave");
-          } else if (isClientCodEnabled()) {
+          } else if (settings.cod) {
             setSelectedProvider("cash-on-delivery");
           }
         }
@@ -168,6 +174,66 @@ function PaymentRetryContent() {
                 {error}
               </p>
             ) : null}
+            {providers && (
+              <div className="space-y-3">
+                <p className="text-[13px] font-medium text-ink">Payment method</p>
+                <div className="space-y-2">
+                  {providers.paystack && (
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="provider"
+                        value="paystack"
+                        checked={selectedProvider === "paystack"}
+                        onChange={(e) => setSelectedProvider(e.target.value)}
+                        className="h-4 w-4 text-primary"
+                      />
+                      <span className="text-[13px]">Paystack</span>
+                    </label>
+                  )}
+                  {providers.korapay && (
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="provider"
+                        value="korapay"
+                        checked={selectedProvider === "korapay"}
+                        onChange={(e) => setSelectedProvider(e.target.value)}
+                        className="h-4 w-4 text-primary"
+                      />
+                      <span className="text-[13px]">KoraPay</span>
+                    </label>
+                  )}
+                  {providers.flutterwave && (
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="provider"
+                        value="flutterwave"
+                        checked={selectedProvider === "flutterwave"}
+                        onChange={(e) => setSelectedProvider(e.target.value)}
+                        className="h-4 w-4 text-primary"
+                      />
+                      <span className="text-[13px]">Flutterwave</span>
+                    </label>
+                  )}
+                  {providers.cod && (
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="provider"
+                        value="cash-on-delivery"
+                        checked={selectedProvider === "cash-on-delivery"}
+                        onChange={(e) => setSelectedProvider(e.target.value)}
+                        className="h-4 w-4 text-primary"
+                      />
+                      <span className="text-[13px]">Cash on delivery</span>
+                    </label>
+                  )}
+                </div>
+              </div>
+            )}
+            
             <div className="flex flex-wrap gap-3">
               <Button
                 type="button"

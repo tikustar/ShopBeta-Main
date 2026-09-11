@@ -104,12 +104,12 @@ export async function POST(request: Request) {
       orderId: parsed.data.orderId,
       hasCallback: Boolean(parsed.data.callbackUrl),
       adminConfigured: isFirebaseAdminConfigured(),
-      paystackConfigured: isPaystackConfigured(),
+      paystackConfigured: await isPaystackConfigured(),
     });
 
     let result: InitOk | InitFail;
 
-    if (isFirebaseAdminConfigured() && isPaystackConfigured()) {
+    if (isFirebaseAdminConfigured() && (await isPaystackConfigured())) {
       paymentLog("init.admin", "Using Firebase Admin + Paystack secret", {
         orderId: parsed.data.orderId,
       });
