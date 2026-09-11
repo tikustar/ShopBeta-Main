@@ -39,16 +39,10 @@ export const DELIVERY_OPTIONS = [
     estimatedDays: "2–4 working days",
   },
   {
-    id: "scheduled",
-    label: "Scheduled 2-hour window",
-    fee: 9_000,
-    estimatedDays: "Chosen slot",
-  },
-  {
     id: "pickup",
-    label: "Store pickup — free (ready in 2 hours)",
+    label: "Store pickup — free (ready in <6 hours)",
     fee: 0,
-    estimatedDays: "Same day",
+    estimatedDays: "Same day - Pickup details will be sent to provided email address",
   },
 ] as const;
 

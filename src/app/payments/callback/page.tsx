@@ -2,9 +2,10 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Loader2, RefreshCw } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { verifyPaystackPayment, verifyKorapayPayment } from "@/services/payments.service";
 import {
   getOrderByNumber,
@@ -29,6 +30,49 @@ function PaymentCallbackContent() {
   const clearCart = useCartStore((state) => state.clear);
   const setLastOrder = useCheckoutStore((state) => state.setLastOrder);
   const [message, setMessage] = useState("Confirming your payment…");
+  const [verifying, setVerifying] = useState(false);
+  const [showManualVerify, setShowManualVerify] = useState(false);
+
+  const handleManualVerify = async () => {
+    const reference = searchParams.get("reference") || searchParams.get("trxref") || "";
+    const orderParam = searchParams.get("order") || "";
+    
+    if (!reference || verifying) return;
+    
+    setVerifying(true);
+    setMessage("Verifying payment manually…");
+    
+    try {
+      // Try Paystack first, then KoraPay
+      let result = await verifyPaystackPayment(reference);
+      if (!result.ok) {
+        try {
+          result = await verifyKorapayPayment(reference);
+        } catch {
+          // KoraPay also failed, stick with Paystack result
+        }
+      }
+      
+      if (result.ok) {
+        const orderNumber = result.order.orderNumber || orderParam || result.order.id;
+        clearCart();
+        const fullOrder = await getOrderByNumber(orderNumber).catch(() => undefined);
+        if (fullOrder) setLastOrder(fullOrder);
+        clientLog("callback.success", "Manual verification successful", { orderNumber });
+        toastSuccess("Payment verified", `Order ${orderNumber}`);
+        router.replace(`/track-order?order=${encodeURIComponent(orderNumber)}`);
+        return;
+      }
+      
+      setMessage("Payment could not be confirmed yet. Please try again shortly.");
+      toastError("Verification failed", result.reason || "Payment could not be confirmed");
+    } catch {
+      setMessage("Verification failed. Please try again shortly.");
+      toastError("Verification failed", "Please try again shortly");
+    } finally {
+      setVerifying(false);
+    }
+  };
 
   useEffect(() => {
     const cancelled = searchParams.get("cancelled");
@@ -76,6 +120,11 @@ function PaymentCallbackContent() {
       query.set("reason", reason);
       router.replace(`/payments/failed?${query.toString()}`);
     };
+
+    // Show manual verify button after 10 seconds if still processing
+    const manualVerifyTimeout = setTimeout(() => {
+      if (active) setShowManualVerify(true);
+    }, 10000);
 
     void (async () => {
       // 1) Best-effort server verify (needs Firebase Admin on the Next server).
@@ -173,6 +222,7 @@ function PaymentCallbackContent() {
     })();
 
     return () => {
+      clearTimeout(manualVerifyTimeout);
       active = false;
     };
   }, [clearCart, router, searchParams, setLastOrder]);
@@ -195,6 +245,32 @@ function PaymentCallbackContent() {
           Do not close this window. You will be redirected automatically when
           payment is confirmed.
         </p>
+        
+        {showManualVerify && (
+          <div className="mt-6 border-t border-line pt-6 w-full">
+            <p className="text-[13px] text-muted mb-3">
+              Confirmation taking too long?
+            </p>
+            <Button
+              onClick={handleManualVerify}
+              disabled={verifying}
+              variant="outline"
+              size="sm"
+            >
+              {verifying ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Verifying payment...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Verify manually
+                </>
+              )}
+            </Button>
+          </div>
+        )}
       </Card>
     </div>
   );

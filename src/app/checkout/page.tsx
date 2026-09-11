@@ -85,6 +85,21 @@ export default function CheckoutPage() {
     message: string;
   } | null>(null);
 
+  // Auto-select first available payment method if none selected
+  useMemo(() => {
+    if (paymentMethod) return;
+    
+    if (isClientPaystackEnabled()) {
+      setPaymentMethod("paystack");
+    } else if (isClientKorapayEnabled()) {
+      setPaymentMethod("korapay");
+    } else if (isClientFlutterwaveEnabled()) {
+      setPaymentMethod("flutterwave");
+    } else if (isClientCodEnabled()) {
+      setPaymentMethod("cash-on-delivery");
+    }
+  }, [paymentMethod, setPaymentMethod]);
+
   const subtotal = cartSubtotal(items);
   const shipping = deliveryFeeFor(deliveryOptionId, subtotal);
   const { tax, total } = orderGrandTotal({
@@ -150,7 +165,7 @@ export default function CheckoutPage() {
     const address = validate();
     if (!address) return;
 
-    const method = (paymentMethod ?? "paystack") as PaymentMethod;
+    const method = (paymentMethod ?? "cash-on-delivery") as PaymentMethod;
     if (method === "flutterwave") {
       setError("Flutterwave is coming soon. Please pay with Paystack or COD.");
       return;
@@ -683,10 +698,16 @@ export default function CheckoutPage() {
                   {submitting
                     ? paymentMethod === "paystack" || paymentMethod === "card"
                       ? "Redirecting to Paystack…"
-                      : "Placing order…"
+                      : paymentMethod === "korapay"
+                        ? "Redirecting to KoraPay…"
+                        : "Placing order…"
                     : paymentMethod === "paystack" || paymentMethod === "card"
                       ? "Pay with Paystack"
-                      : "Place order"}
+                      : paymentMethod === "korapay"
+                        ? "Pay with KoraPay"
+                        : paymentMethod === "flutterwave"
+                          ? "Pay with Flutterwave"
+                          : "Place order"}
                 </button>
                 <p className="mt-4 text-center text-[12px] leading-relaxed text-muted">
                   By placing this order you agree to the ShopBeta terms of

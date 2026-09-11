@@ -56,7 +56,7 @@ const initialState: CheckoutState = {
   shippingAddress: null,
   deliveryNotes: "",
   deliveryOptionId: "express",
-  paymentMethod: "paystack",
+  paymentMethod: null,
   couponCode: "",
   couponDiscount: 0,
   submitting: false,
