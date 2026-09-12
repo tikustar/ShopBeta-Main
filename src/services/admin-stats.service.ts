@@ -75,7 +75,6 @@ export async function getAdminDashboardStats(): Promise<DashboardStats> {
     customers,
     coupons,
     notifications,
-    ads,
   ] = await Promise.all([
     listAllProductsAdmin(),
     listCategoriesAdmin(),
@@ -84,8 +83,17 @@ export async function getAdminDashboardStats(): Promise<DashboardStats> {
     listCustomersAdmin(),
     listCouponsAdmin(),
     listAllNotificationsAdmin(),
-    listAdsAdmin(),
   ]);
+
+  // Ads are isolated so an ads query failure does not take down the
+  // whole dashboard. Errors are logged, not silently swallowed.
+  const ads = await listAdsAdmin().catch((error) => {
+    console.error(
+      "[AdminStats] Failed to load ads expenses:",
+      error instanceof Error ? error.message : error,
+    );
+    return [];
+  });
 
   const today = startOfDay().getTime();
   const month = startOfMonth().getTime();

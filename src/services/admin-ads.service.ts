@@ -1,6 +1,7 @@
 import {
   addDoc,
   deleteDoc,
+  getDoc,
   getDocs,
   serverTimestamp,
   updateDoc,
@@ -97,9 +98,10 @@ export async function deleteAdAdmin(id: string, actor: Actor) {
 }
 
 export async function getAdAdmin(id: string) {
-  const snapshot = await getDocs(adsCollection());
-  const doc = snapshot.docs.find(d => d.id === id);
-  return doc ? ({ id: doc.id, ...doc.data() } as Ad) : undefined;
+  const snapshot = await getDoc(adDoc(id));
+  return snapshot.exists()
+    ? ({ id: snapshot.id, ...snapshot.data() } as Ad)
+    : undefined;
 }
 
 export function calculateTotalAdsExpenses(ads: Ad[]): number {
