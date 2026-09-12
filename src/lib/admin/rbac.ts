@@ -131,6 +131,7 @@ export const ADMIN_NAV: Array<{
   { href: "/admin/customers", label: "Customers", permission: "customers:read" },
   { href: "/admin/coupons", label: "Coupons", permission: "coupons:write" },
   { href: "/admin/banners", label: "Banners", permission: "banners:write" },
+  { href: "/admin/ads", label: "Ads", permission: "dashboard:view" },
   {
     href: "/admin/notifications",
     label: "Notifications",

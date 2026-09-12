@@ -81,6 +81,11 @@ export default function AdminDashboardPage() {
               secondaryValue={`+${stats.todayPaidOrders}`}
             />
             <StatCard label="Cancelled" value={stats.cancelledOrders} />
+            <StatCard
+              label="Total Ads Expenses"
+              value={stats.totalAdsExpensesLabel}
+              secondaryValue={`Revenue After Ads: ${stats.revenueAfterAdsLabel}`}
+            />
             <StatCard 
               label="Products" 
               value={stats.products} 

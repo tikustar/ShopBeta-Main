@@ -6,6 +6,7 @@ import { listOrdersAdmin } from "@/services/admin-orders.service";
 import { listCustomersAdmin } from "@/services/admin-customers.service";
 import { listCouponsAdmin } from "@/services/admin-coupons.service";
 import { listAllNotificationsAdmin } from "@/services/admin-notifications.service";
+import { listAdsAdmin, calculateTotalAdsExpenses } from "@/services/admin-ads.service";
 import type { Order } from "@/types/order";
 import type { Product } from "@/types/product";
 
@@ -59,6 +60,10 @@ export type DashboardStats = {
   todayRevenueLabel: string;
   todayPaidOrders: number;
   archivedProducts: number;
+  totalAdsExpenses: number;
+  totalAdsExpensesLabel: string;
+  revenueAfterAds: number;
+  revenueAfterAdsLabel: string;
 };
 
 export async function getAdminDashboardStats(): Promise<DashboardStats> {
@@ -70,6 +75,7 @@ export async function getAdminDashboardStats(): Promise<DashboardStats> {
     customers,
     coupons,
     notifications,
+    ads,
   ] = await Promise.all([
     listAllProductsAdmin(),
     listCategoriesAdmin(),
@@ -78,6 +84,7 @@ export async function getAdminDashboardStats(): Promise<DashboardStats> {
     listCustomersAdmin(),
     listCouponsAdmin(),
     listAllNotificationsAdmin(),
+    listAdsAdmin(),
   ]);
 
   const today = startOfDay().getTime();
@@ -101,6 +108,8 @@ export async function getAdminDashboardStats(): Promise<DashboardStats> {
     0,
   );
   const archivedProducts = products.filter((p) => p.active === false);
+  const totalAdsExpenses = calculateTotalAdsExpenses(ads);
+  const revenueAfterAds = totalRevenue - totalAdsExpenses;
 
   return {
     totalRevenue,
@@ -129,6 +138,10 @@ export async function getAdminDashboardStats(): Promise<DashboardStats> {
     todayRevenueLabel: `+${formatPrice(todayRevenue)} today`,
     todayPaidOrders: todayPaidOrders.length,
     archivedProducts: archivedProducts.length,
+    totalAdsExpenses,
+    totalAdsExpensesLabel: formatPrice(totalAdsExpenses),
+    revenueAfterAds,
+    revenueAfterAdsLabel: formatPrice(revenueAfterAds),
   };
 }
 
