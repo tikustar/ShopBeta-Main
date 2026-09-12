@@ -37,6 +37,7 @@ export default function AdminSettingsPage() {
     promoPushEnabled: true,
     brandColor: "#FD4646",
     makeWebhookUrl: "",
+    transactionalEmailWebhookUrl: "",
     paystackSecretKey: "",
     korapaySecretKey: "",
     flutterwaveSecretKey: "",
@@ -68,6 +69,7 @@ export default function AdminSettingsPage() {
           promoPushEnabled: settings.notifications?.promoPushEnabled ?? true,
           brandColor: settings.theme?.brandColor ?? f.brandColor,
           makeWebhookUrl: settings.notifications?.makeWebhookUrl ?? "",
+          transactionalEmailWebhookUrl: settings.notifications?.transactionalEmailWebhookUrl ?? "",
           paystackSecretKey: "", // Never pre-fill secret keys
           korapaySecretKey: "", // Never pre-fill secret keys
           flutterwaveSecretKey: "", // Never pre-fill secret keys
@@ -118,6 +120,7 @@ export default function AdminSettingsPage() {
             orderEmailEnabled: form.orderEmailEnabled,
             promoPushEnabled: form.promoPushEnabled,
             makeWebhookUrl: form.makeWebhookUrl || undefined,
+            transactionalEmailWebhookUrl: form.transactionalEmailWebhookUrl || undefined,
           },
           theme: {
             brandColor: form.brandColor,
@@ -367,7 +370,22 @@ export default function AdminSettingsPage() {
               }
             />
             <p className="mt-1 text-[11px] text-muted">
-              The Make.com webhook URL for order confirmation emails. This is used when the &quot;Send Email&quot; button is clicked in the admin orders section.
+              The Make.com webhook URL notified after successful payments (existing order automation).
+            </p>
+          </div>
+          <div>
+            <Label htmlFor="transactionalEmailWebhookUrl">Transactional Email Webhook URL</Label>
+            <Input
+              id="transactionalEmailWebhookUrl"
+              type="url"
+              placeholder="https://hook.us2.make.com/..."
+              value={form.transactionalEmailWebhookUrl}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, transactionalEmailWebhookUrl: e.target.value }))
+              }
+            />
+            <p className="mt-1 text-[11px] text-muted">
+              Dedicated Make.com webhook for admin-triggered transactional emails (e.g. the &quot;Send Email&quot; button in Admin Orders).
             </p>
           </div>
         </section>

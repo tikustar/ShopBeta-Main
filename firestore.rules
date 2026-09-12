@@ -115,6 +115,12 @@ service cloud.firestore {
       allow write: if canManageMarketing() || isSuperOrAdmin();
     }
 
+    // Advertising expense ledger — staff read, marketing/admin write
+    match /ads/{adId} {
+      allow read: if isStaff();
+      allow write: if canManageMarketing() || isSuperOrAdmin();
+    }
+
     match /payments/{paymentId} {
       allow read: if isStaff() || ownsExistingUserIdField();
       allow write: if isSuperOrAdmin();

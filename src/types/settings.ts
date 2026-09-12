@@ -65,6 +65,7 @@ export type AppSettingsDocument = {
     orderEmailEnabled?: boolean;
     promoPushEnabled?: boolean;
     makeWebhookUrl?: string;
+    transactionalEmailWebhookUrl?: string;
   };
   theme?: {
     brandColor?: string;

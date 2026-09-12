@@ -8,7 +8,7 @@ import {
 import { orderDoc, ordersCollection } from "@/firebase/collections";
 import { appendTimeline } from "@/lib/order-timeline";
 import { writeAuditLog } from "@/services/audit.service";
-import type { Order, OrderItem, OrderStatus, PaymentStatus } from "@/types/order";
+import type { Order, OrderStatus, PaymentStatus } from "@/types/order";
 import { stripUndefined } from "@/utils/firestore";
 
 type Actor = { id: string; email?: string };
@@ -148,52 +148,57 @@ export async function deleteOrderAdmin(id: string, actor: Actor) {
   });
 }
 
-export async function sendOrderEmailAdmin(id: string, actor: Actor) {
+export async function sendOrderEmailAdmin(
+  id: string,
+  actor: Actor,
+  options?: { recipientOverride?: string },
+) {
   const existing = await getOrderAdmin(id);
   if (!existing) throw new Error("Order not found.");
-  
+
   if (existing.paymentStatus !== "paid") {
     throw new Error("Cannot send email for unpaid order.");
   }
-  
-  // Build the order payload for Make.com
-  const orderPayload = {
-    customerName: existing.customer?.name || "",
-    customerEmail: existing.customer?.email || "",
-    phoneNumber: existing.customer?.phone || "",
-    orderId: existing.orderNumber || existing.id,
-    orderDate: existing.createdAt,
-    expectedDelivery: (existing as Order & { expectedDelivery?: string }).expectedDelivery,
-    shippingAddress: existing.shippingAddress,
-    subtotal: existing.subtotal || 0,
-    products: (existing.products || existing.items || []).map(item => ({
-      productName: item.name,
-      quantity: item.quantity,
-      price: (item as OrderItem & { price?: number }).price || 0,
-      subtotal: ((item as OrderItem & { price?: number }).price || 0) * item.quantity,
-    })),
-    deliveryFee: existing.deliveryFee || 0,
-    discount: existing.discount || 0,
-    totalPrice: existing.total || 0,
-    paymentStatus: existing.paymentStatus,
-    paymentMethod: existing.paymentMethod,
-    reference: existing.paymentReference,
-    orderStatus: existing.orderStatus || existing.status,
-  };
-  
-  // Send to Make.com webhook
-  const response = await fetch("/api/make-webhook", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(orderPayload),
-  });
-  
-  if (!response.ok) {
-    throw new Error("Failed to send order email.");
+
+  if (existing.makeNotifyStatus === "sent") {
+    throw new Error("Order email has already been sent.");
   }
-  
+
+  const response = await fetch("/api/transactional-email", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      emailType: "order_confirmation",
+      orderId: id,
+      order: { ...existing, id },
+      recipientOverride: options?.recipientOverride,
+    }),
+  });
+
+  const result = (await response.json().catch(() => null)) as {
+    ok?: boolean;
+    message?: string;
+  } | null;
+
+  if (!response.ok || !result?.ok) {
+    await updateDoc(orderDoc(id), {
+      makeNotifyStatus: "failed",
+      makeNotifyError: (result?.message || "Email send failed").slice(0, 240),
+      makeNotifyAttemptedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    throw new Error(
+      result?.message || "Failed to send order email. Please try again.",
+    );
+  }
+
+  await updateDoc(orderDoc(id), {
+    makeNotifyStatus: "sent",
+    makeNotifiedAt: serverTimestamp(),
+    makeNotifyAttemptedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
   await writeAuditLog({
     actorId: actor.id,
     actorEmail: actor.email,
