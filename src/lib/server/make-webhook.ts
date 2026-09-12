@@ -4,7 +4,17 @@ import { getAdminDb } from "@/lib/server/firebase-admin";
 import { paymentLog } from "@/lib/server/payment-log";
 import type { Order, OrderItem } from "@/types/order";
 
-function getMakeWebhookUrl() {
+async function getMakeWebhookUrl() {
+  // Try Firestore settings first
+  const { getAppSettings } = await import("@/services/settings.service");
+  const settings = await getAppSettings();
+  const firestoreUrl = settings?.notifications?.makeWebhookUrl?.trim();
+  
+  if (firestoreUrl) {
+    return firestoreUrl;
+  }
+  
+  // Fallback to environment variables
   return (
     process.env.MAKE_WEBHOOK_URL?.trim() ||
     process.env.MAKE_COM_WEBHOOK_URL?.trim() ||
@@ -147,7 +157,7 @@ export async function notifyMakeOrderPaid(input: {
   reference: string;
   force?: boolean;
 }): Promise<{ ok: boolean; skipped?: boolean; reason?: string }> {
-  const url = getMakeWebhookUrl();
+  const url = await getMakeWebhookUrl();
   if (!url) {
     paymentLog("webhook.make", "Make.com URL not configured — skipped", {
       orderId: input.order.id,

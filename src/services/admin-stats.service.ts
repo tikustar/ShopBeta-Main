@@ -54,6 +54,11 @@ export type DashboardStats = {
   outOfStock: number;
   recentOrders: Order[];
   lowStockProducts: Product[];
+  // New secondary values
+  todayRevenue: number;
+  todayRevenueLabel: string;
+  todayPaidOrders: number;
+  archivedProducts: number;
 };
 
 export async function getAdminDashboardStats(): Promise<DashboardStats> {
@@ -88,10 +93,19 @@ export async function getAdminDashboardStats(): Promise<DashboardStats> {
     (p) => p.stock > 0 && p.stock <= LOW_STOCK_THRESHOLD && p.active !== false,
   );
 
+  // Calculate today's metrics
+  const todayOrders = orders.filter((o) => orderTime(o) >= today);
+  const todayPaidOrders = todayOrders.filter(isPaid);
+  const todayRevenue = todayPaidOrders.reduce(
+    (sum, order) => sum + Number(order.total ?? 0),
+    0,
+  );
+  const archivedProducts = products.filter((p) => p.active === false);
+
   return {
     totalRevenue,
     totalRevenueLabel: formatPrice(totalRevenue),
-    ordersToday: orders.filter((o) => orderTime(o) >= today).length,
+    ordersToday: todayOrders.length,
     ordersThisMonth: orders.filter((o) => orderTime(o) >= month).length,
     pendingOrders: orders.filter(
       (o) => (o.orderStatus ?? o.status) === "pending",
@@ -110,6 +124,11 @@ export async function getAdminDashboardStats(): Promise<DashboardStats> {
     outOfStock: products.filter((p) => p.stock <= 0).length,
     recentOrders: [...orders].sort((a, b) => orderTime(b) - orderTime(a)).slice(0, 8),
     lowStockProducts: lowStockProducts.slice(0, 8),
+    // New secondary values
+    todayRevenue,
+    todayRevenueLabel: `+${formatPrice(todayRevenue)} today`,
+    todayPaidOrders: todayPaidOrders.length,
+    archivedProducts: archivedProducts.length,
   };
 }
 

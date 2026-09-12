@@ -63,13 +63,29 @@ export default function AdminDashboardPage() {
       ) : (
         <>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard label="Total revenue" value={stats.totalRevenueLabel} />
-            <StatCard label="Orders today" value={stats.ordersToday} />
+            <StatCard 
+              label="Total revenue" 
+              value={stats.totalRevenueLabel} 
+              secondaryValue={stats.todayRevenueLabel}
+            />
+            <StatCard 
+              label="Orders today" 
+              value={stats.ordersToday} 
+              secondaryValue={`+${stats.todayPaidOrders}`}
+            />
             <StatCard label="Orders this month" value={stats.ordersThisMonth} />
             <StatCard label="Pending orders" value={stats.pendingOrders} />
-            <StatCard label="Paid orders" value={stats.paidOrders} />
+            <StatCard 
+              label="Paid orders" 
+              value={stats.paidOrders} 
+              secondaryValue={`+${stats.todayPaidOrders}`}
+            />
             <StatCard label="Cancelled" value={stats.cancelledOrders} />
-            <StatCard label="Products" value={stats.products} />
+            <StatCard 
+              label="Products" 
+              value={stats.products} 
+              secondaryValue={`-${stats.archivedProducts} (archived)`}
+            />
             <StatCard label="Categories" value={stats.categories} />
             <StatCard label="Brands" value={stats.brands} />
             <StatCard label="Customers" value={stats.customers} />

@@ -28,17 +28,19 @@ export function StatCard({
   label,
   value,
   hint,
+  secondaryValue,
   className,
 }: {
   label: string;
   value: string | number;
   hint?: string;
+  secondaryValue?: string;
   className?: string;
 }) {
   return (
     <div
       className={cn(
-        "rounded-2xl border border-line bg-white p-4 sm:p-5",
+        "rounded-2xl border border-line bg-white p-4 sm:p-5 relative",
         className,
       )}
     >
@@ -49,6 +51,11 @@ export function StatCard({
         {value}
       </p>
       {hint ? <p className="mt-1 text-[12px] text-muted">{hint}</p> : null}
+      {secondaryValue ? (
+        <p className="absolute top-4 right-4 text-[11px] font-medium text-muted">
+          {secondaryValue}
+        </p>
+      ) : null}
     </div>
   );
 }

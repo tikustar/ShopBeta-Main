@@ -171,7 +171,7 @@ function OrdersInner() {
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex gap-2">
-                    {order.paymentStatus === "paid" && (
+                    {order.paymentStatus === "paid" && order.makeNotifyStatus !== "sent" && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -181,6 +181,12 @@ function OrdersInner() {
                           try {
                             await sendOrderEmailAdmin(order.id, actor);
                             toastSuccess("Email sent successfully");
+                            // Update the order in local state to reflect the sent status
+                            setOrders(prev => prev.map(o => 
+                              o.id === order.id 
+                                ? { ...o, makeNotifyStatus: "sent" } 
+                                : o
+                            ));
                           } catch (error) {
                             toastError("Failed to send email", error instanceof Error ? error.message : "Unknown error");
                           } finally {

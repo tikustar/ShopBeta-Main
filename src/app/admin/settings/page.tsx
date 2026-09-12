@@ -36,6 +36,7 @@ export default function AdminSettingsPage() {
     orderEmailEnabled: true,
     promoPushEnabled: true,
     brandColor: "#FD4646",
+    makeWebhookUrl: "",
     paystackSecretKey: "",
     korapaySecretKey: "",
     flutterwaveSecretKey: "",
@@ -66,6 +67,7 @@ export default function AdminSettingsPage() {
           orderEmailEnabled: settings.notifications?.orderEmailEnabled ?? true,
           promoPushEnabled: settings.notifications?.promoPushEnabled ?? true,
           brandColor: settings.theme?.brandColor ?? f.brandColor,
+          makeWebhookUrl: settings.notifications?.makeWebhookUrl ?? "",
           paystackSecretKey: "", // Never pre-fill secret keys
           korapaySecretKey: "", // Never pre-fill secret keys
           flutterwaveSecretKey: "", // Never pre-fill secret keys
@@ -115,6 +117,7 @@ export default function AdminSettingsPage() {
           notifications: {
             orderEmailEnabled: form.orderEmailEnabled,
             promoPushEnabled: form.promoPushEnabled,
+            makeWebhookUrl: form.makeWebhookUrl || undefined,
           },
           theme: {
             brandColor: form.brandColor,
@@ -352,6 +355,21 @@ export default function AdminSettingsPage() {
               }))
             }
           />
+          <div>
+            <Label htmlFor="makeWebhookUrl">Make.com Order Email Webhook URL</Label>
+            <Input
+              id="makeWebhookUrl"
+              type="url"
+              placeholder="https://hook.us2.make.com/..."
+              value={form.makeWebhookUrl}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, makeWebhookUrl: e.target.value }))
+              }
+            />
+            <p className="mt-1 text-[11px] text-muted">
+              The Make.com webhook URL for order confirmation emails. This is used when the &quot;Send Email&quot; button is clicked in the admin orders section.
+            </p>
+          </div>
         </section>
 
         <section className="space-y-3">

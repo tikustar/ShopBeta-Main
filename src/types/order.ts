@@ -150,6 +150,18 @@ export type OrderDocument = Timestamps & {
 
   inventoryReserved?: boolean;
 
+  /** Make.com notification status */
+  makeNotifyStatus?: string;
+
+  /** Make.com notification timestamp */
+  makeNotifiedAt?: unknown;
+
+  /** Make.com notification error */
+  makeNotifyError?: string;
+
+  /** Make.com notification attempt timestamp */
+  makeNotifyAttemptedAt?: unknown;
+
 };
 
 
