@@ -120,6 +120,31 @@ service cloud.firestore {
       allow read, write: if isStaff();
     }
 
+    // Aggregated page-visit counters — public increment-only writes, staff read
+    match /pageVisitTotals/{pathId} {
+      allow read: if isStaff();
+      allow create: if request.resource.data.count == 1 &&
+        request.resource.data.path is string &&
+        request.resource.data.keys().hasOnly(['path', 'count', 'lastVisitAt']);
+      allow update: if request.resource.data.count ==
+          resource.data.count + 1 &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['count', 'lastVisitAt']);
+      allow delete: if false;
+    }
+
+    match /pageVisitDays/{dayId} {
+      allow read: if isStaff();
+      allow create: if request.resource.data.count == 1 &&
+        request.resource.data.date is string &&
+        request.resource.data.keys().hasOnly(['date', 'count', 'updatedAt']);
+      allow update: if request.resource.data.count ==
+          resource.data.count + 1 &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['count', 'updatedAt']);
+      allow delete: if false;
+    }
+
     match /payments/{paymentId} {
       allow read: if isStaff() || ownsExistingUserIdField();
       allow write: if isSuperOrAdmin();

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   AdminEmpty,
@@ -12,7 +12,9 @@ import { Input, Label, Select } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { ORDER_STATUS, PAYMENT_STATUS } from "@/constants/app";
 import {
+  getOrderAdmin,
   listOrdersAdmin,
+  listOrdersAdminPage,
   setOrderTrackingAdmin,
   updateOrderPaymentStatusAdmin,
   updateOrderStatusAdmin,
@@ -23,6 +25,9 @@ import { useUserStore } from "@/stores/user.store";
 import { toastError, toastSuccess } from "@/stores/toast.store";
 import { formatPrice } from "@/lib/utils";
 import type { Order, OrderStatus, PaymentStatus } from "@/types/order";
+import type { QueryDocumentSnapshot } from "firebase/firestore";
+
+const PAGE_SIZE = 25;
 
 function OrdersInner() {
   const searchParams = useSearchParams();
@@ -33,12 +38,23 @@ function OrdersInner() {
     email: profile?.email ?? authUser?.email ?? undefined,
   };
   const [orders, setOrders] = useState<Order[]>([]);
+  const [allOrders, setAllOrders] = useState<Order[] | null>(null);
   const [query, setQuery] = useState("");
+  const [paymentFilter, setPaymentFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [page, setPage] = useState(0);
+  // cursors[i] = last document of page i (0-based); used as startAfter for i+1
+  const [cursors, setCursors] = useState<
+    (QueryDocumentSnapshot<Order> | null)[]
+  >([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Order | null>(null);
   const [tracking, setTracking] = useState("");
   const [deletingOrder, setDeletingOrder] = useState<string | null>(null);
   const [sendingEmail, setSendingEmail] = useState<string | null>(null);
+
+  const searching = query.trim().length > 0;
 
   const orderTime = (order: Order) => {
     const createdAt = order.createdAt;
@@ -72,30 +88,72 @@ function OrdersInner() {
     return `${month} ${day}, ${year} • ${hours12}:${minutesStr} ${ampm}`;
   };
 
-  const reload = () => listOrdersAdmin().then(setOrders).catch(() => undefined);
-  useEffect(() => {
-    void reload();
-  }, []);
+  // Server-side paged fetch (no text search active)
+  const loadPage = useCallback(
+    async (pageIndex: number, after: QueryDocumentSnapshot<Order> | null) => {
+      setLoading(true);
+      try {
+        const result = await listOrdersAdminPage({
+          paymentStatus: paymentFilter,
+          orderStatus: statusFilter,
+          pageSize: PAGE_SIZE,
+          after,
+        });
+        setOrders(result.orders);
+        setTotal(result.total);
+        setPage(pageIndex);
+        if (result.lastDoc) {
+          setCursors((prev) => {
+            const next = [...prev];
+            next[pageIndex] = result.lastDoc;
+            return next;
+          });
+        }
+      } finally {
+        setLoading(false);
+      }
+    },
+    [paymentFilter, statusFilter],
+  );
 
+  // Search mode: Firestore can't do substring search, so fetch all once and
+  // filter/paginate client-side (preserves the previous search behaviour).
   useEffect(() => {
-    const id = searchParams.get("id");
-    if (!id || !orders.length) return;
-    const found = orders.find((o) => o.id === id);
-    if (found) {
-      setSelected(found);
-      setTracking(found.trackingNumber ?? "");
+    if (!searching) {
+      setAllOrders(null);
+      return;
     }
-  }, [orders, searchParams]);
+    setLoading(true);
+    listOrdersAdmin()
+      .then(setAllOrders)
+      .catch(() => toastError("Could not load orders"))
+      .finally(() => setLoading(false));
+  }, [searching]);
 
-  const filtered = useMemo(() => {
-    let next = orders;
+  // Reset pagination whenever filters change (paged mode)
+  useEffect(() => {
+    if (searching) {
+      setPage(0);
+      return;
+    }
+    setCursors([]);
+    void loadPage(0, null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paymentFilter, statusFilter, searching]);
+
+  const filteredAll = useMemo(() => {
+    if (!allOrders) return [];
+    let next = allOrders;
     const q = query.trim().toLowerCase();
-    if (q) {
-      next = next.filter((o) =>
-        [o.orderNumber, o.id, o.customer?.name, o.customer?.email, o.userId]
-          .join(" ")
-          .toLowerCase()
-          .includes(q),
+    next = next.filter((o) =>
+      [o.orderNumber, o.id, o.customer?.name, o.customer?.email, o.userId]
+        .join(" ")
+        .toLowerCase()
+        .includes(q),
+    );
+    if (paymentFilter !== "all") {
+      next = next.filter(
+        (o) => (o.paymentStatus ?? "pending") === paymentFilter,
       );
     }
     if (statusFilter !== "all") {
@@ -103,10 +161,66 @@ function OrdersInner() {
         (o) => (o.orderStatus ?? o.status) === statusFilter,
       );
     }
-    // Sort by creation time, newest first
-    next = [...next].sort((a, b) => orderTime(b) - orderTime(a));
-    return next;
-  }, [orders, query, statusFilter]);
+    return [...next].sort((a, b) => orderTime(b) - orderTime(a));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allOrders, query, paymentFilter, statusFilter]);
+
+  // Displayed page + total for the active mode
+  const displayed = searching
+    ? filteredAll.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+    : orders;
+  const displayTotal = searching ? filteredAll.length : total;
+  const start = displayTotal === 0 ? 0 : page * PAGE_SIZE + 1;
+  const end = page * PAGE_SIZE + displayed.length;
+  const hasPrev = page > 0;
+  const hasNext = end < displayTotal;
+
+  const goNext = () => {
+    if (searching) {
+      setPage((p) => p + 1);
+      return;
+    }
+    const cursor = cursors[page];
+    if (cursor) void loadPage(page + 1, cursor);
+  };
+
+  const goPrev = () => {
+    if (searching) {
+      setPage((p) => Math.max(0, p - 1));
+      return;
+    }
+    void loadPage(page - 1, page - 2 >= 0 ? (cursors[page - 2] ?? null) : null);
+  };
+
+  const refresh = () => {
+    if (searching) {
+      setLoading(true);
+      listOrdersAdmin()
+        .then(setAllOrders)
+        .catch(() => undefined)
+        .finally(() => setLoading(false));
+      return;
+    }
+    void loadPage(page, page - 1 >= 0 ? (cursors[page - 1] ?? null) : null);
+  };
+
+  useEffect(() => {
+    const id = searchParams.get("id");
+    if (!id) return;
+    const found = [...orders, ...(allOrders ?? [])].find((o) => o.id === id);
+    if (found) {
+      setSelected(found);
+      setTracking(found.trackingNumber ?? "");
+      return;
+    }
+    // Order may be on another page — fetch it directly
+    void getOrderAdmin(id).then((order) => {
+      if (order) {
+        setSelected(order);
+        setTracking(order.trackingNumber ?? "");
+      }
+    });
+  }, [orders, allOrders, searchParams]);
 
   return (
     <RequireAdmin permission="orders:read">
@@ -123,10 +237,23 @@ function OrdersInner() {
           className="max-w-xs"
         />
         <Select
+          value={paymentFilter}
+          onChange={(e) => setPaymentFilter(e.target.value)}
+          aria-label="Payment status filter"
+        >
+          <option value="all">All payments</option>
+          {PAYMENT_STATUS.map((status) => (
+            <option key={status} value={status}>
+              {status}
+            </option>
+          ))}
+        </Select>
+        <Select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
+          aria-label="Order status filter"
         >
-          <option value="all">All statuses</option>
+          <option value="all">All order statuses</option>
           {ORDER_STATUS.map((status) => (
             <option key={status} value={status}>
               {status}
@@ -136,13 +263,14 @@ function OrdersInner() {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
-        {!filtered.length ? (
-          <AdminEmpty title="No orders found" />
-        ) : (
-          <AdminTable
-            headers={["Order", "Customer", "Total", "Payment", "Status", "Date", "Actions"]}
-          >
-            {filtered.map((order) => (
+        <div>
+          {!displayed.length && !loading ? (
+            <AdminEmpty title="No orders found" />
+          ) : (
+            <AdminTable
+              headers={["Order", "Customer", "Total", "Payment", "Status", "Date", "Actions"]}
+            >
+              {displayed.map((order) => (
               <tr
                 key={order.id}
                 className="cursor-pointer text-[13px] hover:bg-soft/60"
@@ -187,6 +315,11 @@ function OrdersInner() {
                                 ? { ...o, makeNotifyStatus: "sent" } 
                                 : o
                             ));
+                            setAllOrders(prev => prev?.map(o =>
+                              o.id === order.id
+                                ? { ...o, makeNotifyStatus: "sent" }
+                                : o
+                            ) ?? null);
                           } catch (error) {
                             toastError("Failed to send email", error instanceof Error ? error.message : "Unknown error");
                           } finally {
@@ -208,6 +341,8 @@ function OrdersInner() {
                           try {
                             await deleteOrderAdmin(order.id, actor);
                             setOrders(prev => prev.filter(o => o.id !== order.id));
+                            setAllOrders(prev => prev?.filter(o => o.id !== order.id) ?? null);
+                            setTotal((t) => Math.max(0, t - 1));
                             toastSuccess("Order deleted successfully");
                             if (selected?.id === order.id) {
                               setSelected(null);
@@ -228,8 +363,35 @@ function OrdersInner() {
                 </td>
               </tr>
             ))}
-          </AdminTable>
-        )}
+            </AdminTable>
+          )}
+
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-[13px] text-muted">
+              {loading
+                ? "Loading orders…"
+                : `Showing ${start}–${end} of ${displayTotal} orders`}
+            </p>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={goPrev}
+                disabled={!hasPrev || loading}
+              >
+                Previous
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={goNext}
+                disabled={!hasNext || loading}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        </div>
 
         <div className="rounded-2xl border border-line bg-white p-4">
           {!selected ? (
@@ -271,10 +433,9 @@ function OrdersInner() {
                     void updateOrderStatusAdmin(selected.id, value, actor).then(
                       () => {
                         toastSuccess("Order status updated");
-                        return reload().then(() =>
-                          setSelected((s) =>
-                            s ? { ...s, orderStatus: value, status: value } : s,
-                          ),
+                        refresh();
+                        setSelected((s) =>
+                          s ? { ...s, orderStatus: value, status: value } : s,
                         );
                       },
                     );
@@ -301,10 +462,9 @@ function OrdersInner() {
                       actor,
                     ).then(() => {
                       toastSuccess("Payment status updated");
-                      return reload().then(() =>
-                        setSelected((s) =>
-                          s ? { ...s, paymentStatus: value } : s,
-                        ),
+                      refresh();
+                      setSelected((s) =>
+                        s ? { ...s, paymentStatus: value } : s,
                       );
                     });
                   }}

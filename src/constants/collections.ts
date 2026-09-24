@@ -19,6 +19,8 @@ export const COLLECTIONS = {
   auditLogs: "auditLogs",
   settings: "settings",
   ads: "ads",
+  pageVisitTotals: "pageVisitTotals",
+  pageVisitDays: "pageVisitDays",
 } as const;
 
 export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];

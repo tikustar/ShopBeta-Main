@@ -241,7 +241,9 @@ export async function getLatestProducts(max = 4): Promise<Product[]> {
     // Fall through.
   }
   const sorted = [...(await fetchActive())].sort(
-    (a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0),
+    (a, b) =>
+      (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0) ||
+      b.id.localeCompare(a.id),
   );
   return sorted.slice(0, max);
 }
@@ -298,7 +300,9 @@ export async function getHomeCatalogSections(railSize = 4) {
   );
   const recent = take(
     [...catalog].sort(
-      (a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0),
+      (a, b) =>
+        (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0) ||
+        b.id.localeCompare(a.id),
     ),
     railSize,
     used,

@@ -9,6 +9,7 @@ import {
   AdminTable,
 } from "@/components/admin/admin-ui";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
+import { MultiImageUploadField } from "@/components/admin/multi-image-upload-field";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Checkbox } from "@/components/ui/field";
 import { RequireAdmin } from "@/components/auth/require-admin";
@@ -43,6 +44,7 @@ const emptyForm = {
   brand: "",
   brandId: "",
   thumbnail: "",
+  images: [] as string[],
   seoTitle: "",
   seoDescription: "",
   featured: false,
@@ -110,6 +112,7 @@ function ProductsAdminInner() {
       brand: product.brand ?? "",
       brandId: product.brandId ?? "",
       thumbnail: product.thumbnail ?? product.images[0] ?? "",
+      images: product.images ?? [],
       seoTitle: product.seoTitle ?? "",
       seoDescription: product.seoDescription ?? "",
       featured: product.featured,
@@ -172,8 +175,8 @@ function ProductsAdminInner() {
         categoryId: form.categoryId || undefined,
         brand: form.brand || undefined,
         brandId: form.brandId || undefined,
-        thumbnail: form.thumbnail || undefined,
-        images: form.thumbnail ? [form.thumbnail] : [],
+        thumbnail: form.thumbnail || form.images[0] || undefined,
+        images: form.images,
         seoTitle: form.seoTitle || undefined,
         seoDescription: form.seoDescription || undefined,
         featured: form.featured,
@@ -364,6 +367,18 @@ function ProductsAdminInner() {
             onChange={(url) => setForm((f) => ({ ...f, thumbnail: url }))}
             idHint={form.slug || "product"}
           />
+          <MultiImageUploadField
+            label="Product images"
+            folder="products"
+            value={form.images}
+            onChange={(urls) => setForm((f) => ({ ...f, images: urls }))}
+            idHint={form.slug || "product"}
+          />
+          {!form.thumbnail && form.images.length ? (
+            <p className="text-[11px] text-muted">
+              No thumbnail selected — the first image will be used.
+            </p>
+          ) : null}
           <div className="grid grid-cols-2 gap-2">
             {(
               [
@@ -528,6 +543,7 @@ function ProductsAdminInner() {
                             brandId: product.brandId ?? "",
                             thumbnail:
                               product.thumbnail ?? product.images[0] ?? "",
+                            images: product.images ?? [],
                             seoTitle: product.seoTitle ?? "",
                             seoDescription: product.seoDescription ?? "",
                             featured: product.featured,

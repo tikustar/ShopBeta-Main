@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { AppShell } from "@/components/layout/app-shell";
+import { PageVisitTracker } from "@/components/analytics/page-visit-tracker";
 import { AppProviders } from "@/providers/app-providers";
 import { CatalogNavProvider } from "@/providers/catalog-nav-provider";
 import { toBrandViews, toCategoryViews } from "@/lib/catalog-view";
@@ -104,6 +105,7 @@ export default async function RootLayout({
         <AppProviders>
           <CatalogNavProvider value={{ categories, brands, popularSearches }}>
             <AppShell>{children}</AppShell>
+            <PageVisitTracker />
           </CatalogNavProvider>
         </AppProviders>
       </body>

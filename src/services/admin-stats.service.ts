@@ -7,6 +7,10 @@ import { listCustomersAdmin } from "@/services/admin-customers.service";
 import { listCouponsAdmin } from "@/services/admin-coupons.service";
 import { listAllNotificationsAdmin } from "@/services/admin-notifications.service";
 import { listAdsAdmin, calculateTotalAdsExpenses } from "@/services/admin-ads.service";
+import {
+  getPageVisitStats,
+  type PageVisitStat,
+} from "@/services/visits.service";
 import type { Order } from "@/types/order";
 import type { Product } from "@/types/product";
 
@@ -64,6 +68,9 @@ export type DashboardStats = {
   totalAdsExpensesLabel: string;
   revenueAfterAds: number;
   revenueAfterAdsLabel: string;
+  totalVisits: number;
+  todayVisits: number;
+  topPages: PageVisitStat[];
 };
 
 export async function getAdminDashboardStats(): Promise<DashboardStats> {
@@ -119,6 +126,16 @@ export async function getAdminDashboardStats(): Promise<DashboardStats> {
   const totalAdsExpenses = calculateTotalAdsExpenses(ads);
   const revenueAfterAds = totalRevenue - totalAdsExpenses;
 
+  // Page-visit counters are isolated like ads so a failure does not take
+  // down the whole dashboard.
+  const visits = await getPageVisitStats().catch((error) => {
+    console.error(
+      "[AdminStats] Failed to load page visits:",
+      error instanceof Error ? error.message : error,
+    );
+    return { total: 0, today: 0, topPages: [] as PageVisitStat[] };
+  });
+
   return {
     totalRevenue,
     totalRevenueLabel: formatPrice(totalRevenue),
@@ -150,6 +167,9 @@ export async function getAdminDashboardStats(): Promise<DashboardStats> {
     totalAdsExpensesLabel: formatPrice(totalAdsExpenses),
     revenueAfterAds,
     revenueAfterAdsLabel: formatPrice(revenueAfterAds),
+    totalVisits: visits.total,
+    todayVisits: visits.today,
+    topPages: visits.topPages,
   };
 }
 

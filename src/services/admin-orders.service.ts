@@ -1,9 +1,17 @@
 import {
   deleteDoc,
+  getCountFromServer,
   getDoc,
   getDocs,
+  limit,
+  orderBy,
+  query,
   serverTimestamp,
+  startAfter,
   updateDoc,
+  where,
+  type QueryConstraint,
+  type QueryDocumentSnapshot,
 } from "firebase/firestore";
 import { orderDoc, ordersCollection } from "@/firebase/collections";
 import { appendTimeline } from "@/lib/order-timeline";
@@ -34,6 +42,53 @@ export async function listOrdersAdmin(): Promise<Order[]> {
             : 0;
       return bTime - aTime;
     });
+}
+
+export type AdminOrdersPage = {
+  orders: Order[];
+  lastDoc: QueryDocumentSnapshot<Order> | null;
+  total: number;
+};
+
+/**
+ * Cursor-paginated admin order listing, newest first. Status filters are
+ * pushed into the Firestore query; `total` is the filtered count for the
+ * active filters.
+ */
+export async function listOrdersAdminPage(options?: {
+  paymentStatus?: string;
+  orderStatus?: string;
+  pageSize?: number;
+  after?: QueryDocumentSnapshot<Order> | null;
+}): Promise<AdminOrdersPage> {
+  const pageSize = options?.pageSize ?? 25;
+  const base: QueryConstraint[] = [];
+
+  if (options?.paymentStatus && options.paymentStatus !== "all") {
+    base.push(where("paymentStatus", "==", options.paymentStatus));
+  }
+  if (options?.orderStatus && options.orderStatus !== "all") {
+    base.push(where("orderStatus", "==", options.orderStatus));
+  }
+  base.push(orderBy("createdAt", "desc"));
+
+  const countSnap = await getCountFromServer(
+    query(ordersCollection(), ...base),
+  );
+
+  const pageConstraints = [...base, limit(pageSize)];
+  if (options?.after) {
+    pageConstraints.push(startAfter(options.after));
+  }
+  const snapshot = await getDocs(
+    query(ordersCollection(), ...pageConstraints),
+  );
+
+  return {
+    orders: snapshot.docs.map((d) => d.data()),
+    lastDoc: snapshot.docs[snapshot.docs.length - 1] ?? null,
+    total: countSnap.data().count,
+  };
 }
 
 export async function getOrderAdmin(id: string) {

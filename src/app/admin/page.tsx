@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { RefreshCw } from "lucide-react";
 import { AdminPageHeader, StatCard, AdminTable } from "@/components/admin/admin-ui";
-import { ButtonLink } from "@/components/ui/button";
+import { ButtonLink, IconButton } from "@/components/ui/button";
 import {
   getAdminDashboardStats,
   type DashboardStats,
@@ -28,11 +29,24 @@ function formatOrderDate(date: Date): string {
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const load = useCallback(async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      setStats(await getAdminDashboardStats());
+      setError(null);
+    } catch {
+      setError("Could not load dashboard statistics.");
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refreshing]);
 
   useEffect(() => {
-    void getAdminDashboardStats()
-      .then(setStats)
-      .catch(() => setError("Could not load dashboard statistics."));
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -42,6 +56,16 @@ export default function AdminDashboardPage() {
         description="Live store overview from Firestore."
         actions={
           <>
+            <IconButton
+              label="Refresh dashboard"
+              onClick={() => void load()}
+              disabled={refreshing}
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+                aria-hidden
+              />
+            </IconButton>
             <ButtonLink href="/admin/products" size="sm" variant="outline">
               Products
             </ButtonLink>
@@ -102,6 +126,12 @@ export default function AdminDashboardPage() {
               hint="At or below threshold"
             />
             <StatCard label="Out of stock" value={stats.outOfStock} />
+            <StatCard
+              label="Website visits"
+              value={stats.totalVisits}
+              secondaryValue={`+${stats.todayVisits} today`}
+            />
+            <StatCard label="Visits today" value={stats.todayVisits} />
           </div>
 
           <div className="mt-8 grid gap-6 xl:grid-cols-2">
@@ -144,6 +174,28 @@ export default function AdminDashboardPage() {
                     </td>
                   </tr>
                 ))}
+              </AdminTable>
+            </div>
+            <div>
+              <h2 className="mb-3 text-sm font-semibold text-ink">
+                Top pages
+              </h2>
+              <AdminTable headers={["Page", "Visits"]}>
+                {stats.topPages.map((page) => (
+                  <tr key={page.path} className="text-[13px]">
+                    <td className="px-4 py-3 font-medium text-ink">
+                      {page.path}
+                    </td>
+                    <td className="px-4 py-3 text-muted">{page.count}</td>
+                  </tr>
+                ))}
+                {stats.topPages.length === 0 ? (
+                  <tr className="text-[13px]">
+                    <td className="px-4 py-3 text-muted" colSpan={2}>
+                      No visits recorded yet.
+                    </td>
+                  </tr>
+                ) : null}
               </AdminTable>
             </div>
             <div>
