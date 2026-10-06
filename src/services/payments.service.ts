@@ -133,6 +133,7 @@ export function getPaystackPublicKey() {
 
 // Payment provider availability cache
 let providerSettings: {
+  squad: boolean;
   paystack: boolean;
   korapay: boolean;
   flutterwave: boolean;
@@ -149,6 +150,7 @@ async function fetchProviderSettings() {
     console.error('Failed to fetch payment settings:', error);
     // Fallback to environment variables during migration
     return {
+      squad: process.env.NEXT_PUBLIC_SQUAD_ENABLED === 'true',
       paystack: process.env.NEXT_PUBLIC_PAYSTACK_ENABLED === 'true',
       korapay: process.env.NEXT_PUBLIC_KORAPAY_ENABLED === 'true',
       flutterwave: process.env.NEXT_PUBLIC_FLUTTERWAVE_ENABLED === 'true',
@@ -162,6 +164,10 @@ export async function getPaymentProviderSettings() {
     await fetchProviderSettings();
   }
   return providerSettings!;
+}
+
+export function clearPaymentProviderSettingsCache() {
+  providerSettings = null;
 }
 
 export async function isClientPaystackEnabled() {
@@ -228,4 +234,12 @@ export function verifyKorapayPayment(reference: string) {
   return postJson<VerifyPaystackResponse>("/api/payments/korapay/verify", {
     reference,
   });
+}
+
+export function initializeSquadPayment(input: { orderId: string }) {
+  return postJson<InitializePaystackResponse>("/api/payments/squad/initialize", input);
+}
+
+export function verifySquadPayment(reference: string) {
+  return postJson<VerifyPaystackResponse>("/api/payments/squad/verify", { reference });
 }

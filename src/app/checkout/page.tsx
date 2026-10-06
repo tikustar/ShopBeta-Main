@@ -25,6 +25,7 @@ import {
   confirmCashOnDelivery,
   initializePaystackPayment,
   initializeKorapayPayment,
+  initializeSquadPayment,
   getPaymentProviderSettings,
 } from "@/services/payments.service";
 import { applyCouponCode } from "@/lib/coupons";
@@ -44,6 +45,7 @@ function PaymentProviderOptions({
   onSelectProvider: (provider: PaymentMethod) => void;
 }) {
   const [providers, setProviders] = useState<{
+    squad: boolean;
     paystack: boolean;
     korapay: boolean;
     flutterwave: boolean;
@@ -80,6 +82,15 @@ function PaymentProviderOptions({
           onChange={() => onSelectProvider("korapay")}
           label="KoraPay (card / bank / USSD)"
           description="You will be redirected to KoraPay to complete payment"
+        />
+      )}
+      {providers.squad && (
+        <Radio
+          name="payment"
+          checked={selectedProvider === "squad"}
+          onChange={() => onSelectProvider("squad")}
+          label="Squad by GTBank (card / bank / USSD)"
+          description="You will be redirected to Squad to complete payment"
         />
       )}
       {providers.cod && (
@@ -167,6 +178,8 @@ export default function CheckoutPage() {
         setPaymentMethod("flutterwave");
       } else if (settings.cod) {
         setPaymentMethod("cash-on-delivery");
+      } else if (settings.squad) {
+        setPaymentMethod("squad");
       }
     };
     
@@ -253,6 +266,12 @@ export default function CheckoutPage() {
       );
       return;
     }
+    if (method === "squad" && !settings.squad) {
+      setError("Squad is currently disabled.");
+      toastError("Payment unavailable", "Squad is currently disabled.");
+      return;
+    }
+
     if (method === "korapay" && !settings.korapay) {
       setError(
         "KoraPay payment is temporarily unavailable. Choose cash on delivery or try again later.",
@@ -388,6 +407,19 @@ export default function CheckoutPage() {
           }),
         );
         toastSuccess("Redirecting to KoraPay");
+        window.location.assign(init.authorizationUrl);
+        return;
+      }
+
+      if (method === "squad") {
+        const init = await initializeSquadPayment({ orderId: result.order.id });
+        if (!init.ok) {
+          setError(init.reason);
+          toastError("Payment setup failed", init.reason);
+          router.push(`/payments/failed?order=${encodeURIComponent(result.order.orderNumber ?? result.order.id)}&reason=${encodeURIComponent(init.reason)}`);
+          return;
+        }
+        toastSuccess("Redirecting to Squad");
         window.location.assign(init.authorizationUrl);
         return;
       }
@@ -745,14 +777,18 @@ export default function CheckoutPage() {
                       ? "Redirecting to Paystack…"
                       : paymentMethod === "korapay"
                         ? "Redirecting to KoraPay…"
-                        : "Placing order…"
+                        : paymentMethod === "squad"
+                          ? "Redirecting to Squad…"
+                          : "Placing order…"
                     : paymentMethod === "paystack" || paymentMethod === "card"
                       ? "Pay with Paystack"
                       : paymentMethod === "korapay"
                         ? "Pay with KoraPay"
-                        : paymentMethod === "flutterwave"
-                          ? "Pay with Flutterwave"
-                          : "Place order"}
+                        : paymentMethod === "squad"
+                          ? "Pay with Squad"
+                          : paymentMethod === "flutterwave"
+                            ? "Pay with Flutterwave"
+                            : "Place order"}
                 </button>
                 <p className="mt-4 text-center text-[12px] leading-relaxed text-muted">
                   By placing this order you agree to the ShopBeta terms of
