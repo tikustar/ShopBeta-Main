@@ -613,6 +613,7 @@ test("public payment settings expose visibility without returning Squad keys", a
     "cod",
     "flutterwave",
     "korapay",
+    "monnify",
     "paystack",
     "squad",
   ]);

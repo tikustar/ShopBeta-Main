@@ -11,7 +11,8 @@
     "migrate:products": "node scripts/migrate-products.mjs",
     "seed:catalog": "node scripts/seed-catalog.mjs",
     "admin:bootstrap": "node scripts/bootstrap-super-admin.mjs",
-    "admin:set-role": "node scripts/set-user-role.mjs"
+    "admin:set-role": "node scripts/set-user-role.mjs",
+    "test:monnify": "node tests/monnify-payments.test.cjs"
   },
   "dependencies": {
     "clsx": "2.1.1",

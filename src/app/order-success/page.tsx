@@ -13,7 +13,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SuccessIllustration } from "@/components/ui/illustrations";
 import { getOrderByNumber } from "@/services/orders.service";
-import { verifyPaystackPayment, verifyKorapayPayment, verifySquadPayment } from "@/services/payments.service";
+import { verifyPaystackPayment, verifyKorapayPayment, verifySquadPayment, verifyMonnifyPayment } from "@/services/payments.service";
 import { useCheckoutStore } from "@/stores/checkout.store";
 import { toastError, toastSuccess } from "@/stores/toast.store";
 import type { Order } from "@/types/order";
@@ -81,7 +81,9 @@ function OrderSuccessContent() {
       const paymentMethod = order.paymentMethod?.toLowerCase();
       let result;
       
-      if (paymentMethod === "squad") {
+      if (paymentMethod === "monnify") {
+        result = await verifyMonnifyPayment(reference);
+      } else if (paymentMethod === "squad") {
         result = await verifySquadPayment(reference);
       } else if (paymentMethod === "korapay") {
         result = await verifyKorapayPayment(reference);

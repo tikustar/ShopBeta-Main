@@ -26,6 +26,7 @@ import {
   initializePaystackPayment,
   initializeKorapayPayment,
   initializeSquadPayment,
+  initializeMonnifyPayment,
   getPaymentProviderSettings,
 } from "@/services/payments.service";
 import { applyCouponCode } from "@/lib/coupons";
@@ -45,6 +46,7 @@ function PaymentProviderOptions({
   onSelectProvider: (provider: PaymentMethod) => void;
 }) {
   const [providers, setProviders] = useState<{
+    monnify: boolean;
     squad: boolean;
     paystack: boolean;
     korapay: boolean;
@@ -91,6 +93,15 @@ function PaymentProviderOptions({
           onChange={() => onSelectProvider("squad")}
           label="Squad by GTBank (card / bank / USSD)"
           description="You will be redirected to Squad to complete payment"
+        />
+      )}
+      {providers.monnify && (
+        <Radio
+          name="payment"
+          checked={selectedProvider === "monnify"}
+          onChange={() => onSelectProvider("monnify")}
+          label="Monnify (card / bank / USSD)"
+          description="You will be redirected to Monnify to complete payment"
         />
       )}
       {providers.cod && (
@@ -180,6 +191,8 @@ export default function CheckoutPage() {
         setPaymentMethod("cash-on-delivery");
       } else if (settings.squad) {
         setPaymentMethod("squad");
+      } else if (settings.monnify) {
+        setPaymentMethod("monnify");
       }
     };
     
@@ -269,6 +282,11 @@ export default function CheckoutPage() {
     if (method === "squad" && !settings.squad) {
       setError("Squad is currently disabled.");
       toastError("Payment unavailable", "Squad is currently disabled.");
+      return;
+    }
+    if (method === "monnify" && !settings.monnify) {
+      setError("Monnify is currently disabled.");
+      toastError("Payment unavailable", "Monnify is currently disabled.");
       return;
     }
 
@@ -420,6 +438,18 @@ export default function CheckoutPage() {
           return;
         }
         toastSuccess("Redirecting to Squad");
+        window.location.assign(init.authorizationUrl);
+        return;
+      }
+      if (method === "monnify") {
+        const init = await initializeMonnifyPayment({ orderId: result.order.id });
+        if (!init.ok) {
+          setError(init.reason);
+          toastError("Payment setup failed", init.reason);
+          router.push(`/payments/failed?order=${encodeURIComponent(result.order.orderNumber ?? result.order.id)}&reason=${encodeURIComponent(init.reason)}`);
+          return;
+        }
+        toastSuccess("Redirecting to Monnify");
         window.location.assign(init.authorizationUrl);
         return;
       }
@@ -779,6 +809,8 @@ export default function CheckoutPage() {
                         ? "Redirecting to KoraPay…"
                         : paymentMethod === "squad"
                           ? "Redirecting to Squad…"
+                          : paymentMethod === "monnify"
+                            ? "Redirecting to Monnify…"
                           : "Placing order…"
                     : paymentMethod === "paystack" || paymentMethod === "card"
                       ? "Pay with Paystack"
@@ -786,6 +818,8 @@ export default function CheckoutPage() {
                         ? "Pay with KoraPay"
                         : paymentMethod === "squad"
                           ? "Pay with Squad"
+                          : paymentMethod === "monnify"
+                            ? "Pay with Monnify"
                           : paymentMethod === "flutterwave"
                             ? "Pay with Flutterwave"
                             : "Place order"}

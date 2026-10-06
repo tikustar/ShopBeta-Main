@@ -133,6 +133,7 @@ export function getPaystackPublicKey() {
 
 // Payment provider availability cache
 let providerSettings: {
+  monnify: boolean;
   squad: boolean;
   paystack: boolean;
   korapay: boolean;
@@ -150,6 +151,7 @@ async function fetchProviderSettings() {
     console.error('Failed to fetch payment settings:', error);
     // Fallback to environment variables during migration
     return {
+      monnify: process.env.NEXT_PUBLIC_MONNIFY_ENABLED === 'true',
       squad: process.env.NEXT_PUBLIC_SQUAD_ENABLED === 'true',
       paystack: process.env.NEXT_PUBLIC_PAYSTACK_ENABLED === 'true',
       korapay: process.env.NEXT_PUBLIC_KORAPAY_ENABLED === 'true',
@@ -242,4 +244,11 @@ export function initializeSquadPayment(input: { orderId: string }) {
 
 export function verifySquadPayment(reference: string) {
   return postJson<VerifyPaystackResponse>("/api/payments/squad/verify", { reference });
+}
+
+export function initializeMonnifyPayment(input: { orderId: string }) {
+  return postJson<InitializePaystackResponse>("/api/payments/monnify/initialize", input);
+}
+export function verifyMonnifyPayment(reference: string) {
+  return postJson<VerifyPaystackResponse>("/api/payments/monnify/verify", { reference });
 }
