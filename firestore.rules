@@ -105,6 +105,16 @@ service cloud.firestore {
       allow write: if isSuperOrAdmin();
     }
 
+    // Squad keys are write-only for admins and read only through the Admin SDK.
+    match /privatePaymentSettings/{provider} {
+      allow read: if false;
+      allow create, update: if provider == 'squad' && isSuperOrAdmin() &&
+        request.resource.data.keys().hasOnly(['sandboxSecretKey', 'liveSecretKey', 'updatedAt']) &&
+        (!('sandboxSecretKey' in request.resource.data) || request.resource.data.sandboxSecretKey is string) &&
+        (!('liveSecretKey' in request.resource.data) || request.resource.data.liveSecretKey is string);
+      allow delete: if false;
+    }
+
     match /coupons/{couponId} {
       allow read: if true;
       allow write: if canManageMarketing() || isSuperOrAdmin();

@@ -6,7 +6,7 @@ import { Loader2, RefreshCw } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { verifyPaystackPayment, verifyKorapayPayment } from "@/services/payments.service";
+import { verifyPaystackPayment, verifyKorapayPayment, verifySquadPayment } from "@/services/payments.service";
 import {
   getOrderByNumber,
   watchOrderUntilPaid,
@@ -50,9 +50,11 @@ function PaymentCallbackContent() {
     });
     
     try {
-      // Try Paystack first, then KoraPay
-      let result = await verifyPaystackPayment(reference);
-      if (!result.ok) {
+      // Route Squad directly; preserve Paystack/KoraPay fallback for existing callbacks.
+      let result = searchParams.get("provider") === "squad"
+        ? await verifySquadPayment(reference)
+        : await verifyPaystackPayment(reference);
+      if (!result.ok && searchParams.get("provider") !== "squad") {
         clientLog("manual_verify.paystack_failed", "Paystack verification failed", {
           reference,
           reason: result.reason,
@@ -160,9 +162,11 @@ function PaymentCallbackContent() {
         setMessage("Verifying payment…");
         try {
           clientLog("callback.verify", "Calling verify API", { reference });
-          // Try Paystack first, then KoraPay
-          let result = await verifyPaystackPayment(reference);
-          if (!result.ok) {
+          // Route Squad directly; preserve Paystack/KoraPay fallback for existing callbacks.
+          let result = searchParams.get("provider") === "squad"
+            ? await verifySquadPayment(reference)
+            : await verifyPaystackPayment(reference);
+          if (!result.ok && searchParams.get("provider") !== "squad") {
             // Try KoraPay if Paystack fails
             try {
               result = await verifyKorapayPayment(reference);

@@ -7,6 +7,8 @@ import { RequireAdmin } from "@/components/auth/require-admin";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Input, Label } from "@/components/ui/field";
 import { getAppSettings, updateAppSettings } from "@/services/settings.service";
+import { saveSquadSecrets } from "@/services/squad-settings.service";
+import { clearPaymentProviderSettingsCache } from "@/services/payments.service";
 import { useUserStore } from "@/stores/user.store";
 import { toastError, toastSuccess } from "@/stores/toast.store";
 
@@ -32,6 +34,10 @@ export default function AdminSettingsPage() {
     codEnabled: true,
     paystackEnabled: false,
     korapayEnabled: false,
+    squadEnabled: false,
+    squadSandbox: true,
+    squadSandboxSecretKey: "",
+    squadLiveSecretKey: "",
     flutterwaveEnabled: false,
     orderEmailEnabled: true,
     promoPushEnabled: true,
@@ -64,6 +70,8 @@ export default function AdminSettingsPage() {
           codEnabled: settings.payments?.codEnabled ?? true,
           paystackEnabled: settings.payments?.paystackEnabled ?? false,
           korapayEnabled: settings.payments?.korapayEnabled ?? false,
+          squadEnabled: settings.payments?.squadEnabled ?? false,
+          squadSandbox: settings.payments?.squadSandbox ?? true,
           flutterwaveEnabled: settings.payments?.flutterwaveEnabled ?? false,
           orderEmailEnabled: settings.notifications?.orderEmailEnabled ?? true,
           promoPushEnabled: settings.notifications?.promoPushEnabled ?? true,
@@ -83,6 +91,7 @@ export default function AdminSettingsPage() {
     if (!actor.id) return;
     setSaving(true);
     try {
+      await saveSquadSecrets({ sandboxSecretKey: form.squadSandboxSecretKey, liveSecretKey: form.squadLiveSecretKey });
       await updateAppSettings(
         {
           storeInformation: {
@@ -109,6 +118,8 @@ export default function AdminSettingsPage() {
             codEnabled: form.codEnabled,
             paystackEnabled: form.paystackEnabled,
             korapayEnabled: form.korapayEnabled,
+            squadEnabled: form.squadEnabled,
+            squadSandbox: form.squadSandbox,
             flutterwaveEnabled: form.flutterwaveEnabled,
           },
           paymentSecrets: {
@@ -128,6 +139,8 @@ export default function AdminSettingsPage() {
         },
         actor,
       );
+      setForm(f => ({ ...f, squadSandboxSecretKey: "", squadLiveSecretKey: "" }));
+      clearPaymentProviderSettingsCache();
       toastSuccess("Settings saved");
     } catch (err) {
       toastError(
@@ -277,6 +290,11 @@ export default function AdminSettingsPage() {
               }
             />
             <Checkbox
+              label="Squad by GTBank enabled"
+              checked={form.squadEnabled}
+              onChange={() => setForm(f => ({ ...f, squadEnabled: !f.squadEnabled }))}
+            />
+            <Checkbox
               label="Flutterwave enabled"
               checked={form.flutterwaveEnabled}
               onChange={() =>
@@ -290,6 +308,28 @@ export default function AdminSettingsPage() {
                 setForm((f) => ({ ...f, codEnabled: !f.codEnabled }))
               }
             />
+          </div>
+
+          <div className="space-y-3">
+            <h3 className="text-[13px] font-medium text-ink">Squad by GTBank</h3>
+            <Checkbox label="Use Squad sandbox (test payments)"
+              checked={form.squadSandbox}
+              onChange={() => setForm(f => ({ ...f, squadSandbox: !f.squadSandbox }))} />
+            <p className="text-[11px] text-muted">
+              Save the key for the selected environment before enabling Squad. Leave a key blank to keep its saved value.
+            </p>
+            <div>
+              <Label htmlFor="squadSandboxSecret">Squad Sandbox Secret Key</Label>
+              <Input id="squadSandboxSecret" type="password" autoComplete="new-password"
+                value={form.squadSandboxSecretKey} placeholder="Enter Squad sandbox secret key"
+                onChange={e => setForm(f => ({ ...f, squadSandboxSecretKey: e.target.value }))} />
+            </div>
+            <div>
+              <Label htmlFor="squadLiveSecret">Squad Live Secret Key</Label>
+              <Input id="squadLiveSecret" type="password" autoComplete="new-password"
+                value={form.squadLiveSecretKey} placeholder="Enter Squad live secret key"
+                onChange={e => setForm(f => ({ ...f, squadLiveSecretKey: e.target.value }))} />
+            </div>
           </div>
 
           <div className="space-y-3">
