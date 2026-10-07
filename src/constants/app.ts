@@ -78,6 +78,7 @@ export const PAYMENT_METHODS = [
   "paystack",
   "korapay",
   "squad",
+  "monnify",
   "flutterwave",
   "cash-on-delivery",
   /** @deprecated Prefer `paystack` — kept for legacy orders. */
@@ -92,6 +93,7 @@ export const PAYMENT_GATEWAYS = [
   "paystack",
   "korapay",
   "squad",
+  "monnify",
   "flutterwave",
   "cod",
   "none",

@@ -112,6 +112,14 @@ service cloud.firestore {
         request.resource.data.keys().hasOnly(['sandboxSecretKey', 'liveSecretKey', 'updatedAt']) &&
         (!('sandboxSecretKey' in request.resource.data) || request.resource.data.sandboxSecretKey is string) &&
         (!('liveSecretKey' in request.resource.data) || request.resource.data.liveSecretKey is string);
+      allow create, update: if provider == 'monnify' && isSuperOrAdmin() &&
+        request.resource.data.keys().hasOnly(['sandboxApiKey', 'sandboxSecretKey', 'sandboxContractCode', 'liveApiKey', 'liveSecretKey', 'liveContractCode', 'updatedAt']) &&
+        (!('sandboxApiKey' in request.resource.data) || request.resource.data.sandboxApiKey is string) &&
+        (!('sandboxSecretKey' in request.resource.data) || request.resource.data.sandboxSecretKey is string) &&
+        (!('sandboxContractCode' in request.resource.data) || request.resource.data.sandboxContractCode is string) &&
+        (!('liveApiKey' in request.resource.data) || request.resource.data.liveApiKey is string) &&
+        (!('liveSecretKey' in request.resource.data) || request.resource.data.liveSecretKey is string) &&
+        (!('liveContractCode' in request.resource.data) || request.resource.data.liveContractCode is string);
       allow delete: if false;
     }
 

@@ -10,6 +10,7 @@ export async function GET() {
     
     // Return only the public payment settings (no secrets)
     const publicSettings = {
+      monnify: settings?.payments?.monnifyEnabled ?? process.env.NEXT_PUBLIC_MONNIFY_ENABLED === "true",
       squad: settings?.payments?.squadEnabled ?? process.env.NEXT_PUBLIC_SQUAD_ENABLED === "true",
       paystack: settings?.payments?.paystackEnabled ?? 
                 process.env.NEXT_PUBLIC_PAYSTACK_ENABLED === 'true',
@@ -26,6 +27,7 @@ export async function GET() {
     console.error("[PaymentSettings] Error:", error);
     return NextResponse.json(
       { 
+        monnify: process.env.NEXT_PUBLIC_MONNIFY_ENABLED === "true",
         squad: process.env.NEXT_PUBLIC_SQUAD_ENABLED === "true",
         paystack: process.env.NEXT_PUBLIC_PAYSTACK_ENABLED === 'true',
         korapay: process.env.NEXT_PUBLIC_KORAPAY_ENABLED === 'true',

@@ -11,6 +11,7 @@ import {
   initializePaystackPayment, 
   initializeKorapayPayment,
   initializeSquadPayment,
+  initializeMonnifyPayment,
   getPaymentProviderSettings
 } from "@/services/payments.service";
 import { toastError, toastSuccess } from "@/stores/toast.store";
@@ -27,6 +28,7 @@ function PaymentRetryContent() {
   const [error, setError] = useState<string | null>(null);
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [providers, setProviders] = useState<{
+    monnify: boolean;
     squad: boolean;
     paystack: boolean;
     korapay: boolean;
@@ -63,7 +65,10 @@ function PaymentRetryContent() {
           const settings = await getPaymentProviderSettings();
           setProviders(settings);
           
-          if (found.paymentMethod === "squad") {
+          if (found.paymentMethod === "monnify") {
+            if (settings.monnify) setSelectedProvider("monnify");
+            else setError("Monnify is currently unavailable. Please contact support about this order.");
+          } else if (found.paymentMethod === "squad") {
             if (settings.squad) setSelectedProvider("squad");
             else setError("Squad is currently unavailable. Please contact support about this order.");
           } else if (settings.paystack) {
@@ -95,7 +100,9 @@ function PaymentRetryContent() {
       const callbackUrl = `${window.location.origin}/payments/callback?order=${encodeURIComponent(order.orderNumber ?? order.id)}`;
       let init;
       
-      if (selectedProvider === "squad") {
+      if (selectedProvider === "monnify") {
+        init = await initializeMonnifyPayment({ orderId: order.id });
+      } else if (selectedProvider === "squad") {
         init = await initializeSquadPayment({ orderId: order.id });
       } else if (selectedProvider === "paystack") {
         init = await initializePaystackPayment({
@@ -119,7 +126,7 @@ function PaymentRetryContent() {
         return;
       }
       
-      const providerName = selectedProvider === "squad" ? "Squad" : selectedProvider === "paystack" ? "Paystack" :
+      const providerName = selectedProvider === "monnify" ? "Monnify" : selectedProvider === "squad" ? "Squad" : selectedProvider === "paystack" ? "Paystack" :
                           selectedProvider === "korapay" ? "KoraPay" : 
                           selectedProvider === "flutterwave" ? "Flutterwave" : "payment";
       toastSuccess(`Redirecting to ${providerName}`);
@@ -185,7 +192,7 @@ function PaymentRetryContent() {
               <div className="space-y-3">
                 <p className="text-[13px] font-medium text-ink">Payment method</p>
                 <div className="space-y-2">
-                  {providers.paystack && order?.paymentMethod !== "squad" && (
+                  {providers.paystack && !["squad", "monnify"].includes(order?.paymentMethod ?? "") && (
                     <label className="flex items-center gap-2">
                       <input
                         type="radio"
@@ -198,7 +205,7 @@ function PaymentRetryContent() {
                       <span className="text-[13px]">Paystack</span>
                     </label>
                   )}
-                  {providers.korapay && order?.paymentMethod !== "squad" && (
+                  {providers.korapay && !["squad", "monnify"].includes(order?.paymentMethod ?? "") && (
                     <label className="flex items-center gap-2">
                       <input
                         type="radio"
@@ -220,7 +227,16 @@ function PaymentRetryContent() {
                       <span className="text-[13px]">Squad by GTBank</span>
                     </label>
                   )}
-                  {providers.flutterwave && order?.paymentMethod !== "squad" && (
+                  {providers.monnify && order?.paymentMethod === "monnify" && (
+                    <label className="flex items-center gap-2">
+                      <input type="radio" name="provider" value="monnify"
+                        checked={selectedProvider === "monnify"}
+                        onChange={(e) => setSelectedProvider(e.target.value)}
+                        className="h-4 w-4 text-primary" />
+                      <span className="text-[13px]">Monnify</span>
+                    </label>
+                  )}
+                  {providers.flutterwave && !["squad", "monnify"].includes(order?.paymentMethod ?? "") && (
                     <label className="flex items-center gap-2">
                       <input
                         type="radio"
@@ -233,7 +249,7 @@ function PaymentRetryContent() {
                       <span className="text-[13px]">Flutterwave</span>
                     </label>
                   )}
-                  {providers.cod && order?.paymentMethod !== "squad" && (
+                  {providers.cod && !["squad", "monnify"].includes(order?.paymentMethod ?? "") && (
                     <label className="flex items-center gap-2">
                       <input
                         type="radio"
@@ -262,6 +278,8 @@ function PaymentRetryContent() {
                   ? "Starting payment…" 
                   : selectedProvider === "squad"
                     ? "Pay with Squad"
+                    : selectedProvider === "monnify"
+                      ? "Pay with Monnify"
                   : selectedProvider === "paystack"
                     ? "Pay with Paystack"
                     : selectedProvider === "korapay"

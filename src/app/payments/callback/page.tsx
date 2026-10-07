@@ -6,7 +6,7 @@ import { Loader2, RefreshCw } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { verifyPaystackPayment, verifyKorapayPayment, verifySquadPayment } from "@/services/payments.service";
+import { verifyPaystackPayment, verifyKorapayPayment, verifySquadPayment, verifyMonnifyPayment } from "@/services/payments.service";
 import {
   getOrderByNumber,
   watchOrderUntilPaid,
@@ -34,7 +34,7 @@ function PaymentCallbackContent() {
   const [showManualVerify, setShowManualVerify] = useState(false);
 
   const handleManualVerify = async () => {
-    const reference = searchParams.get("reference") || searchParams.get("trxref") || "";
+    const reference = searchParams.get("reference") || searchParams.get("trxref") || (searchParams.get("provider") === "monnify" ? searchParams.get("paymentReference") : "") || "";
     const orderParam = searchParams.get("order") || "";
     
     if (!reference || verifying) return;
@@ -50,11 +50,13 @@ function PaymentCallbackContent() {
     });
     
     try {
-      // Route Squad directly; preserve Paystack/KoraPay fallback for existing callbacks.
+      // Route Squad and Monnify directly; preserve Paystack/KoraPay fallback for existing callbacks.
       let result = searchParams.get("provider") === "squad"
         ? await verifySquadPayment(reference)
+        : searchParams.get("provider") === "monnify"
+          ? await verifyMonnifyPayment(reference)
         : await verifyPaystackPayment(reference);
-      if (!result.ok && searchParams.get("provider") !== "squad") {
+      if (!result.ok && !["squad", "monnify"].includes(searchParams.get("provider") ?? "")) {
         clientLog("manual_verify.paystack_failed", "Paystack verification failed", {
           reference,
           reason: result.reason,
@@ -107,7 +109,7 @@ function PaymentCallbackContent() {
   useEffect(() => {
     const cancelled = searchParams.get("cancelled");
     const reference =
-      searchParams.get("reference") || searchParams.get("trxref") || "";
+      searchParams.get("reference") || searchParams.get("trxref") || (searchParams.get("provider") === "monnify" ? searchParams.get("paymentReference") : "") || "";
     const orderParam = searchParams.get("order") || "";
 
     clientLog("callback.start", "Payment callback loaded", {
@@ -162,11 +164,13 @@ function PaymentCallbackContent() {
         setMessage("Verifying payment…");
         try {
           clientLog("callback.verify", "Calling verify API", { reference });
-          // Route Squad directly; preserve Paystack/KoraPay fallback for existing callbacks.
+          // Route Squad and Monnify directly; preserve Paystack/KoraPay fallback for existing callbacks.
           let result = searchParams.get("provider") === "squad"
             ? await verifySquadPayment(reference)
-            : await verifyPaystackPayment(reference);
-          if (!result.ok && searchParams.get("provider") !== "squad") {
+            : searchParams.get("provider") === "monnify"
+              ? await verifyMonnifyPayment(reference)
+              : await verifyPaystackPayment(reference);
+          if (!result.ok && !["squad", "monnify"].includes(searchParams.get("provider") ?? "")) {
             // Try KoraPay if Paystack fails
             try {
               result = await verifyKorapayPayment(reference);
@@ -228,8 +232,12 @@ function PaymentCallbackContent() {
       // 3) One more verify attempt if we have a reference.
       if (reference) {
         try {
-          let result = await verifyPaystackPayment(reference);
-          if (!result.ok) {
+          let result = searchParams.get("provider") === "monnify"
+            ? await verifyMonnifyPayment(reference)
+            : searchParams.get("provider") === "squad"
+              ? await verifySquadPayment(reference)
+              : await verifyPaystackPayment(reference);
+          if (!result.ok && !["squad", "monnify"].includes(searchParams.get("provider") ?? "")) {
             try {
               result = await verifyKorapayPayment(reference);
             } catch {
@@ -308,7 +316,7 @@ function PaymentCallbackContent() {
                 onClick={() => {
                   const subject = encodeURIComponent("To Support - Payment Verification");
                   const orderParam = searchParams.get("order") || "";
-                  const referenceParam = searchParams.get("reference") || searchParams.get("trxref") || "";
+                  const referenceParam = searchParams.get("reference") || searchParams.get("trxref") || (searchParams.get("provider") === "monnify" ? searchParams.get("paymentReference") : "") || "";
                   const body = encodeURIComponent(
                     `Dear Support Team,\n\n` +
                     `I am writing to report a payment verification issue.\n\n` +
