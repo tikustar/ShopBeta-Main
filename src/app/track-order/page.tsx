@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Check, Headphones, MapPin, Package, Truck } from "lucide-react";
+import { Check, Headphones, MapPin, Package, RefreshCw, Truck } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button, ButtonLink } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/field";
 import { ProductMedia } from "@/components/commerce/product-media";
+import { reverifyOrderPayment } from "@/services/payments.service";
 import type { Order, OrderStatus } from "@/types/order";
 
 const TIMELINE: Array<{ status: OrderStatus; label: string; description: string }> = [
@@ -61,6 +62,13 @@ export default function TrackOrderPage() {
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [verifyOpen, setVerifyOpen] = useState(false);
+  const [verifyId, setVerifyId] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const [verifyResult, setVerifyResult] = useState<
+    { ok: boolean; message: string; orderNumber?: string } | null
+  >(null);
 
   const load = async (orderNumber: string) => {
     const value = orderNumber.trim();
@@ -163,6 +171,50 @@ export default function TrackOrderPage() {
     void load(query);
   };
 
+  const onVerify = async () => {
+    const orderId = verifyId.trim();
+    if (!orderId || verifying) return;
+    setVerifying(true);
+    setVerifyResult(null);
+    try {
+      const result = await reverifyOrderPayment(orderId);
+      if (result.ok) {
+        const orderNumber = result.order.orderNumber ?? result.order.id;
+        const isCodFee = "codCommitmentFee" in result && result.codCommitmentFee;
+        if ("alreadyPaid" in result && result.alreadyPaid) {
+          setVerifyResult({
+            ok: true,
+            message: isCodFee
+              ? "The commitment fee for this order has already been verified. The balance is due on delivery."
+              : "Payment for this order has already been verified.",
+            orderNumber,
+          });
+        } else {
+          setVerifyResult({
+            ok: true,
+            message: isCodFee
+              ? "Commitment fee verified — your order is confirmed. The remaining balance is due on delivery."
+              : "Payment verified successfully — your order is confirmed.",
+            orderNumber,
+          });
+        }
+        // Refresh the tracked order if it matches.
+        if (order && (order.id === result.order.id || order.orderNumber === orderNumber)) {
+          void load(orderNumber);
+        }
+      } else {
+        setVerifyResult({ ok: false, message: result.reason });
+      }
+    } catch {
+      setVerifyResult({
+        ok: false,
+        message: "Could not verify payment. Check your connection and try again.",
+      });
+    } finally {
+      setVerifying(false);
+    }
+  };
+
   return (
     <div className="sb-container">
       <PageHeader
@@ -190,6 +242,71 @@ export default function TrackOrderPage() {
           <p className="mt-3 text-[13px] text-primary" role="alert">
             {error}
           </p>
+        ) : null}
+      </Card>
+
+      <Card className="mb-8">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-[14px] font-medium text-ink">
+            Have you paid and yet to verify?
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setVerifyOpen((open) => !open);
+              setVerifyResult(null);
+              if (!verifyOpen && order) {
+                setVerifyId(order.orderNumber ?? order.id);
+              }
+            }}
+          >
+            <RefreshCw className="h-4 w-4" aria-hidden />
+            Verify
+          </Button>
+        </div>
+        {verifyOpen ? (
+          <div className="mt-4">
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="flex-1">
+                <Input
+                  placeholder="Order ID, e.g. SB-…"
+                  value={verifyId}
+                  onChange={(event) => setVerifyId(event.target.value)}
+                  aria-label="Order ID to verify"
+                />
+              </div>
+              <Button
+                onClick={() => void onVerify()}
+                disabled={verifying || !verifyId.trim()}
+              >
+                {verifying ? "Verifying…" : "Verify payment"}
+              </Button>
+            </div>
+            {verifyResult ? (
+              <div className="mt-3" role="status">
+                <p
+                  className={
+                    verifyResult.ok
+                      ? "text-[13px] text-emerald-700"
+                      : "text-[13px] text-primary"
+                  }
+                >
+                  {verifyResult.message}
+                </p>
+                {verifyResult.ok && verifyResult.orderNumber ? (
+                  <ButtonLink
+                    href={`/track-order?order=${encodeURIComponent(verifyResult.orderNumber)}`}
+                    variant="ghost"
+                    size="sm"
+                    className="mt-2"
+                  >
+                    View order details
+                  </ButtonLink>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
         ) : null}
       </Card>
 
@@ -307,6 +424,17 @@ export default function TrackOrderPage() {
                   <dt className="text-muted">Payment</dt>
                   <dd className="text-ink">{order.paymentStatus ?? "pending"}</dd>
                 </div>
+                {order.codCommitmentFee !== undefined ? (
+                  <div className="flex justify-between">
+                    <dt className="text-muted">Commitment fee</dt>
+                    <dd className="text-ink">
+                      {formatPrice(order.codAmountPaid ?? 0)} paid
+                      {order.codBalance
+                        ? ` · ${formatPrice(order.codBalance)} due on delivery`
+                        : ""}
+                    </dd>
+                  </div>
+                ) : null}
                 <div className="flex justify-between">
                   <dt className="text-muted">Order total</dt>
                   <dd className="font-semibold text-ink">
@@ -343,10 +471,18 @@ export default function TrackOrderPage() {
               </p>
             </Card>
 
-            <Card>
+            <Card className="space-y-3">
               <ButtonLink href="/help" variant="outline" size="sm" className="w-full">
                 <Headphones className="h-4 w-4" aria-hidden />
                 Get help with this order
+              </ButtonLink>
+              <ButtonLink
+                href={`/refund-request?order=${encodeURIComponent(order.orderNumber ?? order.id)}`}
+                variant="ghost"
+                size="sm"
+                className="w-full"
+              >
+                Request a refund
               </ButtonLink>
             </Card>
           </div>

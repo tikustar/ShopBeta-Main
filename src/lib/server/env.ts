@@ -48,6 +48,17 @@ export async function isCodEnabled() {
   return raw !== "0" && raw.toLowerCase() !== "false";
 }
 
+/** Configured states/regions where Payment on Delivery is allowed. */
+export async function getCodAllowedStates() {
+  const settings = await import("@/services/settings.service").then((m) =>
+    m.getAppSettings(),
+  );
+  const { normalizeAllowedStates } = await import("@/lib/cod");
+  return normalizeAllowedStates(
+    settings?.payments?.paymentOnDeliveryAllowedStates,
+  );
+}
+
 export async function isFlutterwaveEnabled() {
   const { isPaymentProviderEnabled } = await import("@/services/settings.service");
   return await isPaymentProviderEnabled('flutterwave');

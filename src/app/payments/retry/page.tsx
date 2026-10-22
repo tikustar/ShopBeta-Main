@@ -8,11 +8,13 @@ import { Card } from "@/components/ui/card";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { getOrderByNumber } from "@/services/orders.service";
 import { 
+  initializeCodCommitmentFeePayment,
   initializePaystackPayment, 
   initializeKorapayPayment,
   initializeSquadPayment,
   initializeMonnifyPayment,
-  getPaymentProviderSettings
+  getPaymentProviderSettings,
+  type CodFeeGateway
 } from "@/services/payments.service";
 import { toastError, toastSuccess } from "@/stores/toast.store";
 import type { Order } from "@/types/order";
@@ -52,7 +54,11 @@ function PaymentRetryContent() {
           setLoading(false);
           return;
         }
-        if (found.paymentStatus === "paid") {
+        if (
+          found.paymentStatus === "paid" ||
+          (String(found.paymentMethod ?? "") === "cash-on-delivery" &&
+            found.commitmentFeeStatus === "paid")
+        ) {
           router.replace(
             `/order-success?order=${encodeURIComponent(found.orderNumber ?? found.id)}`,
           );
@@ -65,7 +71,21 @@ function PaymentRetryContent() {
           const settings = await getPaymentProviderSettings();
           setProviders(settings);
           
-          if (found.paymentMethod === "monnify") {
+          if (String(found.paymentMethod ?? "") === "cash-on-delivery") {
+            // COD orders retry the 25% commitment fee, not the full total.
+            const prev = String(found.paymentGateway ?? "");
+            if (["paystack", "korapay", "squad", "monnify"].includes(prev)) {
+              setSelectedProvider(prev);
+            } else if (settings.paystack) {
+              setSelectedProvider("paystack");
+            } else if (settings.korapay) {
+              setSelectedProvider("korapay");
+            } else if (settings.squad) {
+              setSelectedProvider("squad");
+            } else if (settings.monnify) {
+              setSelectedProvider("monnify");
+            }
+          } else if (found.paymentMethod === "monnify") {
             if (settings.monnify) setSelectedProvider("monnify");
             else setError("Monnify is currently unavailable. Please contact support about this order.");
           } else if (found.paymentMethod === "squad") {
@@ -98,9 +118,20 @@ function PaymentRetryContent() {
     setError(null);
     try {
       const callbackUrl = `${window.location.origin}/payments/callback?order=${encodeURIComponent(order.orderNumber ?? order.id)}`;
+      const isCodFee = String(order.paymentMethod ?? "") === "cash-on-delivery";
       let init;
       
-      if (selectedProvider === "monnify") {
+      if (isCodFee) {
+        if (!["paystack", "korapay", "squad", "monnify"].includes(selectedProvider)) {
+          setError("Select an online payment method for the commitment fee.");
+          setSubmitting(false);
+          return;
+        }
+        init = await initializeCodCommitmentFeePayment({
+          orderId: order.id,
+          gateway: selectedProvider as CodFeeGateway,
+        });
+      } else if (selectedProvider === "monnify") {
         init = await initializeMonnifyPayment({ orderId: order.id });
       } else if (selectedProvider === "squad") {
         init = await initializeSquadPayment({ orderId: order.id });
@@ -182,6 +213,21 @@ function PaymentRetryContent() {
               <p className="mt-1 text-[13px] text-muted">
                 Payment status: {order.paymentStatus ?? "pending"}
               </p>
+              {String(order.paymentMethod ?? "") === "cash-on-delivery" &&
+              order.codCommitmentFee !== undefined ? (
+                <p className="mt-2 rounded-lg bg-soft/60 px-3 py-2 text-[13px] text-muted">
+                  Cash on delivery — the 25% commitment fee{" "}
+                  <span className="font-semibold text-ink">
+                    ({formatPrice(order.codCommitmentFee)})
+                  </span>{" "}
+                  must be paid online before this order is confirmed. You pay
+                  the remaining{" "}
+                  {formatPrice(
+                    Number(order.total ?? 0) - Number(order.codCommitmentFee),
+                  )}{" "}
+                  on delivery.
+                </p>
+              ) : null}
             </div>
             {error ? (
               <p className="text-[13px] text-primary" role="alert">
@@ -218,7 +264,7 @@ function PaymentRetryContent() {
                       <span className="text-[13px]">KoraPay</span>
                     </label>
                   )}
-                  {providers.squad && order?.paymentMethod === "squad" && (
+                  {providers.squad && (order?.paymentMethod === "squad" || order?.paymentMethod === "cash-on-delivery") && (
                     <label className="flex items-center gap-2">
                       <input type="radio" name="provider" value="squad"
                         checked={selectedProvider === "squad"}
@@ -227,7 +273,7 @@ function PaymentRetryContent() {
                       <span className="text-[13px]">Squad by GTBank</span>
                     </label>
                   )}
-                  {providers.monnify && order?.paymentMethod === "monnify" && (
+                  {providers.monnify && (order?.paymentMethod === "monnify" || order?.paymentMethod === "cash-on-delivery") && (
                     <label className="flex items-center gap-2">
                       <input type="radio" name="provider" value="monnify"
                         checked={selectedProvider === "monnify"}
@@ -236,7 +282,7 @@ function PaymentRetryContent() {
                       <span className="text-[13px]">Monnify</span>
                     </label>
                   )}
-                  {providers.flutterwave && !["squad", "monnify"].includes(order?.paymentMethod ?? "") && (
+                  {providers.flutterwave && !["squad", "monnify", "cash-on-delivery"].includes(order?.paymentMethod ?? "") && (
                     <label className="flex items-center gap-2">
                       <input
                         type="radio"
@@ -249,7 +295,7 @@ function PaymentRetryContent() {
                       <span className="text-[13px]">Flutterwave</span>
                     </label>
                   )}
-                  {providers.cod && !["squad", "monnify"].includes(order?.paymentMethod ?? "") && (
+                  {providers.cod && !["squad", "monnify", "cash-on-delivery"].includes(order?.paymentMethod ?? "") && (
                     <label className="flex items-center gap-2">
                       <input
                         type="radio"

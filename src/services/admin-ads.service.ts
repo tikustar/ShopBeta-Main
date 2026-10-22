@@ -32,6 +32,7 @@ export async function listAdsAdmin(): Promise<Ad[]> {
 
 export async function createAdAdmin(input: AdInput, actor: Actor) {
   const payload: AdDocument = {
+    type: input.type === "other_expense" ? "other_expense" : "ads",
     platform: input.platform.trim(),
     campaignName: input.campaignName?.trim() || undefined,
     amount: Number(input.amount) || 0,
@@ -60,6 +61,7 @@ export async function updateAdAdmin(id: string, input: AdInput, actor: Actor) {
   if (!existing) throw new Error("Ad expense not found.");
   
   const next: Partial<AdDocument> = {
+    type: input.type === "other_expense" ? "other_expense" : "ads",
     platform: input.platform.trim(),
     campaignName: input.campaignName?.trim() || undefined,
     amount: Number(input.amount) || 0,
@@ -105,7 +107,19 @@ export async function getAdAdmin(id: string) {
 }
 
 export function calculateTotalAdsExpenses(ads: Ad[]): number {
-  return ads.reduce((total, ad) => total + (ad.amount || 0), 0);
+  return ads.reduce(
+    (total, ad) =>
+      total + ((ad.type ?? "ads") === "ads" ? ad.amount || 0 : 0),
+    0,
+  );
+}
+
+export function calculateTotalOtherExpenses(ads: Ad[]): number {
+  return ads.reduce(
+    (total, ad) =>
+      total + (ad.type === "other_expense" ? ad.amount || 0 : 0),
+    0,
+  );
 }
 
 export function formatAdDate(dateString: string): string {

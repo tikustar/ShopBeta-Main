@@ -290,6 +290,12 @@ function OrdersInner() {
                 </td>
                 <td className="px-4 py-3 capitalize text-muted">
                   {order.paymentStatus ?? "pending"}
+                  {String(order.paymentMethod ?? "") === "cash-on-delivery" &&
+                  order.commitmentFeeStatus ? (
+                    <span className="block text-[11px] normal-case">
+                      COD fee: {order.commitmentFeeStatus}
+                    </span>
+                  ) : null}
                 </td>
                 <td className="px-4 py-3 capitalize text-muted">
                   {order.orderStatus ?? order.status ?? "pending"}
@@ -412,6 +418,24 @@ function OrdersInner() {
                   Method: {selected.paymentMethod ?? "—"} · Ref:{" "}
                   {selected.paymentReference ?? "—"}
                 </p>
+                {String(selected.paymentMethod ?? "") === "cash-on-delivery" &&
+                selected.codCommitmentFee !== undefined ? (
+                  <div className="mt-2 rounded-lg bg-soft/60 px-3 py-2 text-[12px] text-muted">
+                    <p>
+                      Commitment fee ({formatPrice(selected.codCommitmentFee)}):{" "}
+                      <span className="font-medium text-ink">
+                        {selected.commitmentFeeStatus ?? "pending"}
+                      </span>
+                      {selected.paymentGateway
+                        ? ` via ${selected.paymentGateway}`
+                        : ""}
+                    </p>
+                    <p>
+                      Paid: {formatPrice(selected.codAmountPaid ?? 0)} · Balance
+                      on delivery: {formatPrice(selected.codBalance ?? 0)}
+                    </p>
+                  </div>
+                ) : null}
                 <Button
                   type="button"
                   size="sm"

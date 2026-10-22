@@ -151,6 +151,13 @@ function OrdersContent() {
                     >
                       Reorder
                     </Button>
+                    <ButtonLink
+                      href={`/refund-request?order=${encodeURIComponent(order.orderNumber ?? order.id)}`}
+                      size="sm"
+                      variant="ghost"
+                    >
+                      Request refund
+                    </ButtonLink>
                   </div>
                 </div>
               </Card>

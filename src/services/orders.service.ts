@@ -80,7 +80,13 @@ export function watchOrderUntilPaid(
     const consider = (order: Order | undefined) => {
       if (!order) return;
       options?.onUpdate?.(order);
-      if (order.paymentStatus === "paid") {
+      // COD commitment-fee orders stay paymentStatus "pending" by design —
+      // resolve when the fee is verified instead.
+      if (
+        order.paymentStatus === "paid" ||
+        (String(order.paymentMethod ?? "") === "cash-on-delivery" &&
+          order.commitmentFeeStatus === "paid")
+      ) {
         finish(order);
       }
     };
@@ -293,6 +299,14 @@ export async function createPendingOrder(
         paymentStatus: "pending",
         orderStatus: "pending",
         status: "pending",
+        ...(input.paymentMethod === "cash-on-delivery"
+          ? {
+              codCommitmentFee: Math.ceil((Number(input.total) || 0) * 0.25),
+              codAmountPaid: 0,
+              codBalance: Number(input.total) || 0,
+              commitmentFeeStatus: "pending" as const,
+            }
+          : {}),
         shippingAddress,
         notes: input.notes?.trim() ?? "",
         deliveryOptionId: input.deliveryOptionId ?? "",

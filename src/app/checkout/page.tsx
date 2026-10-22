@@ -22,12 +22,13 @@ import { OrderSummary } from "@/components/commerce/order-summary";
 import { ProductMedia } from "@/components/commerce/product-media";
 import { placeOrder } from "@/services/orders.service";
 import {
-  confirmCashOnDelivery,
+  initializeCodCommitmentFeePayment,
   initializePaystackPayment,
   initializeKorapayPayment,
   initializeSquadPayment,
   initializeMonnifyPayment,
   getPaymentProviderSettings,
+  type CodFeeGateway,
 } from "@/services/payments.service";
 import { applyCouponCode } from "@/lib/coupons";
 import { useCartStore } from "@/stores/cart.store";
@@ -40,10 +41,14 @@ import type { PaymentMethod } from "@/types/order";
 // Payment Provider Options Component
 function PaymentProviderOptions({ 
   selectedProvider, 
-  onSelectProvider 
+  onSelectProvider,
+  deliveryState,
+  commitmentFee,
 }: { 
   selectedProvider: PaymentMethod | null; 
   onSelectProvider: (provider: PaymentMethod) => void;
+  deliveryState: string;
+  commitmentFee: number;
 }) {
   const [providers, setProviders] = useState<{
     monnify: boolean;
@@ -52,12 +57,18 @@ function PaymentProviderOptions({
     korapay: boolean;
     flutterwave: boolean;
     cod: boolean;
+    codAllowedStates: string[];
   } | null>(null);
 
   useEffect(() => {
     const loadProviders = async () => {
       const settings = await getPaymentProviderSettings();
-      setProviders(settings);
+      setProviders({
+        ...settings,
+        codAllowedStates: Array.isArray(settings.codAllowedStates)
+          ? settings.codAllowedStates
+          : [],
+      });
     };
     void loadProviders();
   }, []);
@@ -65,6 +76,16 @@ function PaymentProviderOptions({
   if (!providers) {
     return <div className="text-sm text-muted">Loading payment options...</div>;
   }
+
+  const allowedStates = providers.codAllowedStates ?? [];
+  const normalizedState = deliveryState.trim().replace(/\s+/g, " ").toLowerCase();
+  const codAllowed =
+    providers.cod &&
+    allowedStates.length > 0 &&
+    normalizedState.length > 0 &&
+    allowedStates.some(
+      (s) => s.trim().replace(/\s+/g, " ").toLowerCase() === normalizedState,
+    );
 
   return (
     <>
@@ -108,11 +129,31 @@ function PaymentProviderOptions({
         <Radio
           name="payment"
           checked={selectedProvider === "cash-on-delivery"}
-          onChange={() => onSelectProvider("cash-on-delivery")}
+          onChange={() => {
+            if (!codAllowed) return;
+            onSelectProvider("cash-on-delivery");
+          }}
           label="Cash on delivery"
-          description="Pay when your order arrives"
+          description={
+            codAllowed
+              ? "Pay on delivery — a 25% commitment fee is required online first"
+              : "Not available in your area"
+          }
         />
       )}
+      {providers.cod && !codAllowed ? (
+        <p className="ml-8 text-[12px] text-amber-700" role="note">
+          Payment on delivery is only allowed in the following areas:{" "}
+          {allowedStates.length ? allowedStates.join(", ") : "none configured"}.
+          A 25% commitment fee is required.
+        </p>
+      ) : null}
+      {providers.cod && codAllowed && selectedProvider === "cash-on-delivery" ? (
+        <p className="ml-8 text-[12px] text-amber-700" role="note">
+          A 25% commitment fee ({formatPrice(commitmentFee)}) must be paid online
+          before this order is confirmed. You pay the remaining balance on delivery.
+        </p>
+      ) : null}
       {providers.flutterwave && (
         <Radio
           name="payment"
@@ -137,7 +178,6 @@ export default function CheckoutPage() {
   const router = useRouter();
   const items = useCartStore((state) => state.items);
   const hydrated = useCartStore((state) => state.hydrated);
-  const clearCart = useCartStore((state) => state.clear);
   const authUser = useUserStore((state) => state.authUser);
 
   const customer = useCheckoutStore((state) => state.customer);
@@ -168,6 +208,26 @@ export default function CheckoutPage() {
   const [stateName, setStateName] = useState("");
   const [postalCode, setPostalCode] = useState("");
   const [country, setCountry] = useState("Nigeria");
+  const [codFeeGateway, setCodFeeGateway] = useState<CodFeeGateway>("paystack");
+  const [codFeeGateways, setCodFeeGateways] = useState<
+    Record<CodFeeGateway, boolean>
+  >({ paystack: false, korapay: false, squad: false, monnify: false });
+
+  useEffect(() => {
+    void getPaymentProviderSettings().then((settings) => {
+      const enabled = {
+        paystack: settings.paystack,
+        korapay: settings.korapay,
+        squad: settings.squad,
+        monnify: settings.monnify,
+      };
+      setCodFeeGateways(enabled);
+      const first = (Object.keys(enabled) as CodFeeGateway[]).find(
+        (g) => enabled[g],
+      );
+      if (first) setCodFeeGateway(first);
+    });
+  }, []);
   const [couponHint, setCouponHint] = useState<{
     tone: "success" | "error";
     message: string;
@@ -296,9 +356,26 @@ export default function CheckoutPage() {
       );
       return;
     }
-    if (method === "cash-on-delivery" && !settings.cod) {
-      setError("Cash on delivery is not available right now.");
-      return;
+    if (method === "cash-on-delivery") {
+      if (!settings.cod) {
+        setError("Cash on delivery is not available right now.");
+        return;
+      }
+      const allowedStates = Array.isArray(settings.codAllowedStates)
+        ? settings.codAllowedStates
+        : [];
+      const normalizedState = stateName.trim().replace(/\s+/g, " ").toLowerCase();
+      const stateAllowed =
+        normalizedState.length > 0 &&
+        allowedStates.some(
+          (s) => s.trim().replace(/\s+/g, " ").toLowerCase() === normalizedState,
+        );
+      if (!stateAllowed) {
+        setError(
+          `Payment on delivery is only allowed in the following areas: ${allowedStates.length ? allowedStates.join(", ") : "none configured"}. A 25% commitment fee is required.`,
+        );
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -455,20 +532,26 @@ export default function CheckoutPage() {
       }
 
       if (method === "cash-on-delivery") {
-        const confirmed = await confirmCashOnDelivery(result.order.id);
-        if (!confirmed.ok) {
-          setError(confirmed.reason);
-          toastError("Could not confirm order", confirmed.reason);
+        const init = await initializeCodCommitmentFeePayment({
+          orderId: result.order.id,
+          gateway: codFeeGateway,
+        });
+        if (!init.ok) {
+          setError(init.reason);
+          toastError("Commitment fee setup failed", init.reason);
+          router.push(
+            `/payments/failed?order=${encodeURIComponent(result.order.orderNumber ?? result.order.id)}&reason=${encodeURIComponent(init.reason)}`,
+          );
           return;
         }
-        clearCart();
-        toastSuccess(
-          "Order placed",
-          `Order ${result.order.orderNumber ?? result.order.id} is confirmed. Pay on delivery.`,
-        );
-        router.push(
-          `/order-success?order=${encodeURIComponent(result.order.orderNumber ?? result.order.id)}`,
-        );
+        if (!init.authorizationUrl) {
+          const reason = "The payment gateway did not return a checkout URL.";
+          setError(reason);
+          toastError("Payment setup failed", reason);
+          return;
+        }
+        toastSuccess("Redirecting to payment", "Pay the 25% commitment fee");
+        window.location.assign(init.authorizationUrl);
         return;
       }
 
@@ -718,7 +801,26 @@ export default function CheckoutPage() {
               <PaymentProviderOptions 
                 selectedProvider={paymentMethod}
                 onSelectProvider={setPaymentMethod}
+                deliveryState={stateName}
+                commitmentFee={Math.ceil(total * 0.25)}
               />
+              {paymentMethod === "cash-on-delivery" ? (
+                <div className="ml-8 space-y-2">
+                  <Label htmlFor="cod-fee-gateway">Pay the commitment fee with</Label>
+                  <Select
+                    id="cod-fee-gateway"
+                    value={codFeeGateway}
+                    onChange={(event) =>
+                      setCodFeeGateway(event.target.value as CodFeeGateway)
+                    }
+                  >
+                    {codFeeGateways.paystack && <option value="paystack">Paystack</option>}
+                    {codFeeGateways.korapay && <option value="korapay">KoraPay</option>}
+                    {codFeeGateways.squad && <option value="squad">Squad by GTBank</option>}
+                    {codFeeGateways.monnify && <option value="monnify">Monnify</option>}
+                  </Select>
+                </div>
+              ) : null}
             </div>
           </Card>
         </div>

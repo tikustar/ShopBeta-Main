@@ -2,13 +2,15 @@ import type {
 
   OrderStatus,
 
+  PaymentGateway,
+
   PaymentMethod,
 
   PaymentStatus,
 
 } from "@/constants/app";
 
-import type { Timestamps } from "./firestore";
+import type { FirestoreDate, Timestamps } from "./firestore";
 
 import type { OrderTimelineEntry } from "./payment";
 
@@ -123,6 +125,27 @@ export type OrderDocument = Timestamps & {
   paymentReference?: string;
 
   paymentId?: string;
+
+  /** Gateway used for the COD commitment fee (paystack/korapay/squad/monnify). */
+  paymentGateway?: PaymentGateway | string;
+
+  /** Timestamp when the order was fully paid. */
+  paidAt?: FirestoreDate;
+
+  /** Required COD commitment fee (25% of total, rounded up). */
+  codCommitmentFee?: number;
+
+  /** COD commitment fee amount verified as paid. */
+  codAmountPaid?: number;
+
+  /** Remaining balance the customer pays on delivery. */
+  codBalance?: number;
+
+  /** Status of the COD commitment fee payment. */
+  commitmentFeeStatus?: PaymentStatus;
+
+  /** Timestamp when the COD commitment fee was verified. */
+  commitmentFeePaidAt?: FirestoreDate;
 
   couponCode?: string;
 

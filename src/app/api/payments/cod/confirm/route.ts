@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { confirmCodBodySchema } from "@/schemas/payment.schema";
-import { isCodEnabled } from "@/lib/server/env";
+import { getCodAllowedStates, isCodEnabled } from "@/lib/server/env";
+import { isCodStateAllowed } from "@/lib/cod";
+import { getAdminDb } from "@/lib/server/firebase-admin";
+import { COLLECTIONS } from "@/constants/collections";
 import { finalizeCashOnDelivery } from "@/lib/server/finalize-payment";
 import { reportPaymentFailure } from "@/lib/monitoring";
 import {
@@ -31,7 +34,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    if (!isCodEnabled()) {
+    if (!(await isCodEnabled())) {
       return NextResponse.json(
         { ok: false, reason: "Cash on delivery is disabled." },
         { status: 403 },
@@ -45,6 +48,26 @@ export async function POST(request: Request) {
         { ok: false, reason: "Invalid request body." },
         { status: 400 },
       );
+    }
+
+    // Server-side allowed-state enforcement using the stored order document.
+    const orderSnap = await getAdminDb()
+      .collection(COLLECTIONS.orders)
+      .doc(parsed.data.orderId)
+      .get();
+    if (orderSnap.exists) {
+      const allowedStates = await getCodAllowedStates();
+      const state = (orderSnap.data()?.shippingAddress as { state?: string } | undefined)?.state;
+      if (!isCodStateAllowed(allowedStates, state)) {
+        const list = allowedStates.length ? allowedStates.join(", ") : "none configured";
+        return NextResponse.json(
+          {
+            ok: false,
+            reason: `Payment on delivery is only allowed in the following areas: ${list}. A 25% commitment fee is required.`,
+          },
+          { status: 403 },
+        );
+      }
     }
 
     const result = await finalizeCashOnDelivery(parsed.data.orderId);

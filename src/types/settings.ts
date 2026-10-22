@@ -58,6 +58,8 @@ export type AppSettingsDocument = {
     korapayEnabled?: boolean;
     flutterwaveEnabled?: boolean;
     paystackPublicKeyHint?: string;
+    /** States/regions where Payment on Delivery is allowed. */
+    paymentOnDeliveryAllowedStates?: string[];
   };
   /** Secret payment keys — server-side only, never expose to client */
   paymentSecrets?: {

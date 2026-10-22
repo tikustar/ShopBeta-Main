@@ -15,12 +15,18 @@ import {
   listAdsAdmin,
   updateAdAdmin,
   calculateTotalAdsExpenses,
+  calculateTotalOtherExpenses,
   formatAdDate,
 } from "@/services/admin-ads.service";
 import { useUserStore } from "@/stores/user.store";
 import { toastError, toastSuccess } from "@/stores/toast.store";
 import { formatPrice } from "@/lib/utils";
-import type { Ad, AdInput } from "@/types/ads";
+import type { Ad, AdInput, ExpenseType } from "@/types/ads";
+
+const EXPENSE_TYPE_LABELS: Record<ExpenseType, string> = {
+  ads: "Ads",
+  other_expense: "Other Expense",
+};
 
 const PLATFORMS = [
   "Facebook",
@@ -40,16 +46,19 @@ export default function AdminAdsPage() {
     email: profile?.email ?? authUser?.email ?? undefined,
   };
   
-  const [ads, setAds] = useState<Ad[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<AdInput>({
+  const emptyForm: AdInput = {
+    type: "ads",
     platform: "",
     campaignName: "",
     amount: "",
     date: "",
     description: "",
-  });
+  };
+  const [ads, setAds] = useState<Ad[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<AdInput>(emptyForm);
+  const [typeFilter, setTypeFilter] = useState<"all" | ExpenseType>("all");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -64,9 +73,16 @@ export default function AdminAdsPage() {
     void reload();
   }, []);
 
-  const totalExpenses = calculateTotalAdsExpenses(ads);
+  const totalAds = calculateTotalAdsExpenses(ads);
+  const totalOther = calculateTotalOtherExpenses(ads);
+  const filteredAds =
+    typeFilter === "all"
+      ? ads
+      : ads.filter((ad) => (ad.type ?? "ads") === typeFilter);
 
   const validateForm = (): string | null => {
+    if (form.type !== "ads" && form.type !== "other_expense")
+      return "Expense type is required.";
     if (!form.platform.trim()) return "Platform is required.";
     if (!form.amount.trim() || Number(form.amount) <= 0) return "Amount must be greater than 0.";
     if (!form.date.trim()) return "Date is required.";
@@ -98,13 +114,7 @@ export default function AdminAdsPage() {
       }
       
       setEditingId(null);
-      setForm({
-        platform: "",
-        campaignName: "",
-        amount: "",
-        date: "",
-        description: "",
-      });
+      setForm(emptyForm);
       await reload();
     } catch (err) {
       toastError(
@@ -119,6 +129,7 @@ export default function AdminAdsPage() {
   const onEdit = (ad: Ad) => {
     setEditingId(ad.id);
     setForm({
+      type: ad.type ?? "ads",
       platform: ad.platform,
       campaignName: ad.campaignName || "",
       amount: String(ad.amount),
@@ -138,16 +149,10 @@ export default function AdminAdsPage() {
     try {
       await deleteAdAdmin(ad.id, actor);
       setAds(prev => prev.filter(a => a.id !== ad.id));
-      toastSuccess("Ad expense deleted");
+      toastSuccess("Expense deleted");
       if (editingId === ad.id) {
         setEditingId(null);
-        setForm({
-          platform: "",
-          campaignName: "",
-          amount: "",
-          date: "",
-          description: "",
-        });
+        setForm(emptyForm);
       }
     } catch (error) {
       toastError("Failed to delete ad expense", error instanceof Error ? error.message : "Unknown error");
@@ -158,34 +163,41 @@ export default function AdminAdsPage() {
 
   const onCancel = () => {
     setEditingId(null);
-    setForm({
-      platform: "",
-      campaignName: "",
-      amount: "",
-      date: "",
-      description: "",
-    });
+    setForm(emptyForm);
   };
 
   return (
     <RequireAdmin permission="dashboard:view">
       <AdminPageHeader
-        title="Ads"
-        description="Track and manage ShopBeta advertising expenses."
+        title="Ads & Expenses"
+        description="Track and manage ShopBeta advertising and other business expenses."
       />
       
       <div className="space-y-6">
-        {/* Total Summary Card */}
-        <div className="rounded-2xl border border-line bg-white p-6">
-          <h2 className="text-sm font-semibold text-muted uppercase tracking-[0.1em]">
-            Total Ads Expenses
-          </h2>
-          <p className="mt-2 text-3xl font-bold text-ink">
-            {formatPrice(totalExpenses)}
-          </p>
-          <p className="mt-1 text-[13px] text-muted">
-            {ads.length} expense{ads.length !== 1 ? 's' : ''} logged
-          </p>
+        {/* Total Summary Cards */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="rounded-2xl border border-line bg-white p-6">
+            <h2 className="text-sm font-semibold text-muted uppercase tracking-[0.1em]">
+              Total Ads Expenses
+            </h2>
+            <p className="mt-2 text-3xl font-bold text-ink">
+              {formatPrice(totalAds)}
+            </p>
+            <p className="mt-1 text-[13px] text-muted">
+              {ads.filter((a) => (a.type ?? "ads") === "ads").length} ad expense{ads.filter((a) => (a.type ?? "ads") === "ads").length !== 1 ? 's' : ''} logged
+            </p>
+          </div>
+          <div className="rounded-2xl border border-line bg-white p-6">
+            <h2 className="text-sm font-semibold text-muted uppercase tracking-[0.1em]">
+              Total Other Expenses
+            </h2>
+            <p className="mt-2 text-3xl font-bold text-ink">
+              {formatPrice(totalOther)}
+            </p>
+            <p className="mt-1 text-[13px] text-muted">
+              {ads.filter((a) => a.type === "other_expense").length} other expense{ads.filter((a) => a.type === "other_expense").length !== 1 ? 's' : ''} logged
+            </p>
+          </div>
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[320px_1fr]">
@@ -195,11 +207,26 @@ export default function AdminAdsPage() {
             className="space-y-3 rounded-2xl border border-line bg-white p-4"
           >
             <h2 className="text-sm font-semibold text-ink">
-              {editingId ? "Edit ad expense" : "Add ad expense"}
+              {editingId ? "Edit expense" : "Add expense"}
             </h2>
             
             <div>
-              <Label htmlFor="platform">Platform</Label>
+              <Label htmlFor="expenseType">Type</Label>
+              <Select
+                id="expenseType"
+                required
+                value={form.type ?? "ads"}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, type: e.target.value as ExpenseType }))
+                }
+              >
+                <option value="ads">Ads</option>
+                <option value="other_expense">Other Expense</option>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="platform">Platform / Vendor</Label>
               <Select
                 id="platform"
                 required
@@ -275,14 +302,32 @@ export default function AdminAdsPage() {
           {/* Table */}
           {loading ? (
             <div className="rounded-2xl border border-line bg-white p-6 text-center">
-              <p className="text-sm text-muted">Loading advertising expenses...</p>
+              <p className="text-sm text-muted">Loading expenses...</p>
             </div>
           ) : !ads.length ? (
-            <AdminEmpty title="No advertising expenses yet" />
+            <AdminEmpty title="No expenses yet" />
           ) : (
-            <AdminTable headers={["Platform", "Campaign", "Amount", "Date", "Description", "Actions"]}>
-              {ads.map((ad) => (
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <Label htmlFor="typeFilter" className="shrink-0">Type</Label>
+                <Select
+                  id="typeFilter"
+                  value={typeFilter}
+                  onChange={(e) =>
+                    setTypeFilter(e.target.value as "all" | ExpenseType)
+                  }
+                >
+                  <option value="all">All</option>
+                  <option value="ads">Ads</option>
+                  <option value="other_expense">Other Expense</option>
+                </Select>
+              </div>
+            <AdminTable headers={["Type", "Platform", "Campaign", "Amount", "Date", "Description", "Actions"]}>
+              {filteredAds.map((ad) => (
                 <tr key={ad.id} className="text-[13px]">
+                  <td className="px-4 py-3 text-muted">
+                    {EXPENSE_TYPE_LABELS[ad.type ?? "ads"]}
+                  </td>
                   <td className="px-4 py-3 font-medium text-ink">
                     {ad.platform}
                   </td>
@@ -320,6 +365,7 @@ export default function AdminAdsPage() {
                 </tr>
               ))}
             </AdminTable>
+            </div>
           )}
         </div>
       </div>

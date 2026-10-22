@@ -20,6 +20,11 @@ export async function GET() {
                    process.env.NEXT_PUBLIC_FLUTTERWAVE_ENABLED === 'true',
       cod: settings?.payments?.codEnabled ?? 
            process.env.NEXT_PUBLIC_COD_ENABLED !== 'false',
+      codAllowedStates: Array.isArray(settings?.payments?.paymentOnDeliveryAllowedStates)
+        ? settings.payments.paymentOnDeliveryAllowedStates
+            .map((s) => String(s ?? "").trim())
+            .filter(Boolean)
+        : [],
     };
     
     return NextResponse.json(publicSettings);
@@ -33,6 +38,7 @@ export async function GET() {
         korapay: process.env.NEXT_PUBLIC_KORAPAY_ENABLED === 'true',
         flutterwave: process.env.NEXT_PUBLIC_FLUTTERWAVE_ENABLED === 'true',
         cod: process.env.NEXT_PUBLIC_COD_ENABLED !== 'false',
+        codAllowedStates: [],
       },
       { status: 200 }
     );

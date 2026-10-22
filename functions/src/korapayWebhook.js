@@ -23,6 +23,14 @@ const SUPPORTED = new Set([
   "refund.processed",
 ]);
 
+const COD_FEE_PURPOSE = "cod_commitment_fee";
+
+function computeCodCommitmentFee(orderTotal) {
+  const total = Number(orderTotal);
+  if (!Number.isFinite(total) || total <= 0) return 0;
+  return Math.ceil(total * 0.25);
+}
+
 const KORAPAY_BASE = "https://api.korapay.com/merchant/api/v1";
 
 function log(stage, message, meta = {}) {
@@ -257,6 +265,186 @@ async function finalizeSuccessfulPayment({
         paymentStatus: "paid",
         orderStatus: "paid",
         status: "paid",
+        paymentReference: verified.reference,
+        paymentId: paymentRef.id,
+        inventoryReserved: true,
+        timeline,
+      },
+    };
+  });
+}
+
+async function finalizeCodCommitmentFee({
+  orderId,
+  verified,
+  paymentDocId,
+  eventId,
+}) {
+  const db = getFirestore();
+  const amountNaira = fromNaira(verified.amount);
+
+  return db.runTransaction(async (tx) => {
+    const orderRef = db.collection(COLLECTIONS.orders).doc(orderId);
+    const orderSnap = await tx.get(orderRef);
+    if (!orderSnap.exists) {
+      return { ok: false, reason: "Order not found." };
+    }
+    const order = { id: orderSnap.id, ...orderSnap.data() };
+
+    if (order.commitmentFeeStatus === "paid" && order.inventoryReserved) {
+      return { ok: true, order, alreadyProcessed: true };
+    }
+
+    if (String(order.paymentMethod || "") !== "cash-on-delivery") {
+      return { ok: false, reason: "Order is not a cash-on-delivery order." };
+    }
+
+    const expectedFee = Number(
+      order.codCommitmentFee ??
+        computeCodCommitmentFee(Number(order.total ?? order.totals?.total ?? 0)),
+    );
+    if (!amountsMatch(expectedFee, verified.amount)) {
+      return {
+        ok: false,
+        reason: "Paid amount does not match the required commitment fee.",
+      };
+    }
+    if ((verified.currency || "NGN").toUpperCase() !== "NGN") {
+      return { ok: false, reason: "Unsupported payment currency." };
+    }
+
+    const lines = order.products || order.items || [];
+    if (!lines.length) {
+      return { ok: false, reason: "Order has no line items." };
+    }
+
+    const productLocks = [];
+    if (!order.inventoryReserved) {
+      for (const line of lines) {
+        const productRef = db.collection(COLLECTIONS.products).doc(line.productId);
+        const productSnap = await tx.get(productRef);
+        if (!productSnap.exists) {
+          return {
+            ok: false,
+            reason: `"${line.name || line.productId}" is no longer available.`,
+          };
+        }
+        const product = productSnap.data();
+        if (product.active === false) {
+          return {
+            ok: false,
+            reason: `"${line.name || line.productId}" is unavailable.`,
+          };
+        }
+        const stock = Number(product.stock ?? 0);
+        const qty = Number(line.quantity ?? 0);
+        if (stock < qty) {
+          return {
+            ok: false,
+            reason: `Insufficient stock for "${line.name || line.productId}".`,
+          };
+        }
+        productLocks.push({
+          ref: productRef,
+          stock,
+          salesCount: Number(product.salesCount ?? 0),
+          qty,
+        });
+      }
+    }
+
+    const paymentRef = paymentDocId
+      ? db.collection(COLLECTIONS.payments).doc(paymentDocId)
+      : db.collection(COLLECTIONS.payments).doc();
+    const paymentSnap = await tx.get(paymentRef);
+    const existingPayment = paymentSnap.exists ? paymentSnap.data() : null;
+    const processedEventIds = Array.isArray(existingPayment?.processedEventIds)
+      ? [...existingPayment.processedEventIds]
+      : [];
+
+    if (eventId && processedEventIds.includes(eventId)) {
+      return { ok: true, order, alreadyProcessed: true };
+    }
+    if (eventId) processedEventIds.push(eventId);
+
+    if (!order.inventoryReserved) {
+      for (const item of productLocks) {
+        const nextStock = item.stock - item.qty;
+        tx.update(item.ref, {
+          stock: nextStock,
+          stockStatus: stockStatusFromCount(nextStock),
+          salesCount: item.salesCount + item.qty,
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
+    }
+
+    const total = Number(order.total ?? order.totals?.total ?? 0);
+    const balance = Math.max(0, total - amountNaira);
+
+    const timeline = appendTimeline(
+      appendTimeline(
+        order.timeline,
+        "payment_successful",
+        "25% commitment fee received.",
+      ),
+      "order_confirmed",
+      "Commitment fee verified — balance due on delivery.",
+    );
+
+    tx.update(orderRef, stripUndefined({
+      commitmentFeeStatus: "paid",
+      codAmountPaid: amountNaira,
+      codBalance: balance,
+      commitmentFeePaidAt: verified.paid_at
+        ? new Date(verified.paid_at)
+        : FieldValue.serverTimestamp(),
+      paymentStatus: "pending",
+      orderStatus: "processing",
+      status: "processing",
+      paymentGateway: "korapay",
+      paymentReference: verified.reference,
+      paymentId: paymentRef.id,
+      inventoryReserved: true,
+      timeline,
+      updatedAt: FieldValue.serverTimestamp(),
+    }));
+
+    const paymentPayload = {
+      orderId: order.id,
+      orderNumber: order.orderNumber || null,
+      userId: order.userId,
+      gateway: "korapay",
+      purpose: COD_FEE_PURPOSE,
+      reference: verified.reference,
+      amount: amountNaira,
+      currency: verified.currency || "NGN",
+      status: "paid",
+      customerEmail: verified.customer?.email || null,
+      gatewayResponse: verified,
+      verificationData: verified,
+      paidAt: verified.paid_at ? new Date(verified.paid_at) : new Date(),
+      verifiedAt: FieldValue.serverTimestamp(),
+      processedEventIds,
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+    if (!paymentSnap.exists) {
+      paymentPayload.createdAt = FieldValue.serverTimestamp();
+    }
+    tx.set(paymentRef, stripUndefined(paymentPayload), { merge: true });
+
+    return {
+      ok: true,
+      alreadyProcessed: false,
+      order: {
+        ...order,
+        commitmentFeeStatus: "paid",
+        codAmountPaid: amountNaira,
+        codBalance: balance,
+        paymentStatus: "pending",
+        orderStatus: "processing",
+        status: "processing",
+        paymentGateway: "korapay",
         paymentReference: verified.reference,
         paymentId: paymentRef.id,
         inventoryReserved: true,
@@ -542,7 +730,13 @@ exports.korapayWebhook = onRequest(
           return;
         }
         const order = { id: orderSnap.id, ...orderSnap.data() };
-        const expectedTotal = Number(order.total ?? order.totals?.total ?? 0);
+        const isCodFee =
+          paymentDoc?.data()?.purpose === COD_FEE_PURPOSE ||
+          data.metadata?.purpose === COD_FEE_PURPOSE;
+        const orderTotal = Number(order.total ?? order.totals?.total ?? 0);
+        const expectedTotal = isCodFee
+          ? Number(order.codCommitmentFee ?? computeCodCommitmentFee(orderTotal))
+          : orderTotal;
         if (!amountsMatch(expectedTotal, verified.data.amount)) {
           log("webhook.failure", "Amount mismatch after verify", {
             orderId,
@@ -567,12 +761,19 @@ exports.korapayWebhook = onRequest(
           orderId,
           eventId,
         });
-        const result = await finalizeSuccessfulPayment({
-          orderId,
-          verified: verified.data,
-          paymentDocId,
-          eventId,
-        });
+        const result = isCodFee
+          ? await finalizeCodCommitmentFee({
+              orderId,
+              verified: verified.data,
+              paymentDocId,
+              eventId,
+            })
+          : await finalizeSuccessfulPayment({
+              orderId,
+              verified: verified.data,
+              paymentDocId,
+              eventId,
+            });
         if (!result.ok) {
           log("webhook.firestore", "Firestore finalize failed", {
             orderId,

@@ -23,9 +23,11 @@ import {
   amountsMatch as korapayAmountsMatch,
 } from "@/lib/server/korapay";
 import {
+  finalizeCodCommitmentFee,
   finalizeSuccessfulPayment,
   markPaymentFailed,
 } from "@/lib/server/finalize-payment";
+import { COD_FEE_PURPOSE } from "@/lib/cod";
 import type { Order } from "@/types/order";
 import { stripUndefined } from "@/utils/firestore";
 import { paymentLog } from "@/lib/server/payment-log";
@@ -336,6 +338,7 @@ export async function verifyPaystackForReference(reference: string) {
   let orderId: string | undefined;
   let paymentDocId: string | undefined;
   let expectedAmount: number | undefined;
+  let isCodFee = false;
 
   if (!paymentSnap.empty) {
     const doc = paymentSnap.docs[0]!;
@@ -343,14 +346,16 @@ export async function verifyPaystackForReference(reference: string) {
     const data = doc.data();
     orderId = data.orderId as string;
     expectedAmount = Number(data.amount);
+    isCodFee = data.purpose === COD_FEE_PURPOSE;
   }
 
   const verified = await verifyPaystackTransaction(reference);
   const normalized = normalizePaystackVerification(verified);
 
   if (!orderId) {
-    const meta = verified.metadata as { orderId?: string } | undefined;
+    const meta = verified.metadata as { orderId?: string; purpose?: string } | undefined;
     orderId = meta?.orderId;
+    if (meta?.purpose === COD_FEE_PURPOSE) isCodFee = true;
   }
 
   if (!orderId) {
@@ -392,11 +397,17 @@ export async function verifyPaystackForReference(reference: string) {
     };
   }
 
-  const finalized = await finalizeSuccessfulPayment({
-    orderId,
-    payment: normalized,
-    paymentDocId,
-  });
+  const finalized = isCodFee
+    ? await finalizeCodCommitmentFee({
+        orderId,
+        payment: normalized,
+        paymentDocId,
+      })
+    : await finalizeSuccessfulPayment({
+        orderId,
+        payment: normalized,
+        paymentDocId,
+      });
 
   if (!finalized.ok) {
     return {
@@ -458,6 +469,7 @@ export async function verifyKorapayForReference(reference: string) {
   let orderId: string | undefined;
   let paymentDocId: string | undefined;
   let expectedAmount: number | undefined;
+  let isCodFee = false;
 
   if (!paymentSnap.empty) {
     const doc = paymentSnap.docs[0]!;
@@ -465,6 +477,7 @@ export async function verifyKorapayForReference(reference: string) {
     const data = doc.data();
     orderId = data.orderId as string;
     expectedAmount = Number(data.amount);
+    isCodFee = data.purpose === COD_FEE_PURPOSE;
     console.log("[verifyKorapayForReference] Found payment by reference", {
       orderId,
       paymentDocId,
@@ -500,8 +513,9 @@ export async function verifyKorapayForReference(reference: string) {
     const normalized = normalizeKorapayVerification(verified);
     
     // Extract orderId from KoraPay metadata
-    const meta = verified.metadata as { orderId?: string; orderNumber?: string } | undefined;
+    const meta = verified.metadata as { orderId?: string; orderNumber?: string; purpose?: string } | undefined;
     orderId = meta?.orderId;
+    if (meta?.purpose === COD_FEE_PURPOSE) isCodFee = true;
     
     console.log("[verifyKorapayForReference] Extracted orderId from KoraPay metadata", {
       orderId,
@@ -526,7 +540,10 @@ export async function verifyKorapayForReference(reference: string) {
     }
 
     const order = { id: orderSnap.id, ...orderSnap.data() } as Order;
-    expectedAmount = Number(order.total ?? order.totals?.total ?? 0);
+    if (!isCodFee && order.paymentMethod === "cash-on-delivery") isCodFee = true;
+    expectedAmount = isCodFee
+      ? Number(order.codCommitmentFee ?? 0)
+      : Number(order.total ?? order.totals?.total ?? 0);
 
     // Look for payment by orderId
     const paymentsByOrder = await db
@@ -581,11 +598,17 @@ export async function verifyKorapayForReference(reference: string) {
       };
     }
 
-    const finalized = await finalizeSuccessfulPayment({
-      orderId,
-      payment: normalized,
-      paymentDocId,
-    });
+    const finalized = isCodFee
+      ? await finalizeCodCommitmentFee({
+          orderId,
+          payment: normalized,
+          paymentDocId,
+        })
+      : await finalizeSuccessfulPayment({
+          orderId,
+          payment: normalized,
+          paymentDocId,
+        });
 
     if (!finalized.ok) {
       return {
@@ -666,11 +689,17 @@ export async function verifyKorapayForReference(reference: string) {
     };
   }
 
-  const finalized = await finalizeSuccessfulPayment({
-    orderId,
-    payment: normalized,
-    paymentDocId,
-  });
+  const finalized = isCodFee
+    ? await finalizeCodCommitmentFee({
+        orderId,
+        payment: normalized,
+        paymentDocId,
+      })
+    : await finalizeSuccessfulPayment({
+        orderId,
+        payment: normalized,
+        paymentDocId,
+      });
 
   if (!finalized.ok) {
     return {

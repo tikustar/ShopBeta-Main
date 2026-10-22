@@ -127,6 +127,36 @@ export function confirmCashOnDelivery(orderId: string) {
   });
 }
 
+export type CodFeeGateway = "paystack" | "korapay" | "squad" | "monnify";
+
+export function initializeCodCommitmentFeePayment(input: {
+  orderId: string;
+  gateway: CodFeeGateway;
+}) {
+  return postJson<InitializePaystackResponse & { commitmentFee?: number }>(
+    "/api/payments/cod/fee",
+    input,
+  );
+}
+
+export function reverifyOrderPayment(orderId: string) {
+  return postJson<
+    | {
+        ok: true;
+        alreadyPaid?: boolean;
+        alreadyProcessed?: boolean;
+        codCommitmentFee?: boolean;
+        order: {
+          id: string;
+          orderNumber?: string;
+          paymentStatus?: string;
+          orderStatus?: string;
+        };
+      }
+    | { ok: false; reason: string; status?: string }
+  >("/api/payments/reverify", { orderId });
+}
+
 export function getPaystackPublicKey() {
   return process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY?.trim() ?? "";
 }
@@ -139,25 +169,33 @@ let providerSettings: {
   korapay: boolean;
   flutterwave: boolean;
   cod: boolean;
+  codAllowedStates: string[];
 } | null = null;
 
 async function fetchProviderSettings() {
   try {
     const response = await fetch('/api/payment-settings');
     const data = await response.json();
-    providerSettings = data;
-    return data;
+    providerSettings = {
+      ...data,
+      codAllowedStates: Array.isArray(data.codAllowedStates)
+        ? data.codAllowedStates
+        : [],
+    };
+    return providerSettings;
   } catch (error) {
     console.error('Failed to fetch payment settings:', error);
     // Fallback to environment variables during migration
-    return {
+    providerSettings = {
       monnify: process.env.NEXT_PUBLIC_MONNIFY_ENABLED === 'true',
       squad: process.env.NEXT_PUBLIC_SQUAD_ENABLED === 'true',
       paystack: process.env.NEXT_PUBLIC_PAYSTACK_ENABLED === 'true',
       korapay: process.env.NEXT_PUBLIC_KORAPAY_ENABLED === 'true',
       flutterwave: process.env.NEXT_PUBLIC_FLUTTERWAVE_ENABLED === 'true',
       cod: process.env.NEXT_PUBLIC_COD_ENABLED !== 'false',
+      codAllowedStates: [],
     };
+    return providerSettings;
   }
 }
 

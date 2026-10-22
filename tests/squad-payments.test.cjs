@@ -611,6 +611,7 @@ test("public payment settings expose visibility without returning Squad keys", a
   assert.equal(settings.cod, true);
   assert.deepEqual(Object.keys(settings).sort(), [
     "cod",
+    "codAllowedStates",
     "flutterwave",
     "korapay",
     "monnify",

@@ -8,9 +8,11 @@ import {
   type KorapayVerifyData,
 } from "@/lib/server/korapay";
 import {
+  finalizeCodCommitmentFee,
   finalizeSuccessfulPayment,
   markPaymentFailed,
 } from "@/lib/server/finalize-payment";
+import { computeCodCommitmentFee, COD_FEE_PURPOSE } from "@/lib/cod";
 import { notifyMakeOrderPaid } from "@/lib/server/make-webhook";
 import { paymentLog } from "@/lib/server/payment-log";
 import { COLLECTIONS } from "@/constants/collections";
@@ -31,7 +33,7 @@ type KorapayEvent = {
   event?: string;
   data?: KorapayVerifyData & {
     id?: string;
-    metadata?: { orderId?: string; orderNumber?: string };
+    metadata?: { orderId?: string; orderNumber?: string; purpose?: string };
   };
 };
 
@@ -188,7 +190,13 @@ export async function POST(request: Request) {
         });
       }
       const order = { id: orderSnap.id, ...orderSnap.data() } as Order;
-      const expectedTotal = Number(order.total ?? order.totals?.total ?? 0);
+      const isCodFee =
+        paymentData?.purpose === COD_FEE_PURPOSE ||
+        data.metadata?.purpose === COD_FEE_PURPOSE;
+      const orderTotal = Number(order.total ?? order.totals?.total ?? 0);
+      const expectedTotal = isCodFee
+        ? Number(order.codCommitmentFee ?? computeCodCommitmentFee(orderTotal))
+        : orderTotal;
 
       if (!amountsMatch(expectedTotal, verified.amount)) {
         paymentLog("webhook.failure", "Amount mismatch after verify", {
@@ -236,12 +244,19 @@ export async function POST(request: Request) {
         reference: verified.reference,
       });
 
-      const result = await finalizeSuccessfulPayment({
-        orderId,
-        payment: normalized,
-        paymentDocId,
-        eventId,
-      });
+      const result = isCodFee
+        ? await finalizeCodCommitmentFee({
+            orderId,
+            payment: normalized,
+            paymentDocId,
+            eventId,
+          })
+        : await finalizeSuccessfulPayment({
+            orderId,
+            payment: normalized,
+            paymentDocId,
+            eventId,
+          });
 
       if (!result.ok) {
         paymentLog("webhook.firestore", "Firestore finalize failed", {

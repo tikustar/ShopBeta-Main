@@ -10,7 +10,11 @@ import {
   verifyMonnifyTransaction,
 } from "@/lib/server/monnify";
 import { appendTimelineAdmin } from "@/lib/server/order-timeline";
-import { finalizeSuccessfulPayment } from "@/lib/server/finalize-payment";
+import {
+  finalizeCodCommitmentFee,
+  finalizeSuccessfulPayment,
+} from "@/lib/server/finalize-payment";
+import { COD_FEE_PURPOSE } from "@/lib/cod";
 import { notifyMakeOrderPaid } from "@/lib/server/make-webhook";
 import { stripUndefined } from "@/utils/firestore";
 import type { Order } from "@/types/order";
@@ -122,11 +126,12 @@ export async function verifyMonnifyForReference(
   if (!paymentDoc || paymentDoc.data().gateway !== "monnify")
     return { ok: false as const, reason: "Monnify payment not found." };
   const payment = paymentDoc.data();
+  const isCodFee = payment.purpose === COD_FEE_PURPOSE;
   const orderSnap = await db.collection("orders").doc(payment.orderId).get();
   if (!orderSnap.exists)
     return { ok: false as const, reason: "Order not found." };
   const order = { ...orderSnap.data(), id: orderSnap.id } as Order;
-  if (order.paymentMethod !== "monnify")
+  if (order.paymentMethod !== "monnify" && !isCodFee)
     return {
       ok: false as const,
       reason: "This order is not set up for Monnify.",
@@ -182,7 +187,9 @@ export async function verifyMonnifyForReference(
   }
   const invalid = validateMonnifyPayment(verified, {
     reference,
-    amount: Number(order.total ?? order.totals?.total),
+    amount: isCodFee
+      ? Number(payment.amount)
+      : Number(order.total ?? order.totals?.total),
     email: order.customer?.email,
     transactionReference: payment.transactionReference,
   });
@@ -195,12 +202,19 @@ export async function verifyMonnifyForReference(
       ok: false as const,
       reason: invalid || "Paid amount does not match the recorded payment.",
     };
-  const finalized = await finalizeSuccessfulPayment({
-    orderId: order.id,
-    payment: normalized,
-    paymentDocId: paymentDoc.id,
-    eventId,
-  });
+  const finalized = isCodFee
+    ? await finalizeCodCommitmentFee({
+        orderId: order.id,
+        payment: normalized,
+        paymentDocId: paymentDoc.id,
+        eventId,
+      })
+    : await finalizeSuccessfulPayment({
+        orderId: order.id,
+        payment: normalized,
+        paymentDocId: paymentDoc.id,
+        eventId,
+      });
   if (!finalized.ok) return finalized;
   await notifyMakeOrderPaid({ order: finalized.order, reference }).catch(
     () => undefined,

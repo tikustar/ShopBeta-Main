@@ -90,3 +90,21 @@ export async function getPageVisitStats(): Promise<{
     topPages: pages.slice(0, 10),
   };
 }
+
+/**
+ * Sum pageVisitDays counters for every day key in [fromKey, toKey]
+ * (YYYY-MM-DD, inclusive). One small aggregate doc exists per day.
+ */
+export async function getVisitsForDays(
+  fromKey: string,
+  toKey: string,
+): Promise<number> {
+  const db = getDb();
+  const snap = await getDocs(collection(db, COLLECTIONS.pageVisitDays));
+  return snap.docs.reduce((sum, d) => {
+    const data = d.data() as { date?: string; count?: number };
+    const key = String(data.date ?? d.id);
+    if (key < fromKey || key > toKey) return sum;
+    return sum + Number(data.count ?? 0);
+  }, 0);
+}

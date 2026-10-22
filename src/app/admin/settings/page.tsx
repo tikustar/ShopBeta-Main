@@ -33,6 +33,7 @@ export default function AdminSettingsPage() {
     taxRate: "0.075",
     countries: "Nigeria,Ghana,Kenya",
     codEnabled: true,
+    codAllowedStates: "",
     paystackEnabled: false,
     korapayEnabled: false,
     monnifyEnabled: false,
@@ -77,6 +78,7 @@ export default function AdminSettingsPage() {
           taxRate: String(settings.taxRate ?? 0.075),
           countries: (settings.supportedCountries ?? []).join(",") || f.countries,
           codEnabled: settings.payments?.codEnabled ?? true,
+          codAllowedStates: (settings.payments?.paymentOnDeliveryAllowedStates ?? []).join(","),
           paystackEnabled: settings.payments?.paystackEnabled ?? false,
           korapayEnabled: settings.payments?.korapayEnabled ?? false,
           monnifyEnabled: settings.payments?.monnifyEnabled ?? false,
@@ -135,6 +137,14 @@ export default function AdminSettingsPage() {
           taxRate: Number(form.taxRate) || 0.075,
           payments: {
             codEnabled: form.codEnabled,
+            paymentOnDeliveryAllowedStates: Array.from(
+              new Set(
+                form.codAllowedStates
+                  .split(",")
+                  .map((s) => s.trim().replace(/\s+/g, " "))
+                  .filter(Boolean),
+              ),
+            ),
             paystackEnabled: form.paystackEnabled,
             korapayEnabled: form.korapayEnabled,
             monnifyEnabled: form.monnifyEnabled,
@@ -329,6 +339,22 @@ export default function AdminSettingsPage() {
                 setForm((f) => ({ ...f, codEnabled: !f.codEnabled }))
               }
             />
+            <div>
+              <Label htmlFor="codAllowedStates">
+                Payment on Delivery — allowed states (comma-separated)
+              </Label>
+              <Input
+                id="codAllowedStates"
+                value={form.codAllowedStates}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, codAllowedStates: e.target.value }))
+                }
+                placeholder="Lagos, Abuja, Rivers"
+              />
+              <p className="mt-1 text-[11px] text-muted">
+                COD is only offered in these states. A 25% commitment fee is charged online before the order is confirmed. Leave empty to disable COD everywhere.
+              </p>
+            </div>
           </div>
 
           <div className="space-y-3 rounded-lg border border-line p-4">

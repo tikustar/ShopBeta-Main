@@ -224,7 +224,11 @@ function PaymentCallbackContent() {
 
       if (!active) return;
 
-      if (paidOrder?.paymentStatus === "paid") {
+      if (
+        paidOrder?.paymentStatus === "paid" ||
+        (String(paidOrder?.paymentMethod ?? "") === "cash-on-delivery" &&
+          paidOrder?.commitmentFeeStatus === "paid")
+      ) {
         await goSuccess(paidOrder.orderNumber ?? paidOrder.id);
         return;
       }

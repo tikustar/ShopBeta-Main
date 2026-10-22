@@ -6,9 +6,14 @@ import { listOrdersAdmin } from "@/services/admin-orders.service";
 import { listCustomersAdmin } from "@/services/admin-customers.service";
 import { listCouponsAdmin } from "@/services/admin-coupons.service";
 import { listAllNotificationsAdmin } from "@/services/admin-notifications.service";
-import { listAdsAdmin, calculateTotalAdsExpenses } from "@/services/admin-ads.service";
+import {
+  listAdsAdmin,
+  calculateTotalAdsExpenses,
+  calculateTotalOtherExpenses,
+} from "@/services/admin-ads.service";
 import {
   getPageVisitStats,
+  getVisitsForDays,
   type PageVisitStat,
 } from "@/services/visits.service";
 import type { Order } from "@/types/order";
@@ -24,21 +29,47 @@ function startOfMonth(date = new Date()) {
   return new Date(date.getFullYear(), date.getMonth(), 1);
 }
 
-function orderTime(order: Order) {
-  const createdAt = order.createdAt;
-  if (createdAt instanceof Date) return createdAt.getTime();
-  if (createdAt && typeof createdAt === 'object' && 'toDate' in createdAt) {
-    return (createdAt as { toDate: () => Date }).toDate().getTime();
+function toTime(value: unknown): number {
+  if (value instanceof Date) return value.getTime();
+  if (value && typeof value === "object" && "toDate" in value) {
+    return (value as { toDate: () => Date }).toDate().getTime();
   }
-  if (typeof createdAt === 'string' || typeof createdAt === 'number') {
-    const date = new Date(createdAt);
+  if (typeof value === "string" || typeof value === "number") {
+    const date = new Date(value);
     return isNaN(date.getTime()) ? 0 : date.getTime();
   }
   return 0;
 }
 
+function orderTime(order: Order) {
+  return toTime(order.createdAt);
+}
+
+/** Paid timestamp — revenue should be counted when payment was verified. */
+function paidTime(order: Order) {
+  return toTime(order.paidAt) || orderTime(order);
+}
+
 function isPaid(order: Order) {
   return order.paymentStatus === "paid";
+}
+
+/** Inclusive ms range; undefined bounds mean unbounded. */
+export type DashboardRange = { from?: number; to?: number };
+
+function inRange(ts: number, range?: DashboardRange) {
+  if (range?.from == null && range?.to == null) return true;
+  if (!ts) return false;
+  if (range?.from != null && ts < range.from) return false;
+  if (range?.to != null && ts > range.to) return false;
+  return true;
+}
+
+function dayKey(date: Date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 export type DashboardStats = {
@@ -46,6 +77,8 @@ export type DashboardStats = {
   totalRevenueLabel: string;
   ordersToday: number;
   ordersThisMonth: number;
+  /** Orders created inside the selected range. */
+  rangeOrders: number;
   pendingOrders: number;
   paidOrders: number;
   cancelledOrders: number;
@@ -66,14 +99,20 @@ export type DashboardStats = {
   archivedProducts: number;
   totalAdsExpenses: number;
   totalAdsExpensesLabel: string;
+  totalOtherExpenses: number;
+  totalOtherExpensesLabel: string;
   revenueAfterAds: number;
   revenueAfterAdsLabel: string;
   totalVisits: number;
   todayVisits: number;
+  /** Visits inside the selected range (all-time when no range). */
+  rangeVisits: number;
   topPages: PageVisitStat[];
 };
 
-export async function getAdminDashboardStats(): Promise<DashboardStats> {
+export async function getAdminDashboardStats(
+  range?: DashboardRange,
+): Promise<DashboardStats> {
   const [
     products,
     categories,
@@ -106,10 +145,14 @@ export async function getAdminDashboardStats(): Promise<DashboardStats> {
   const month = startOfMonth().getTime();
 
   const paid = orders.filter(isPaid);
-  const totalRevenue = paid.reduce(
+  // Revenue respects the selected range and counts by paid timestamp
+  // (falling back to createdAt for legacy orders without paidAt).
+  const rangedPaid = paid.filter((o) => inRange(paidTime(o), range));
+  const totalRevenue = rangedPaid.reduce(
     (sum, order) => sum + Number(order.total ?? 0),
     0,
   );
+  const rangedOrders = orders.filter((o) => inRange(orderTime(o), range));
 
   const lowStockProducts = products.filter(
     (p) => p.stock > 0 && p.stock <= LOW_STOCK_THRESHOLD && p.active !== false,
@@ -123,8 +166,14 @@ export async function getAdminDashboardStats(): Promise<DashboardStats> {
     0,
   );
   const archivedProducts = products.filter((p) => p.active === false);
-  const totalAdsExpenses = calculateTotalAdsExpenses(ads);
-  const revenueAfterAds = totalRevenue - totalAdsExpenses;
+  // Expense records carry a YYYY-MM-DD `date` string; legacy records without
+  // a `type` count as ads (handled inside the calculators).
+  const rangedAds = ads.filter((ad) =>
+    inRange(toTime(ad.date), range),
+  );
+  const totalAdsExpenses = calculateTotalAdsExpenses(rangedAds);
+  const totalOtherExpenses = calculateTotalOtherExpenses(rangedAds);
+  const revenueAfterAds = totalRevenue - totalAdsExpenses - totalOtherExpenses;
 
   // Page-visit counters are isolated like ads so a failure does not take
   // down the whole dashboard.
@@ -136,16 +185,33 @@ export async function getAdminDashboardStats(): Promise<DashboardStats> {
     return { total: 0, today: 0, topPages: [] as PageVisitStat[] };
   });
 
+  // Ranged visit count from the per-day aggregates; all-time otherwise.
+  let rangeVisits = visits.total;
+  if (range?.from != null || range?.to != null) {
+    const fromKey = dayKey(
+      range.from != null ? new Date(range.from) : new Date(0),
+    );
+    const toKey = dayKey(range.to != null ? new Date(range.to) : new Date());
+    rangeVisits = await getVisitsForDays(fromKey, toKey).catch((error) => {
+      console.error(
+        "[AdminStats] Failed to load ranged visits:",
+        error instanceof Error ? error.message : error,
+      );
+      return 0;
+    });
+  }
+
   return {
     totalRevenue,
     totalRevenueLabel: formatPrice(totalRevenue),
     ordersToday: todayOrders.length,
     ordersThisMonth: orders.filter((o) => orderTime(o) >= month).length,
-    pendingOrders: orders.filter(
+    rangeOrders: rangedOrders.length,
+    pendingOrders: rangedOrders.filter(
       (o) => (o.orderStatus ?? o.status) === "pending",
     ).length,
-    paidOrders: paid.length,
-    cancelledOrders: orders.filter(
+    paidOrders: rangedPaid.length,
+    cancelledOrders: rangedOrders.filter(
       (o) => (o.orderStatus ?? o.status) === "cancelled",
     ).length,
     products: products.length,
@@ -165,10 +231,13 @@ export async function getAdminDashboardStats(): Promise<DashboardStats> {
     archivedProducts: archivedProducts.length,
     totalAdsExpenses,
     totalAdsExpensesLabel: formatPrice(totalAdsExpenses),
+    totalOtherExpenses,
+    totalOtherExpensesLabel: formatPrice(totalOtherExpenses),
     revenueAfterAds,
     revenueAfterAdsLabel: formatPrice(revenueAfterAds),
     totalVisits: visits.total,
     todayVisits: visits.today,
+    rangeVisits,
     topPages: visits.topPages,
   };
 }

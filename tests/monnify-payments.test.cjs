@@ -638,5 +638,6 @@ test("public provider settings expose only visibility and retain existing provid
     korapay: true,
     flutterwave: false,
     cod: true,
+    codAllowedStates: [],
   });
 });
