@@ -42,7 +42,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
   useEffect(() => {
     const unsubscribe = subscribeToAuth((user) => {
       void (async () => {
-        if (!user) {
+        if (!user || user.isAnonymous) {
           setAuthUser(null);
           setProfile(null);
           setStatus("anonymous");

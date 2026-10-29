@@ -1,5 +1,9 @@
 "use client";
 
+import { requireStoreName } from "@/lib/store";
+import { getAppSettings } from "@/services/settings.service";
+import type { AppSettings } from "@/types/settings";
+
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, CreditCard, Lock, Truck } from "lucide-react";
@@ -273,12 +277,30 @@ export default function CheckoutPage() {
     void loadSettings();
   }, [paymentMethod, setPaymentMethod]);
 
+  const [storeSettings, setStoreSettings] = useState<AppSettings>();
+  const [configurationError, setConfigurationError] = useState<string>();
+  useEffect(() => {
+    void getAppSettings()
+      .then((settings) => {
+        requireStoreName(settings);
+        setStoreSettings(settings);
+      })
+      .catch(() =>
+        setConfigurationError(
+          "Admin has not configured the store name. Please contact support.",
+        ),
+      );
+  }, []);
   const subtotal = cartSubtotal(items);
-  const shipping = deliveryFeeFor(deliveryOptionId, subtotal);
+  const shipping =
+    storeSettings?.deliveryOptions?.find(
+      (option) => option.id === deliveryOptionId,
+    )?.fee ?? deliveryFeeFor(deliveryOptionId, subtotal);
   const { tax, total } = orderGrandTotal({
     subtotal,
     discount: couponDiscount,
     shipping,
+    taxRate: storeSettings?.taxRate ?? 0.075,
   });
 
   const fullName = useMemo(
@@ -287,6 +309,10 @@ export default function CheckoutPage() {
   );
 
   const validate = (): Address | null => {
+    if (configurationError || !storeSettings) {
+      setError(configurationError || "Store settings are loading.");
+      return null;
+    }
     if (!items.length) {
       setError("Your cart is empty.");
       return null;
@@ -803,7 +829,10 @@ export default function CheckoutPage() {
             </h2>
             <div className="mt-5 space-y-3">
               {DELIVERY_OPTIONS.map((option) => {
-                const fee = deliveryFeeFor(option.id, subtotal);
+                const fee =
+                  storeSettings?.deliveryOptions?.find(
+                    (entry) => entry.id === option.id,
+                  )?.fee ?? deliveryFeeFor(option.id, subtotal);
                 return (
                   <Radio
                     key={option.id}
