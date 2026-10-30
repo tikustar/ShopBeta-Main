@@ -19,6 +19,7 @@ export async function GET(request: Request) {
   if (!number || number.length > 200 || number.includes("/"))
     return NextResponse.json({ ok: false }, { status: 400 });
   try {
+    await requestIdentity(request);
     const db = getAdminDb();
     const matches = await db.collection("orders")
       .where("orderNumber", "==", number.toUpperCase()).get();
@@ -53,7 +54,7 @@ export async function POST(request: Request) {
     const profile = (
       await getAdminDb().collection("users").doc(identity.uid).get()
     ).data();
-    if (profile?.status === "suspended" || profile?.status === "deleted")
+    if (profile?.active === false || profile?.status === "suspended" || profile?.status === "deleted")
       return NextResponse.json(
         { ok: false, reason: "Access denied." },
         { status: 403 },

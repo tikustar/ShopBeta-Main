@@ -133,3 +133,13 @@ Order rollback restores only attribution fields and preserves subsequent payment
 8. Perform deployed acceptance checks: real catalog reads; independent settings saves; own-store lists/direct lookups/counts; sandbox verification/retries/refunds; cross-store webhook routing; emails and Make payloads; shared stock once; analytics keys. Mock/emulator success does not prove a live gateway account, domain or key is correctly configured.
 
 No live database migration, rules/function deployment, domain update or live charge is performed by opening the implementation PR.
+
+## Coordinated checkout/admin follow-up
+
+This follow-up is based on `ce8645a` and preserves ShopBeta's Bachs retry, store-resolution and migration improvements. Shared changes originate in Zenvexa commits `b8dee3a`, `9ff9273` and `d4704c9` (fresh persisted order confirmation, Bachs/COD verification dispatch): suspended/deleted/inactive staff are denied in UI/API/rules; ordinary Google users retain customer permissions; owners cannot change their role or reactivate themselves. `users/{uid}` remains canonical. `/profile` now offers password changes with password/Google reauthentication.
+
+The shared `super_admin` role is global to both storefronts. The conflict-safe `scripts/setup-zenvexa-super-admin.mjs` targets only `shop-day84j` and the requested account; reruns never reset an existing account's password. Password setup uses Firebase's Forgot password flow and mailbox ownership, not a logged reset URL or shared password.
+
+Payment Make notifications claim the persisted order transactionally before sending. Payloads retain existing fields and store attribution and add `eventId={storeId}:{FirestoreOrderId}:payment-confirmed`, also sent as the `Idempotency-Key` header. Update Make to atomically deduplicate that ID before sending email and select branding by storeId. A lost HTTP response cannot be resolved by sender-side deduplication alone; check Make history before manually reconciling a stuck sending status or resending. Endpoint documents remain private and independent. Legacy shared handlers read `privateStoreSettings/shopbeta`, then legacy settings/app, then their existing environment fallback.
+
+Deploy the shared function bundle only once from the coordinated Zenvexa release, not independently from both repositories. Deploy this ShopBeta branch with explicit `STORE_ID=shopbeta`, `NEXT_PUBLIC_STORE_ID=shopbeta` and cutover=false, and retain legacy settings/keys. Preview/sandbox acceptance, actual email delivery and password-change browser acceptance still require operator verification. No catalog reset, product import, real charge or cutover is included.
