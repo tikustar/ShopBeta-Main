@@ -146,7 +146,7 @@ export default async function BrandsPage() {
             <Card key={category.slug} className="relative overflow-hidden">
               <span className={cn("absolute inset-0 opacity-70", category.tone)} aria-hidden />
               <div className="relative">
-                <ProductIcon icon={category.icon} className="h-8 w-8 text-ink/70" />
+                <ProductIcon icon={category.icon} className="h-8 w-8 text-primary/80" />
                 <h3 className="mt-4 text-[17px] font-semibold text-ink">{category.name}</h3>
                 <p className="mt-2 text-[13px] text-muted">{category.description}</p>
                 <ButtonLink href={`/category/${category.slug}`} className="mt-5" size="sm">

@@ -1,4 +1,5 @@
 import { recordStoreId } from "@/lib/store";
+import { APP_NAME } from "@/constants/app";
 import { getAppUrl } from "@/lib/server/env";
 import { getAdminDb } from "@/lib/server/firebase-admin";
 import {
@@ -212,7 +213,7 @@ export async function buildTransactionalEmailPayload(input: {
     storeId: recordStoreId(order),
     storeName:
       order.storeName ||
-      (recordStoreId(order) === "shopbeta" ? "ShopBeta" : ""),
+      (recordStoreId(order) === "shopbeta" ? APP_NAME : ""),
     storefrontUrl: getAppUrl(),
     recipientEmail: input.recipientOverride?.trim() || customerEmail,
     customerName: order.customer?.name || "Customer",

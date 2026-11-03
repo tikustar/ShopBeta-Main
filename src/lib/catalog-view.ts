@@ -1,7 +1,8 @@
-import type {
-  Brand as BrandView,
-  Category as CategoryView,
-  IconKey,
+import {
+  isIconKey,
+  type Brand as BrandView,
+  type Category as CategoryView,
+  type IconKey,
 } from "@/lib/data";
 import type { Brand, Category } from "@/types/catalog";
 import { APP_NAME, withBrandName } from "@/constants/app";
@@ -15,15 +16,35 @@ const TONES = [
   "bg-[#F7F8F1]",
 ] as const;
 
+/** Ordered: more specific category names first. Icons only — never product imagery. */
 const ICON_KEYWORDS: Array<[RegExp, IconKey]> = [
-  [/laptop|computer|notebook/, "laptop"],
-  [/phone|smartphone|mobile/, "smartphone"],
-  [/tablet/, "tablet"],
+  [/glasses|sunglass|eyewear/, "glasses"],
+  [/power ?bank|power station|jackery|battery|solar|generator|inverter/, "battery"],
+  [/calculator/, "calculator"],
+  [/shoe|sneaker|footwear|sandal/, "footprints"],
+  [/\bbags?\b|handbag|purse|luggage/, "handbag"],
+  [/jewel|necklace|bracelet|earring/, "gem"],
   [/watch/, "watch"],
-  [/furniture|home|kitchen|grocer/, "chair"],
-  [/sport|vehicle|motorcycle/, "gamepad"],
-  [/beauty|skin|fragrance/, "lightbulb"],
-  [/accessories|sunglass|bag|shoe|shirt|dress|jewellery/, "plug"],
+  [/shirt|\btops?\b|dress|cloth|fashion|wear/, "shirt"],
+  [/\btv\b|television|android box|streaming/, "tv"],
+  [/motorcycle|motorbike|bike|scooter/, "bike"],
+  [/vehicle|\bcars?\b|automotive|auto parts/, "car"],
+  [/sport|fitness|gym|exercise/, "dumbbell"],
+  [/\bballs?\b|football|soccer|basketball/, "ball"],
+  [/skin|lotion|cream|body care/, "droplets"],
+  [/fragrance|perfume|cologne/, "fragrance"],
+  [/beauty|makeup|cosmetic/, "sparkles"],
+  [/furniture|sofa|chair|bed\b/, "sofa"],
+  [/grocer|food|pantry|beverage|drink/, "basket"],
+  [/kitchen|cook|utensil/, "cookware"],
+  [/decor|home|living|lighting/, "lamp"],
+  [/laptop|computer|notebook|pc\b/, "laptop"],
+  [/tablet|ipad/, "tablet"],
+  [/headphone|earbud|audio|speaker/, "headphones"],
+  [/mobile accessor|cable|charger|adapter/, "cable"],
+  [/phone|smartphone|mobile/, "smartphone"],
+  [/camera|photo/, "camera"],
+  [/gaming|console|game/, "gamepad"],
 ];
 
 function hash(value: string) {
@@ -35,15 +56,17 @@ function hash(value: string) {
 }
 
 function iconFor(category: Category): IconKey {
-  const haystack = `${category.name} ${category.slug}`.toLowerCase();
-  return ICON_KEYWORDS.find(([pattern]) => pattern.test(haystack))?.[1] ?? "cpu";
+  const haystack = `${category.name} ${category.slug.replace(/-/g, " ")}`.toLowerCase();
+  const matched = ICON_KEYWORDS.find(([pattern]) => pattern.test(haystack))?.[1];
+  if (matched) return matched;
+  return isIconKey(category.icon) ? category.icon : "grid";
 }
 
 export function toCategoryView(category: Category): CategoryView {
   return {
     name: category.name,
     slug: category.slug,
-    icon: (category.icon as IconKey | undefined) ?? iconFor(category),
+    icon: iconFor(category),
     itemCount: category.productCount ?? 0,
     tone: TONES[hash(category.slug) % TONES.length],
     subcategories: category.subcategories?.length
@@ -53,7 +76,6 @@ export function toCategoryView(category: Category): CategoryView {
       category.description ??
         `Explore ${category.name.toLowerCase()} products on ${APP_NAME}.`,
     ),
-    image: category.image || undefined,
   };
 }
 

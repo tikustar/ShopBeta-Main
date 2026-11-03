@@ -1,22 +1,50 @@
-export type IconKey =
-  | "laptop"
-  | "monitor"
-  | "smartphone"
-  | "tablet"
-  | "headphones"
-  | "speaker"
-  | "watch"
-  | "gamepad"
-  | "keyboard"
-  | "mouse"
-  | "camera"
-  | "printer"
-  | "router"
-  | "cpu"
-  | "harddrive"
-  | "lightbulb"
-  | "chair"
-  | "plug";
+export const ICON_KEYS = [
+  "laptop",
+  "monitor",
+  "smartphone",
+  "tablet",
+  "headphones",
+  "speaker",
+  "watch",
+  "gamepad",
+  "keyboard",
+  "mouse",
+  "camera",
+  "printer",
+  "router",
+  "cpu",
+  "harddrive",
+  "lightbulb",
+  "chair",
+  "plug",
+  "battery",
+  "calculator",
+  "glasses",
+  "footprints",
+  "handbag",
+  "gem",
+  "shirt",
+  "tv",
+  "car",
+  "bike",
+  "dumbbell",
+  "ball",
+  "droplets",
+  "fragrance",
+  "sparkles",
+  "sofa",
+  "basket",
+  "lamp",
+  "cookware",
+  "cable",
+  "grid",
+] as const;
+
+export type IconKey = (typeof ICON_KEYS)[number];
+
+export function isIconKey(value: unknown): value is IconKey {
+  return typeof value === "string" && (ICON_KEYS as readonly string[]).includes(value);
+}
 
 export type Product = {
   id: string;
@@ -65,7 +93,6 @@ export type Category = {
   tone: string;
   subcategories: string[];
   description: string;
-  image?: string;
 };
 
 export type Brand = {

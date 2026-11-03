@@ -39,18 +39,21 @@ export function Countdown({
   /** Restart the timer when it hits zero (demo/home fallback). */
   loop?: boolean;
 }) {
-  const initial = resolveInitialSeconds(endsAt, seconds);
-  const [remaining, setRemaining] = useState(initial);
-  const [expired, setExpired] = useState(initial <= 0);
+  // Time-dependent values differ between the server render and hydration, so the
+  // clock only renders real values after mount (avoids React hydration errors).
+  const [mounted, setMounted] = useState(false);
+  const [remaining, setRemaining] = useState(0);
+  const [expired, setExpired] = useState(false);
 
   useEffect(() => {
     const next = resolveInitialSeconds(endsAt, seconds);
     setRemaining(next);
     setExpired(next <= 0);
+    setMounted(true);
   }, [endsAt, seconds]);
 
   useEffect(() => {
-    if (expired && !loop) return;
+    if (!mounted || (expired && !loop)) return;
     const timer = setInterval(() => {
       setRemaining((value) => {
         if (value <= 1) {
@@ -63,9 +66,9 @@ export function Countdown({
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [expired, loop, onExpire, seconds]);
+  }, [mounted, expired, loop, onExpire, seconds]);
 
-  if (expired && !loop) {
+  if (mounted && expired && !loop) {
     return (
       <p
         className={cn(
@@ -82,9 +85,9 @@ export function Countdown({
 
   const hours = Math.floor(remaining / 3600);
   const parts = [
-    { label: "Hours", value: pad(hours) },
-    { label: "Mins", value: pad(Math.floor((remaining % 3600) / 60)) },
-    { label: "Secs", value: pad(remaining % 60) },
+    { label: "Hours", value: mounted ? pad(hours) : "--" },
+    { label: "Mins", value: mounted ? pad(Math.floor((remaining % 3600) / 60)) : "--" },
+    { label: "Secs", value: mounted ? pad(remaining % 60) : "--" },
   ];
 
   return (

@@ -1,5 +1,37 @@
+/**
+ * Legacy ShopBeta domain -> Zenvexa canonical domain (308, path + query preserved).
+ * Enabled only once ENABLE_LEGACY_DOMAIN_REDIRECT=true after the new domain is verified.
+ * Excluded: /api/* (gateway webhooks must not be redirected) and payment return pages
+ * (in-flight payments finish on the origin that holds the customer's session).
+ */
+const CANONICAL_ORIGIN = (
+  process.env.NEXT_PUBLIC_SITE_URL || "https://www.zenvexacommerce.com"
+).replace(/\/$/, "");
+const LEGACY_HOSTS = "(?:www\\.)?shopbetaa\\.store";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  async redirects() {
+    if (process.env.ENABLE_LEGACY_DOMAIN_REDIRECT !== "true") return [];
+    if (!/^https:\/\/(www\.)?zenvexacommerce\.com$/.test(CANONICAL_ORIGIN))
+      throw new Error(
+        "ENABLE_LEGACY_DOMAIN_REDIRECT requires NEXT_PUBLIC_SITE_URL to be the Zenvexa domain.",
+      );
+    return [
+      {
+        source: "/",
+        has: [{ type: "host", value: LEGACY_HOSTS }],
+        destination: `${CANONICAL_ORIGIN}/`,
+        permanent: true,
+      },
+      {
+        source: "/:path((?!api/|payments(?:/|$)|payment/).+)",
+        has: [{ type: "host", value: LEGACY_HOSTS }],
+        destination: `${CANONICAL_ORIGIN}/:path`,
+        permanent: true,
+      },
+    ];
+  },
   images: {
     formats: ["image/avif", "image/webp"],
     unoptimized: true,

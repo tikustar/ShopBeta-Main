@@ -17,6 +17,7 @@ import { saveBachsSecrets } from "@/services/bachs-settings.service";
 import { clearPaymentProviderSettingsCache } from "@/services/payments.service";
 import { useUserStore } from "@/stores/user.store";
 import { toastError, toastSuccess } from "@/stores/toast.store";
+import { publicSiteUrl } from "@/lib/site-url";
 
 type ProviderKey =
   | "paystack"
@@ -643,10 +644,7 @@ export default function AdminIntegrationsPage() {
             })}
             <WebhookUrlRow
               label="Monnify webhook URL"
-              url={`${
-                process.env.NEXT_PUBLIC_SITE_URL ??
-                "https://www.shopbetaa.store"
-              }/api/payments/monnify/webhook`}
+              url={`${publicSiteUrl()}/api/payments/monnify/webhook`}
             />
           </ProviderPanel>
         </form>

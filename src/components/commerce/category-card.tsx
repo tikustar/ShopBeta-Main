@@ -25,7 +25,7 @@ export function CategoryCard({
           category.tone,
         )}
       >
-        <ProductIcon icon={category.icon} className="h-6 w-6 text-ink" />
+        <ProductIcon icon={category.icon} className="h-6 w-6 text-primary" />
       </span>
       <span className="min-w-0">
         <span className="flex items-center gap-1.5 text-[15px] font-semibold tracking-[-0.01em] text-ink">
@@ -53,7 +53,7 @@ export function CategoryTile({ category }: { category: Category }) {
         </span>
         <ProductIcon
           icon={category.icon}
-          className="h-9 w-9 text-ink/60 transition-transform duration-500 ease-premium group-hover:scale-110"
+          className="h-9 w-9 text-primary/70 transition-transform duration-500 ease-premium group-hover:scale-110"
         />
       </span>
       <span className="relative">

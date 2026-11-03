@@ -1,20 +1,27 @@
 import type { Metadata } from "next";
 import type { Product } from "@/types/product";
 import type { Brand, Category } from "@/types/catalog";
-import { APP_NAME, CURRENCY, withBrandName } from "@/constants/app";
+import {
+  APP_DESCRIPTOR,
+  APP_NAME,
+  APP_TAGLINE,
+  BRAND_SOCIAL_IMAGE,
+  CURRENCY,
+  withBrandName,
+} from "@/constants/app";
+import { publicSiteUrl } from "@/lib/site-url";
 
-const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
-  "https://shopbeta.app";
+const SITE_URL = publicSiteUrl();
 
 const DEFAULT_KEYWORDS = [
-  "Zenvexa",
+  APP_NAME,
+  `${APP_NAME} ${APP_DESCRIPTOR}`,
+  "online shopping Nigeria",
   "electronics",
   "gadgets",
-  "laptops",
   "phones",
-  "gaming",
-  "smart home",
+  "power banks",
+  "home essentials",
   "Nigeria",
 ];
 
@@ -71,17 +78,19 @@ function withSocial(
       url: input.url,
       title: `${input.title} · ${APP_NAME}`,
       description: input.description,
-      siteName: APP_NAME,
+      siteName: `${APP_NAME} — ${APP_DESCRIPTOR}`,
       locale: "en_NG",
-      images: input.image
-        ? [{ url: input.image, alt: input.imageAlt ?? input.title }]
-        : undefined,
+      images: [
+        input.image
+          ? { url: input.image, alt: input.imageAlt ?? input.title }
+          : { url: BRAND_SOCIAL_IMAGE, width: 1080, height: 602, alt: `${APP_NAME} — ${APP_DESCRIPTOR}` },
+      ],
     },
     twitter: {
-      card: input.image ? "summary_large_image" : "summary",
+      card: "summary_large_image",
       title: `${input.title} · ${APP_NAME}`,
       description: input.description,
-      images: input.image ? [input.image] : undefined,
+      images: [input.image ?? BRAND_SOCIAL_IMAGE],
     },
   };
 }
@@ -281,6 +290,8 @@ export function organizationJsonLd() {
     "@context": "https://schema.org",
     "@type": "Organization",
     name: APP_NAME,
+    alternateName: `${APP_NAME} — ${APP_DESCRIPTOR}`,
+    description: APP_TAGLINE,
     url: SITE_URL,
     logo: absoluteUrl("/icon.png"),
     sameAs: [],
@@ -297,6 +308,7 @@ export function websiteJsonLd() {
     "@context": "https://schema.org",
     "@type": "WebSite",
     name: APP_NAME,
+    alternateName: `${APP_NAME} — ${APP_DESCRIPTOR}`,
     url: SITE_URL,
     potentialAction: {
       "@type": "SearchAction",

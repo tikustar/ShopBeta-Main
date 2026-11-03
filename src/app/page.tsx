@@ -62,12 +62,15 @@ const trustPoints = [
 
 export const revalidate = 60;
 
-export const metadata = buildListingMetadata({
-  title: "Shop electronics & gadgets",
-  description:
-    "Zenvexa catalogue — flash sales, featured picks, trending products and recently added stock.",
-  path: "/",
-});
+export const metadata = {
+  ...buildListingMetadata({
+    title: "Commerce Hug",
+    description:
+      "Shop Zenvexa — Commerce Hug: power banks, phones, electronics, fashion and home essentials with flexible payment and fast delivery across Nigeria.",
+    path: "/",
+  }),
+  title: { absolute: "Zenvexa — Commerce Hug | Everything Naija needs, delivered with a warm hug" },
+};
 
 /** Configured hero product when sellable, otherwise the next best sellable product. */
 function pickHeroProduct(catalog: Product[], fallback?: Product) {

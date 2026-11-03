@@ -160,7 +160,7 @@ export function Header() {
                       <span
                         className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-lg", category.tone)}
                       >
-                        <ProductIcon icon={category.icon} className="h-[18px] w-[18px] text-ink" />
+                        <ProductIcon icon={category.icon} className="h-[18px] w-[18px] text-primary" />
                       </span>
                       <span className="min-w-0">
                         <span className="block text-sm font-medium text-ink">
@@ -273,7 +273,7 @@ export function Header() {
                     className="flex items-center gap-3 rounded-xl px-2 py-2.5 text-sm text-ink transition-colors hover:bg-soft"
                   >
                     <span className={cn("grid h-9 w-9 place-items-center rounded-lg", category.tone)}>
-                      <ProductIcon icon={category.icon} className="h-4 w-4 text-ink" />
+                      <ProductIcon icon={category.icon} className="h-4 w-4 text-primary" />
                     </span>
                     {category.name}
                   </Link>

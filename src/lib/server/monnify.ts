@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { NormalizedPaymentResult } from "@/types/payment";
+import { APP_NAME } from "@/constants/app";
 
 export type MonnifyCredentials = {
   apiKey: string;
@@ -101,7 +102,7 @@ export async function initializeMonnifyTransaction(
       customerName: input.customerName || input.email,
       customerEmail: input.email,
       paymentReference: input.reference,
-      paymentDescription: "ShopBeta order payment",
+      paymentDescription: `${APP_NAME} order payment`,
       currencyCode: "NGN",
       contractCode: config.contractCode,
       redirectUrl: input.callbackUrl,

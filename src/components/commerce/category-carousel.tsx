@@ -1,12 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { Category } from "@/lib/data";
 import { cn } from "@/lib/utils";
-import { isOptimizableImage } from "@/constants/app";
 import { ProductIcon } from "@/components/commerce/product-media";
 
 function ArrowButton({
@@ -95,36 +93,28 @@ export function CategoryCarousel({
           aria-label="Product categories"
           className="no-scrollbar -mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:scroll-px-6 sm:px-6 lg:mx-0 lg:scroll-px-0 lg:px-0"
         >
-          {categories.map((category) => {
-            const image = isOptimizableImage(category.image) ? category.image : undefined;
-            return (
-              <li key={category.slug} className="shrink-0 snap-start">
-                <Link
-                  href={`/category/${category.slug}`}
-                  className="group flex w-[96px] flex-col items-center gap-2.5 rounded-2xl p-1.5 text-center sm:w-[112px]"
-                >
+          {categories.map((category) => (
+            <li key={category.slug} className="shrink-0 snap-start">
+              <Link
+                href={`/category/${category.slug}`}
+                className="group flex w-[96px] flex-col items-center gap-2.5 rounded-2xl p-1.5 text-center sm:w-[112px]"
+              >
+                <span className="relative grid h-[68px] w-[68px] place-items-center rounded-2xl border border-primary-100 bg-primary-50 transition-all duration-300 ease-premium group-hover:-translate-y-0.5 group-hover:border-primary group-hover:bg-primary group-hover:shadow-[0_10px_22px_-12px_rgba(13,87,62,0.8)] sm:h-[78px] sm:w-[78px]">
                   <span
-                    className={cn(
-                      "relative grid h-[72px] w-[72px] place-items-center overflow-hidden rounded-2xl border border-line transition-all duration-300 ease-premium group-hover:-translate-y-0.5 group-hover:border-primary group-hover:ring-4 group-hover:ring-accent/40 sm:h-[84px] sm:w-[84px]",
-                      category.tone,
-                    )}
-                  >
-                    {image ? (
-                      <Image src={image} alt="" fill sizes="84px" className="object-cover" />
-                    ) : (
-                      <ProductIcon
-                        icon={category.icon}
-                        className="h-7 w-7 text-primary transition-transform duration-300 group-hover:scale-110 sm:h-8 sm:w-8"
-                      />
-                    )}
-                  </span>
-                  <span className="line-clamp-2 min-h-[2.5em] text-[12.5px] font-medium leading-tight text-ink group-hover:text-primary">
-                    {category.name}
-                  </span>
-                </Link>
-              </li>
-            );
-          })}
+                    className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-accent transition-transform duration-300 group-hover:scale-150"
+                    aria-hidden
+                  />
+                  <ProductIcon
+                    icon={category.icon}
+                    className="h-7 w-7 text-primary transition-colors duration-300 group-hover:text-accent sm:h-8 sm:w-8"
+                  />
+                </span>
+                <span className="line-clamp-2 min-h-[2.5em] text-[12.5px] font-medium leading-tight text-ink group-hover:text-primary">
+                  {category.name}
+                </span>
+              </Link>
+            </li>
+          ))}
         </ul>
         <span
           className={cn(

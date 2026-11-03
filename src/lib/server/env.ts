@@ -1,9 +1,10 @@
 import { CURRENCY } from "@/constants/app";
 import { currentStoreId, deploymentEnv } from "@/lib/server/store-context";
 import { deploymentStoreId } from "@/lib/store";
+import { CANONICAL_SITE_URL } from "@/lib/site-url";
 
 /** Canonical production storefront URL — never redirect customers to localhost. */
-export const PRODUCTION_SITE_URL = "https://www.shopbetaa.store";
+export const PRODUCTION_SITE_URL = CANONICAL_SITE_URL;
 
 export function getAppUrl() {
   const id = currentStoreId();

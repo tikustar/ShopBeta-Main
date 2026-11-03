@@ -1,4 +1,5 @@
 import { recordStoreId } from "@/lib/store";
+import { APP_NAME } from "@/constants/app";
 import { getAppUrl } from "@/lib/server/env";
 import { COLLECTIONS } from "@/constants/collections";
 import { getAdminDb } from "@/lib/server/firebase-admin";
@@ -130,7 +131,7 @@ export function buildMakeOrderPayload(
     storeId: recordStoreId(order),
     storeName:
       order.storeName ||
-      (recordStoreId(order) === "shopbeta" ? "ShopBeta" : ""),
+      (recordStoreId(order) === "shopbeta" ? APP_NAME : ""),
     storefrontUrl: getAppUrl(),
     customerName: order.customer?.name || "Customer",
     customerEmail: order.customer?.email || "",

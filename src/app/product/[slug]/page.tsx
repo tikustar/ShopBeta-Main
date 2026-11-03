@@ -70,10 +70,10 @@ export async function generateMetadata({
 }
 
 const perks = [
-  { icon: Truck, title: "Free next-day delivery", body: "Order today, arrives tomorrow" },
-  { icon: RotateCcw, title: "30-day returns", body: "Prepaid label included" },
-  { icon: ShieldCheck, title: "2 year cover", body: "Handled in-house" },
-  { icon: CreditCard, title: "Pay in 3", body: "0% interest, no fees" },
+  { icon: Truck, title: "Express delivery", body: "1–2 days in Lagos & Abuja" },
+  { icon: RotateCcw, title: "Easy refund requests", body: "Start one from your order details" },
+  { icon: ShieldCheck, title: "Buyer protection", body: "Secure, verified checkout" },
+  { icon: CreditCard, title: "Pay your way", body: "Card, transfer, USSD or on delivery" },
 ];
 
 export default async function ProductDetailsPage({
@@ -186,9 +186,6 @@ export default async function ProductDetailsPage({
               </>
             ) : null}
           </div>
-          <p className="mt-2 text-[13px] text-muted">
-            Or {formatPrice(Math.round(product.price / 3))}/month for 3 months, interest free.
-          </p>
 
           {isFlash ? (
             <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -201,7 +198,7 @@ export default async function ProductDetailsPage({
             {product.stock > 5 ? (
               <Badge tone="success">
                 <Check className="h-3 w-3" aria-hidden />
-                In stock — ships today
+                In stock — ready to ship
               </Badge>
             ) : (
               <Badge tone="warning">Only {product.stock} left in stock</Badge>
@@ -260,12 +257,12 @@ export default async function ProductDetailsPage({
                     </ul>
                   </div>
                   <Card className="bg-soft/50">
-                    <h3 className="text-[15px] font-semibold text-ink">In the box</h3>
+                    <h3 className="text-[15px] font-semibold text-ink">Shop with confidence</h3>
                     <ul className="mt-4 space-y-2.5 text-[14px] text-muted">
-                      <li>{product.name}</li>
-                      <li>USB-C charge cable (1m)</li>
-                      <li>Quick start guide</li>
-                      <li>Zenvexa 2-year warranty card</li>
+                      <li>{product.brand ? `${product.brand} product, sold by Zenvexa` : "Sold by Zenvexa"}</li>
+                      <li>Choose your delivery option at checkout</li>
+                      <li>Card, bank transfer, USSD or pay on delivery</li>
+                      <li>Track your order from checkout to your door</li>
                     </ul>
                   </Card>
                 </div>

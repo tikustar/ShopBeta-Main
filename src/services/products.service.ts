@@ -11,6 +11,7 @@ import {
 } from "firebase/firestore";
 import { productDoc, productsCollection } from "@/firebase/collections";
 import type { Product } from "@/types/product";
+import { slugify } from "@/utils/string";
 
 /**
  * Legacy documents have no `active` field, so "active" is expressed as
@@ -126,7 +127,8 @@ export async function getProductsByCategory(
     return (
       categoryId === needle ||
       categoryName === needle ||
-      categoryName?.replace(/\s+/g, "-") === needle
+      categoryName?.replace(/\s+/g, "-") === needle ||
+      (!!categoryName && slugify(categoryName) === needle)
     );
   });
   return max ? products.slice(0, max) : products;

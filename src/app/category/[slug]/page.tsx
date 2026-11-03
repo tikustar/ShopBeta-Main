@@ -117,7 +117,7 @@ export default async function CategoryPage({
         />
         <div className="relative max-w-xl">
           <Badge tone="primary" className="mb-4">
-            {(categoryDoc.productCount ?? listing.length).toLocaleString()} products
+            {(listing.length || categoryDoc.productCount || 0).toLocaleString()} products
           </Badge>
           <h1 className="text-[30px] font-semibold leading-tight tracking-[-0.03em] text-ink sm:text-display-sm">
             {category.name}
@@ -137,7 +137,7 @@ export default async function CategoryPage({
         </div>
         <ProductIcon
           icon={category.icon}
-          className="pointer-events-none absolute -bottom-8 right-8 hidden h-56 w-56 text-ink/10 lg:block"
+          className="pointer-events-none absolute -bottom-8 right-8 hidden h-56 w-56 text-primary/10 lg:block"
         />
       </section>
 

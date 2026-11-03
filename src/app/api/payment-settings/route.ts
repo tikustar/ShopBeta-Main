@@ -160,7 +160,11 @@ export async function GET() {
     };
 
     return NextResponse.json(publicSettings);
-  } catch {
+  } catch (error) {
+    console.error(
+      "payment-settings unavailable:",
+      error instanceof Error ? error.message : error,
+    );
     return NextResponse.json(
       {
         ok: false,

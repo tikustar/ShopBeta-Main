@@ -178,14 +178,14 @@ export default function CartPage() {
                       className="h-4 w-4 shrink-0 text-emerald-500"
                       aria-hidden
                     />
-                    2 year cover included on all items
+                    Secure checkout with verified payments
                   </li>
                   <li className="flex items-center gap-2">
                     <Tag
                       className="h-4 w-4 shrink-0 text-emerald-500"
                       aria-hidden
                     />
-                    Price match within 7 days of ordering
+                    Card, transfer, USSD or pay on delivery
                   </li>
                 </ul>
               </>

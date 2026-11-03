@@ -18,6 +18,7 @@ import {
   BRAND_SOCIAL_IMAGE,
   BRAND_THEME_COLOR,
 } from "@/constants/app";
+import { publicSiteUrl } from "@/lib/site-url";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -25,8 +26,7 @@ const geistSans = localFont({
   weight: "100 900",
 });
 
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://shopbeta.app";
+const siteUrl = publicSiteUrl();
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
