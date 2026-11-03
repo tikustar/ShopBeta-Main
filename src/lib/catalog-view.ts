@@ -53,6 +53,7 @@ export function toCategoryView(category: Category): CategoryView {
       category.description ??
         `Explore ${category.name.toLowerCase()} products on ${APP_NAME}.`,
     ),
+    image: category.image || undefined,
   };
 }
 

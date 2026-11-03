@@ -3,15 +3,16 @@ import {
   ArrowRight,
   BadgeCheck,
   CreditCard,
-  Headphones,
   HeartHandshake,
-  ShieldCheck,
   Sparkles,
   Truck,
   Zap,
 } from "lucide-react";
-import { BrandMark as ZenvexaMark } from "@/components/layout/logo";
 import { type Product as ProductView } from "@/lib/data";
+import type { Product } from "@/types/product";
+import { HOME_HERO_PRODUCT_SLUG } from "@/constants/app";
+import { HomeHero } from "@/components/commerce/home-hero";
+import { CategoryCarousel } from "@/components/commerce/category-carousel";
 import { formatPrice } from "@/lib/utils";
 import { toBrandViews, toCategoryViews } from "@/lib/catalog-view";
 import { toProductViews, toProductView } from "@/lib/product-view";
@@ -27,21 +28,14 @@ import { getHomeCatalogSections } from "@/services/products.service";
 import { getBrands, getCategories } from "@/services/catalog.service";
 import { RecentlyViewedRail } from "@/components/commerce/recently-viewed";
 import { ButtonLink } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { SectionHeading } from "@/components/ui/card";
-import { CategoryCard, CategoryTile } from "@/components/commerce/category-card";
+import { CategoryTile } from "@/components/commerce/category-card";
 import {
   CatalogEmpty,
   CatalogError,
   CatalogRail,
 } from "@/components/commerce/catalog-state";
 import { BrandMark, ProductMedia } from "@/components/commerce/product-media";
-
-const heroPoints = [
-  { icon: CreditCard, label: "Card, transfer, USSD or POD" },
-  { icon: Truck, label: "1–2 day Lagos & Abuja delivery" },
-  { icon: ShieldCheck, label: "Buyer protection" },
-];
 
 const trustPoints = [
   {
@@ -75,6 +69,20 @@ export const metadata = buildListingMetadata({
   path: "/",
 });
 
+/** Configured hero product when sellable, otherwise the next best sellable product. */
+function pickHeroProduct(catalog: Product[], fallback?: Product) {
+  const sellable = (product?: Product): product is Product =>
+    !!product &&
+    product.active !== false &&
+    product.stock > 0 &&
+    product.price > 0 &&
+    !!(product.thumbnail ?? product.images?.[0]);
+  const configured = catalog.find((product) => product.slug === HOME_HERO_PRODUCT_SLUG);
+  if (sellable(configured)) return configured;
+  if (sellable(fallback)) return fallback;
+  return catalog.find((product) => product.featured && sellable(product)) ?? catalog.find(sellable);
+}
+
 async function loadSections() {
   const [home, categoryDocs, brandDocs] = await Promise.all([
     getHomeCatalogSections(4),
@@ -82,8 +90,9 @@ async function loadSections() {
     getBrands(),
   ]);
 
-  const hero: ProductView | undefined = home.heroSource
-    ? toProductView(home.heroSource)
+  const heroSource = pickHeroProduct(home.catalog, home.heroSource);
+  const hero: ProductView | undefined = heroSource
+    ? toProductView(heroSource)
     : undefined;
 
   return {
@@ -139,127 +148,41 @@ export default async function HomePage() {
     <div className="sb-container">
       <JsonLd data={[organizationJsonLd(), websiteJsonLd()]} />
       {/* Hero */}
-      <section className="grid gap-4 pt-6 lg:grid-cols-[1.55fr_1fr] lg:pt-8">
-        <div className="zx-pattern relative overflow-hidden rounded-3xl border border-accent-100 bg-cream p-7 sm:p-10 lg:p-12">
-          <span
-            className="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-accent/30 blur-3xl"
-            aria-hidden
+      <div className="pt-5 lg:pt-7">
+        {hero ? (
+          <HomeHero product={hero} />
+        ) : failed ? (
+          <CatalogError />
+        ) : (
+          <CatalogEmpty
+            title="No products yet"
+            description="The featured product appears once the catalogue has products."
           />
-          <div className="relative z-10 max-w-xl">
-            <Badge tone="ink" className="mb-5">
-              <Zap className="h-3 w-3" aria-hidden />
-              Awoof deals every week
-            </Badge>
-            <h1 className="text-[34px] font-extrabold leading-[1.06] tracking-[-0.035em] text-primary-800 sm:text-display lg:text-[52px]">
-              Everything Naija needs,
-              <br />
-              delivered with a{" "}
-              <span className="relative inline-block text-primary">
-                warm hug
-                <span
-                  className="absolute inset-x-0 -bottom-1 h-2 rounded-full bg-accent/70"
-                  aria-hidden
-                />
-              </span>
-              .
-            </h1>
-            <p className="mt-5 max-w-md text-[15px] leading-relaxed text-ink-soft sm:text-lg">
-              Phones, electronics, power solutions, fashion and home essentials from
-              trusted brands — with flexible payment and fast delivery.
+        )}
+      </div>
+
+      {/* Promotions */}
+      <section className="mt-4 grid gap-4 lg:grid-cols-[1fr_1.35fr]">
+        <Link
+          href="/deals"
+          className="group relative flex items-center justify-between gap-4 overflow-hidden rounded-3xl border border-accent-200 bg-accent-100 p-6 sm:p-7"
+        >
+          <div>
+            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+              <Zap className="h-3.5 w-3.5" aria-hidden />
+              Flash sale
             </p>
-            <div className="mt-8 flex flex-wrap items-center gap-3">
-              <ButtonLink href="/products" size="lg">
-                Shop all products
-                <ArrowRight className="h-4 w-4" aria-hidden />
-              </ButtonLink>
-              <ButtonLink href="/deals" variant="outline" size="lg">
-                View today&apos;s deals
-              </ButtonLink>
-            </div>
-            <ul className="mt-10 grid max-w-lg gap-3 border-t border-accent-200/70 pt-6 sm:grid-cols-3">
-              {heroPoints.map(({ icon: Icon, label }) => (
-                <li key={label} className="flex items-center gap-2.5 text-[13px] font-medium text-ink">
-                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary text-accent">
-                    <Icon className="h-4 w-4" aria-hidden />
-                  </span>
-                  {label}
-                </li>
-              ))}
-            </ul>
+            <h2 className="mt-2 text-xl font-bold tracking-[-0.02em] text-primary-800">
+              Today&apos;s hottest Awoof deals
+            </h2>
+            <span className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-semibold text-primary">
+              Shop the sale
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
+            </span>
           </div>
-          <ZenvexaMark className="pointer-events-none absolute -bottom-16 -right-16 hidden h-80 w-80 opacity-[0.12] lg:block" />
-        </div>
+          <Zap className="h-16 w-16 shrink-0 text-primary/15" aria-hidden />
+        </Link>
 
-        <div className="grid gap-4">
-          {hero ? (
-          <Link
-            href={`/product/${hero.slug}`}
-            className="group relative flex flex-col justify-between overflow-hidden rounded-3xl bg-primary p-7 text-white"
-          >
-            <span
-              className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-accent/25 blur-3xl"
-              aria-hidden
-            />
-            <div className="relative">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
-                Editor&apos;s choice
-              </p>
-              <h2 className="mt-3 text-2xl font-semibold leading-tight tracking-[-0.025em]">
-                {hero.name}
-              </h2>
-              <p className="mt-2 line-clamp-3 text-[13px] leading-relaxed text-white/70">
-                {hero.shortDescription}
-              </p>
-            </div>
-            <div className="relative mt-6 flex items-end justify-between">
-              <div>
-                <p className="text-[12px] text-white/50 line-through">
-                  {hero.oldPrice ? formatPrice(hero.oldPrice) : null}
-                </p>
-                <p className="text-2xl font-bold tracking-[-0.02em] text-accent">
-                  {formatPrice(hero.price)}
-                </p>
-              </div>
-              <span className="grid h-11 w-11 place-items-center rounded-full bg-accent text-primary-800 transition-transform duration-300 ease-premium group-hover:scale-110">
-                <ArrowRight className="h-5 w-5" aria-hidden />
-              </span>
-            </div>
-          </Link>
-          ) : failed ? (
-            <CatalogError />
-          ) : (
-            <CatalogEmpty
-              title="No products yet"
-              description="Editor’s choice appears once the catalogue has products."
-            />
-          )}
-
-          <Link
-            href="/deals"
-            className="group relative flex items-center justify-between gap-4 overflow-hidden rounded-3xl border border-accent-200 bg-accent-100 p-7"
-          >
-            <div>
-              <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
-                <Zap className="h-3.5 w-3.5" aria-hidden />
-                Flash sale
-              </p>
-              <h2 className="mt-2 text-xl font-bold tracking-[-0.02em] text-primary-800">
-                Today&apos;s hottest
-                <br />
-                Awoof deals
-              </h2>
-              <span className="mt-4 inline-flex items-center gap-1.5 text-[13px] font-semibold text-primary">
-                Shop the sale
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
-              </span>
-            </div>
-            <Headphones className="h-24 w-24 shrink-0 text-primary/15" aria-hidden />
-          </Link>
-        </div>
-      </section>
-
-      {/* Promo banner */}
-      <section className="mt-4">
         <div className="flex flex-col items-start justify-between gap-5 rounded-3xl border border-line bg-white p-6 sm:flex-row sm:items-center sm:p-7">
           <div className="flex items-center gap-4">
             <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-accent">
@@ -274,29 +197,28 @@ export default async function HomePage() {
               </p>
             </div>
           </div>
-          <ButtonLink href="/help" variant="subtle">
+          <ButtonLink href="/help" variant="subtle" className="shrink-0">
             How payment works
           </ButtonLink>
         </div>
       </section>
 
       {/* Categories */}
-      <section className="pt-16 sm:pt-20">
-        <SectionHeading
-          eyebrow="Browse"
-          title="Shop by category"
-          description="Every department, one simple checkout."
-          action={
-            <ButtonLink href="/products" variant="outline" size="sm">
-              All categories
-            </ButtonLink>
-          }
-        />
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          {categories.map((category) => (
-            <CategoryCard key={category.slug} category={category} />
-          ))}
-        </div>
+      <section className="pt-12 sm:pt-14">
+        {categories.length ? (
+          <CategoryCarousel
+            categories={categories}
+            actions={
+              <ButtonLink href="/products" variant="outline" size="sm">
+                All categories
+              </ButtonLink>
+            }
+          />
+        ) : failed ? (
+          <CatalogError />
+        ) : (
+          <CatalogEmpty description="Categories appear once the catalogue has been set up." />
+        )}
       </section>
 
       {/* Flash sale */}

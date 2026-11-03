@@ -5,6 +5,34 @@ export const BRAND_LOGO = "/brand/zenvexa-mark.png";
 export const BRAND_SOCIAL_IMAGE = "/brand/zenvexa-social.jpg";
 export const BRAND_THEME_COLOR = "#0D573E";
 
+/**
+ * Homepage hero product (matches the "Featured Hug Pick" on the Zenvexa reference
+ * storefront). Live price/stock always come from Firestore; if this product is
+ * inactive or out of stock the homepage falls back to another sellable product.
+ */
+export const HOME_HERO_PRODUCT_SLUG =
+  "mol-syms-20000mah-100w-power-bank-with-retractable-cable";
+
+/** Hosts configured in next.config images.remotePatterns. */
+export const OPTIMIZED_IMAGE_HOSTS = new Set([
+  "cdn.dummyjson.com",
+  "i.dummyjson.com",
+  "m.media-amazon.com",
+  "firebasestorage.googleapis.com",
+  "images.unsplash.com",
+  "lh3.googleusercontent.com",
+]);
+
+export function isOptimizableImage(src?: string): src is string {
+  if (!src) return false;
+  if (src.startsWith("/")) return true;
+  try {
+    return OPTIMIZED_IMAGE_HOSTS.has(new URL(src).hostname);
+  } catch {
+    return false;
+  }
+}
+
 /** Display-only: legacy catalogue copy stored in Firestore may still name the old brand. */
 export function withBrandName(text: string): string;
 export function withBrandName(text: string | undefined): string | undefined;

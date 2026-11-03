@@ -65,6 +65,7 @@ export type Category = {
   tone: string;
   subcategories: string[];
   description: string;
+  image?: string;
 };
 
 export type Brand = {
