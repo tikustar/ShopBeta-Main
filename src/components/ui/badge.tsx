@@ -1,11 +1,20 @@
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type Tone = "primary" | "ink" | "neutral" | "success" | "warning" | "info" | "outline";
+type Tone =
+  | "primary"
+  | "ink"
+  | "neutral"
+  | "success"
+  | "warning"
+  | "info"
+  | "outline"
+  | "danger";
 
 const tones: Record<Tone, string> = {
   primary: "bg-primary text-white",
-  ink: "bg-ink text-white",
+  danger: "bg-rose-50 text-rose-700",
+  ink: "bg-accent text-primary-800",
   neutral: "bg-soft text-ink-soft",
   success: "bg-emerald-50 text-emerald-700",
   warning: "bg-amber-50 text-amber-700",
@@ -88,7 +97,7 @@ export function StatusDot({ tone }: { tone: "success" | "warning" | "danger" | "
   const map = {
     success: "bg-emerald-500",
     warning: "bg-amber-500",
-    danger: "bg-primary",
+    danger: "bg-rose-500",
     info: "bg-sky-500",
   };
   return <span className={cn("h-2 w-2 rounded-full", map[tone])} aria-hidden />;

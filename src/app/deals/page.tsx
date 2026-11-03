@@ -28,7 +28,7 @@ const flashEndsAt = endOfTodayISO();
 export const metadata: Metadata = buildListingMetadata({
   title: "Deals",
   description:
-    "Flash sales, featured, trending, best sellers and discounted products from ShopBeta.",
+    "Flash sales, featured, trending, best sellers and discounted products from Zenvexa.",
   path: "/deals",
 });
 
@@ -120,14 +120,14 @@ export default async function DealsPage() {
         description="Flash sales, clearance and limited offers — powered by the live catalogue."
       />
 
-      <section className="relative overflow-hidden rounded-3xl bg-ink p-7 text-white sm:p-10">
+      <section className="relative overflow-hidden rounded-3xl bg-primary p-7 text-white sm:p-10">
         <span
-          className="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-primary/30 blur-3xl"
+          className="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-accent/25 blur-3xl"
           aria-hidden
         />
         <div className="relative flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
           <div className="max-w-lg">
-            <p className="mb-4 inline-flex items-center gap-2 rounded-full bg-primary px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em]">
+            <p className="mb-4 inline-flex items-center gap-2 rounded-full bg-accent px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-primary-800">
               <Zap className="h-3 w-3" aria-hidden />
               Flash sale live
             </p>
@@ -139,7 +139,9 @@ export default async function DealsPage() {
               discounts.
             </p>
             <div className="mt-7 flex flex-wrap items-center gap-3">
-              <ButtonLink href="/products">Shop the sale</ButtonLink>
+              <ButtonLink href="/products" variant="secondary">
+                Shop the sale
+              </ButtonLink>
             </div>
           </div>
           <div className="shrink-0">

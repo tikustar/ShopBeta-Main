@@ -217,7 +217,7 @@ export default function AdminDashboardPage() {
       </div>
 
       {error ? (
-        <p className="text-sm text-primary" role="alert">
+        <p className="text-sm text-rose-600" role="alert">
           {error}
         </p>
       ) : null}
@@ -381,7 +381,7 @@ export default function AdminDashboardPage() {
                         {product.name}
                       </Link>
                     </td>
-                    <td className="px-4 py-3 text-primary">{product.stock}</td>
+                    <td className="px-4 py-3 text-rose-600">{product.stock}</td>
                     <td className="px-4 py-3 text-muted">
                       {product.sku ?? "—"}
                     </td>

@@ -63,13 +63,13 @@ function deriveCategoriesFromProducts(products: Product[]): Category[] {
       id: slug,
       name: titleCase(product.category ?? "Uncategorised"),
       slug,
-      description: `Shop ${titleCase(product.category ?? "products")} on ShopBeta.`,
+      description: `Shop ${titleCase(product.category ?? "products")} on Zenvexa.`,
       image: product.thumbnail,
       productCount: 1,
       featured: false,
       active: true,
       seoTitle: titleCase(product.category ?? "Uncategorised"),
-      seoDescription: `Shop ${titleCase(product.category ?? "products")} on ShopBeta.`,
+      seoDescription: `Shop ${titleCase(product.category ?? "products")} on Zenvexa.`,
     });
   }
   const list = Array.from(map.values()).sort(
@@ -95,13 +95,13 @@ function deriveBrandsFromProducts(products: Product[]): Brand[] {
       id: slug,
       name,
       slug,
-      description: `${name} products available on ShopBeta.`,
+      description: `${name} products available on Zenvexa.`,
       logo: "",
       productCount: 1,
       featured: false,
       active: true,
       seoTitle: name,
-      seoDescription: `${name} products available on ShopBeta.`,
+      seoDescription: `${name} products available on Zenvexa.`,
     });
   }
   const list = Array.from(map.values()).sort(

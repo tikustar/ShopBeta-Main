@@ -2,15 +2,16 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { SignupForm } from "@/components/auth/signup-form";
 import { buildPrivateMetadata } from "@/lib/seo";
+import { AuthLayout } from "@/components/auth/auth-layout";
 
 export const metadata: Metadata = buildPrivateMetadata(
   "Create account",
-  "Create a ShopBeta account.",
+  "Create a Zenvexa account.",
 );
 
 export default function SignupPage() {
   return (
-    <div className="sb-container py-12 sm:py-16">
+    <AuthLayout>
       <Suspense
         fallback={
           <div className="py-16 text-center text-sm text-muted">Loading…</div>
@@ -18,6 +19,6 @@ export default function SignupPage() {
       >
         <SignupForm />
       </Suspense>
-    </div>
+    </AuthLayout>
   );
 }

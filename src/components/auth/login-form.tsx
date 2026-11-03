@@ -92,7 +92,7 @@ export function LoginForm() {
           />
         </div>
         {error ? (
-          <p className="text-[13px] text-primary" role="alert">
+          <p className="text-[13px] text-rose-600" role="alert">
             {error}
           </p>
         ) : null}
@@ -119,7 +119,7 @@ export function LoginForm() {
       </Button>
 
       <p className="mt-6 text-center text-[13px] text-muted">
-        New to ShopBeta?{" "}
+        New to Zenvexa?{" "}
         <Link
           href={`/signup?next=${encodeURIComponent(next)}`}
           className="font-medium text-primary hover:underline"

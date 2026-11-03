@@ -31,7 +31,7 @@ export default function AdminSettingsPage() {
     countries: "Nigeria,Ghana,Kenya",
     orderEmailEnabled: true,
     promoPushEnabled: true,
-    brandColor: "#FD4646",
+    brandColor: "#0D573E",
   });
   const [saving, setSaving] = useState(false);
 

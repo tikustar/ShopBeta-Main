@@ -2,13 +2,15 @@ import Link from "next/link";
 import {
   ArrowRight,
   BadgeCheck,
+  CreditCard,
   Headphones,
-  RotateCcw,
+  HeartHandshake,
   ShieldCheck,
   Sparkles,
   Truck,
   Zap,
 } from "lucide-react";
+import { BrandMark as ZenvexaMark } from "@/components/layout/logo";
 import { type Product as ProductView } from "@/lib/data";
 import { formatPrice } from "@/lib/utils";
 import { toBrandViews, toCategoryViews } from "@/lib/catalog-view";
@@ -35,26 +37,32 @@ import {
 } from "@/components/commerce/catalog-state";
 import { BrandMark, ProductMedia } from "@/components/commerce/product-media";
 
+const heroPoints = [
+  { icon: CreditCard, label: "Card, transfer, USSD or POD" },
+  { icon: Truck, label: "1–2 day Lagos & Abuja delivery" },
+  { icon: ShieldCheck, label: "Buyer protection" },
+];
+
 const trustPoints = [
   {
     icon: Truck,
-    title: "Next-day delivery",
-    body: "Order before 6pm on weekdays and most metro addresses get it tomorrow.",
+    title: "Express delivery",
+    body: "Fast delivery across Lagos and Abuja, with tracking from checkout to your door.",
   },
   {
-    icon: ShieldCheck,
-    title: "2 years of cover",
-    body: "Manufacturer warranty plus ShopBeta cover, handled in-house.",
+    icon: CreditCard,
+    title: "Pay your way",
+    body: "Card, bank transfer and USSD through secure gateways — or pay on delivery where available.",
   },
   {
     icon: BadgeCheck,
-    title: "Authorised stock only",
-    body: "Every unit is sourced from the brand or an authorised distributor.",
+    title: "Genuine products",
+    body: "Products sourced from trusted brands and distributors, described honestly.",
   },
   {
-    icon: RotateCcw,
-    title: "30-day returns",
-    body: "Changed your mind? Send it back with a prepaid label, no questions.",
+    icon: HeartHandshake,
+    title: "Care that hugs back",
+    body: "Real support for orders, refunds and returns whenever you need a hand.",
   },
 ];
 
@@ -63,7 +71,7 @@ export const revalidate = 60;
 export const metadata = buildListingMetadata({
   title: "Shop electronics & gadgets",
   description:
-    "ShopBeta catalogue — flash sales, featured picks, trending products and recently added stock.",
+    "Zenvexa catalogue — flash sales, featured picks, trending products and recently added stock.",
   path: "/",
 });
 
@@ -132,24 +140,32 @@ export default async function HomePage() {
       <JsonLd data={[organizationJsonLd(), websiteJsonLd()]} />
       {/* Hero */}
       <section className="grid gap-4 pt-6 lg:grid-cols-[1.55fr_1fr] lg:pt-8">
-        <div className="relative overflow-hidden rounded-3xl border border-line bg-soft p-7 sm:p-10 lg:p-12">
+        <div className="zx-pattern relative overflow-hidden rounded-3xl border border-accent-100 bg-cream p-7 sm:p-10 lg:p-12">
           <span
-            className="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-white/80 blur-3xl"
+            className="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-accent/30 blur-3xl"
             aria-hidden
           />
-          <div className="relative max-w-xl">
-            <Badge tone="primary" className="mb-5">
+          <div className="relative z-10 max-w-xl">
+            <Badge tone="ink" className="mb-5">
               <Zap className="h-3 w-3" aria-hidden />
-              Save up to 32% this week
+              Awoof deals every week
             </Badge>
-            <h1 className="text-[34px] font-semibold leading-[1.08] tracking-[-0.035em] text-ink sm:text-display lg:text-display-lg">
-              Premium tech,
+            <h1 className="text-[34px] font-extrabold leading-[1.06] tracking-[-0.035em] text-primary-800 sm:text-display lg:text-[52px]">
+              Everything Naija needs,
               <br />
-              priced fairly.
+              delivered with a{" "}
+              <span className="relative inline-block text-primary">
+                warm hug
+                <span
+                  className="absolute inset-x-0 -bottom-1 h-2 rounded-full bg-accent/70"
+                  aria-hidden
+                />
+              </span>
+              .
             </h1>
-            <p className="mt-5 max-w-md text-[15px] leading-relaxed text-muted sm:text-lg">
-              Computers, gadgets and gaming gear from the brands worth owning — with
-              next-day delivery and two years of cover on everything.
+            <p className="mt-5 max-w-md text-[15px] leading-relaxed text-ink-soft sm:text-lg">
+              Phones, electronics, power solutions, fashion and home essentials from
+              trusted brands — with flexible payment and fast delivery.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <ButtonLink href="/products" size="lg">
@@ -160,51 +176,38 @@ export default async function HomePage() {
                 View today&apos;s deals
               </ButtonLink>
             </div>
-            <dl className="mt-10 grid max-w-md grid-cols-3 gap-4 border-t border-line pt-6">
-              {[
-                { label: "Products", value: "12,400+" },
-                { label: "Brands", value: "340" },
-                { label: "Rating", value: "4.8/5" },
-              ].map((stat) => (
-                <div key={stat.label}>
-                  <dt className="text-[11px] uppercase tracking-[0.12em] text-muted">
-                    {stat.label}
-                  </dt>
-                  <dd className="mt-1 text-xl font-semibold tracking-[-0.02em] text-ink">
-                    {stat.value}
-                  </dd>
-                </div>
+            <ul className="mt-10 grid max-w-lg gap-3 border-t border-accent-200/70 pt-6 sm:grid-cols-3">
+              {heroPoints.map(({ icon: Icon, label }) => (
+                <li key={label} className="flex items-center gap-2.5 text-[13px] font-medium text-ink">
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary text-accent">
+                    <Icon className="h-4 w-4" aria-hidden />
+                  </span>
+                  {label}
+                </li>
               ))}
-            </dl>
+            </ul>
           </div>
-          <ProductMedia
-            icon="laptop"
-            tone="bg-transparent"
-            name="Featured laptop"
-            className="pointer-events-none absolute -bottom-10 right-4 hidden h-72 w-72 lg:block"
-            iconClassName="h-full w-full"
-            iconTone="text-ink/[0.07]"
-          />
+          <ZenvexaMark className="pointer-events-none absolute -bottom-16 -right-16 hidden h-80 w-80 opacity-[0.12] lg:block" />
         </div>
 
         <div className="grid gap-4">
           {hero ? (
           <Link
             href={`/product/${hero.slug}`}
-            className="group relative flex flex-col justify-between overflow-hidden rounded-3xl bg-ink p-7 text-white"
+            className="group relative flex flex-col justify-between overflow-hidden rounded-3xl bg-primary p-7 text-white"
           >
             <span
-              className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-primary/25 blur-3xl"
+              className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-accent/25 blur-3xl"
               aria-hidden
             />
             <div className="relative">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary-300">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
                 Editor&apos;s choice
               </p>
               <h2 className="mt-3 text-2xl font-semibold leading-tight tracking-[-0.025em]">
                 {hero.name}
               </h2>
-              <p className="mt-2 text-[13px] leading-relaxed text-white/60">
+              <p className="mt-2 line-clamp-3 text-[13px] leading-relaxed text-white/70">
                 {hero.shortDescription}
               </p>
             </div>
@@ -213,11 +216,11 @@ export default async function HomePage() {
                 <p className="text-[12px] text-white/50 line-through">
                   {hero.oldPrice ? formatPrice(hero.oldPrice) : null}
                 </p>
-                <p className="text-2xl font-semibold tracking-[-0.02em]">
+                <p className="text-2xl font-bold tracking-[-0.02em] text-accent">
                   {formatPrice(hero.price)}
                 </p>
               </div>
-              <span className="grid h-11 w-11 place-items-center rounded-full bg-primary transition-transform duration-300 ease-premium group-hover:scale-110">
+              <span className="grid h-11 w-11 place-items-center rounded-full bg-accent text-primary-800 transition-transform duration-300 ease-premium group-hover:scale-110">
                 <ArrowRight className="h-5 w-5" aria-hidden />
               </span>
             </div>
@@ -227,29 +230,30 @@ export default async function HomePage() {
           ) : (
             <CatalogEmpty
               title="No products yet"
-              description="EditorΓÇÖs choice appears once the catalogue has products."
+              description="Editor’s choice appears once the catalogue has products."
             />
           )}
 
           <Link
             href="/deals"
-            className="group relative flex items-center justify-between gap-4 overflow-hidden rounded-3xl border border-line bg-primary-50 p-7"
+            className="group relative flex items-center justify-between gap-4 overflow-hidden rounded-3xl border border-accent-200 bg-accent-100 p-7"
           >
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+              <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+                <Zap className="h-3.5 w-3.5" aria-hidden />
                 Flash sale
               </p>
-              <h2 className="mt-2 text-xl font-semibold tracking-[-0.02em] text-ink">
-                Audio &amp; storage
+              <h2 className="mt-2 text-xl font-bold tracking-[-0.02em] text-primary-800">
+                Today&apos;s hottest
                 <br />
-                up to 45% off
+                Awoof deals
               </h2>
-              <span className="mt-4 inline-flex items-center gap-1.5 text-[13px] font-medium text-primary">
+              <span className="mt-4 inline-flex items-center gap-1.5 text-[13px] font-semibold text-primary">
                 Shop the sale
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
               </span>
             </div>
-            <Headphones className="h-24 w-24 shrink-0 text-ink/10" aria-hidden />
+            <Headphones className="h-24 w-24 shrink-0 text-primary/15" aria-hidden />
           </Link>
         </div>
       </section>
@@ -258,20 +262,20 @@ export default async function HomePage() {
       <section className="mt-4">
         <div className="flex flex-col items-start justify-between gap-5 rounded-3xl border border-line bg-white p-6 sm:flex-row sm:items-center sm:p-7">
           <div className="flex items-center gap-4">
-            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-primary-50">
-              <Sparkles className="h-5 w-5 text-primary" aria-hidden />
+            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-accent">
+              <Sparkles className="h-5 w-5 text-primary-800" aria-hidden />
             </span>
             <div>
               <p className="text-[15px] font-semibold tracking-[-0.01em] text-ink">
-                ShopBeta Plus — free next-day delivery, all year
+                Shop now, pay your way
               </p>
               <p className="mt-1 text-[13px] text-muted">
-                $39/year. Early access to flash sales and 2% back in points on every order.
+                Pay securely by card, bank transfer or USSD — or choose pay on delivery where available.
               </p>
             </div>
           </div>
-          <ButtonLink href="/settings" variant="secondary">
-            Join Plus
+          <ButtonLink href="/help" variant="subtle">
+            How payment works
           </ButtonLink>
         </div>
       </section>
@@ -281,7 +285,7 @@ export default async function HomePage() {
         <SectionHeading
           eyebrow="Browse"
           title="Shop by category"
-          description="Eight departments, one checkout. Everything in stock ships the same day."
+          description="Every department, one simple checkout."
           action={
             <ButtonLink href="/products" variant="outline" size="sm">
               All categories
@@ -385,9 +389,9 @@ export default async function HomePage() {
       {/* Top brands */}
       <section className="pt-16 sm:pt-20">
         <SectionHeading
-          eyebrow="Authorised retailer"
+          eyebrow="Trusted names"
           title="Top brands"
-          description="340 brands, every unit sourced through official channels."
+          description="Shop the brands Nigerians trust, all in one place."
           action={
             <ButtonLink href="/brands" variant="outline" size="sm">
               All brands
@@ -450,21 +454,21 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Why ShopBeta */}
+      {/* Why Zenvexa */}
       <section className="pt-16 sm:pt-20">
         <SectionHeading
-          eyebrow="Why ShopBeta"
-          title="The boring parts, done properly"
-          description="Delivery, warranty and returns are where most electronics retailers fall apart. They are the parts we obsess over."
+          eyebrow="Why Zenvexa"
+          title="Shopping, wrapped in a warm hug"
+          description="From checkout to delivery, every step is designed to feel simple, secure and personal."
         />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {trustPoints.map(({ icon: Icon, title, body }) => (
             <div
               key={title}
-              className="rounded-2xl border border-line bg-white p-6 transition-all duration-300 hover:sb-shadow-soft"
+              className="rounded-2xl border border-line bg-white p-6 transition-all duration-300 hover:border-primary-100 hover:sb-shadow-soft"
             >
-              <span className="mb-5 grid h-11 w-11 place-items-center rounded-xl bg-primary-50">
-                <Icon className="h-5 w-5 text-primary" aria-hidden />
+              <span className="mb-5 grid h-11 w-11 place-items-center rounded-xl bg-primary text-accent">
+                <Icon className="h-5 w-5" aria-hidden />
               </span>
               <h3 className="text-[15px] font-semibold tracking-[-0.01em] text-ink">{title}</h3>
               <p className="mt-2 text-[14px] leading-relaxed text-muted">{body}</p>

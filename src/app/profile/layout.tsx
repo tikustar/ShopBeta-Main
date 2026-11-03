@@ -3,7 +3,7 @@ import { buildPrivateMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = buildPrivateMetadata(
   "Profile",
-  "Manage your ShopBeta account.",
+  "Manage your Zenvexa account.",
 );
 
 export default function ProfileLayout({

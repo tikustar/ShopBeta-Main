@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { reportClientException } from "@/lib/monitoring";
 import { ButtonLink } from "@/components/ui/button";
+import { BrandMark } from "@/components/layout/logo";
 
 export default function GlobalError({
   error,
@@ -18,7 +19,8 @@ export default function GlobalError({
 
   return (
     <div className="sb-container flex min-h-[60vh] flex-col items-center justify-center py-16 text-center">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+      <BrandMark className="mb-5 h-20 w-20" />
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-rose-600">
         Something went wrong
       </p>
       <h1 className="mt-3 text-2xl font-semibold tracking-[-0.02em] text-ink">
@@ -31,7 +33,7 @@ export default function GlobalError({
         <button
           type="button"
           onClick={reset}
-          className="rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-white"
+          className="rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-600"
         >
           Try again
         </button>

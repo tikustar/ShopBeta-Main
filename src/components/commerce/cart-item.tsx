@@ -104,7 +104,7 @@ export function CartItemRow({ line }: { line: CartLine }) {
               removeItem(line.productId, line.variation);
               toastInfo("Removed from cart", line.name);
             }}
-            className="inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium text-muted transition-colors hover:bg-primary-50 hover:text-primary"
+            className="inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium text-muted transition-colors hover:bg-rose-50 hover:text-rose-600"
           >
             <Trash2 className="h-4 w-4" aria-hidden />
             Remove

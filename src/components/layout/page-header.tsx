@@ -19,7 +19,8 @@ export function PageHeader({
       {crumbs ? <Breadcrumb items={crumbs} className="mb-5" /> : null}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="max-w-2xl">
-          <h1 className="text-[28px] font-semibold tracking-[-0.03em] text-ink sm:text-display-sm">
+          <span className="mb-3 block h-1 w-10 rounded-full bg-accent" aria-hidden />
+          <h1 className="text-[28px] font-bold tracking-[-0.03em] text-ink sm:text-display-sm">
             {title}
           </h1>
           {description ? (

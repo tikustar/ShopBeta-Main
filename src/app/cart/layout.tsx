@@ -3,7 +3,7 @@ import { buildPrivateMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = buildPrivateMetadata(
   "Cart",
-  "Your ShopBeta shopping cart.",
+  "Your Zenvexa shopping cart.",
 );
 
 export default function CartLayout({

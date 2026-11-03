@@ -96,7 +96,7 @@ function PaymentFailedContent() {
         description="No charge was completed for this attempt, or verification did not succeed."
       />
       <Card className="mx-auto max-w-lg text-center">
-        <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-primary-50 text-primary">
+        <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-rose-50 text-rose-600">
           <AlertTriangle className="h-7 w-7" aria-hidden />
         </div>
         <h2 className="mt-5 text-xl font-semibold text-ink">

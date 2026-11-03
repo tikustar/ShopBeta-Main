@@ -32,8 +32,8 @@ export function generateMetadata({
   return buildListingMetadata({
     title: queryTerm ? `Search: ${queryTerm}` : "Search",
     description: queryTerm
-      ? `Search results for “${queryTerm}” on ShopBeta.`
-      : "Search the ShopBeta catalogue.",
+      ? `Search results for “${queryTerm}” on Zenvexa.`
+      : "Search the Zenvexa catalogue.",
     path: queryTerm ? `/search?q=${encodeURIComponent(queryTerm)}` : "/search",
   });
 }

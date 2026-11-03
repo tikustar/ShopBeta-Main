@@ -7,12 +7,12 @@ import { ProductMedia } from "@/components/commerce/product-media";
 
 const statusTone: Record<
   OrderStatus,
-  "success" | "warning" | "info" | "neutral" | "primary"
+  "success" | "warning" | "info" | "neutral" | "danger"
 > = {
   Completed: "success",
   Pending: "warning",
   Shipped: "info",
-  Cancelled: "primary",
+  Cancelled: "danger",
   Returned: "neutral",
 };
 

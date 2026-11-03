@@ -275,7 +275,7 @@ function AddressesContent() {
               Set as default address
             </label>
             {error ? (
-              <p className="text-[13px] text-primary sm:col-span-2" role="alert">
+              <p className="text-[13px] text-rose-600 sm:col-span-2" role="alert">
                 {error}
               </p>
             ) : null}

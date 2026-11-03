@@ -18,7 +18,7 @@ import { CatalogEmpty, CatalogError } from "@/components/commerce/catalog-state"
 
 export const metadata: Metadata = buildListingMetadata({
   title: "Brands",
-  description: "Browse brands in the live ShopBeta catalogue.",
+  description: "Browse brands in the live Zenvexa catalogue.",
   path: "/brands",
 });
 
@@ -52,7 +52,7 @@ export default async function BrandsPage() {
       <PageHeader
         crumbs={[{ label: "Home", href: "/" }, { label: "Brands" }]}
         title="Brands"
-        description={`${brands.length.toLocaleString()} brands sourced from the live ShopBeta catalogue.`}
+        description={`${brands.length.toLocaleString()} brands sourced from the live Zenvexa catalogue.`}
       />
 
       <div className="mb-10 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -71,7 +71,7 @@ export default async function BrandsPage() {
               className={cn(
                 "shrink-0 rounded-full border px-4 py-2.5 text-[13px] font-medium transition-colors",
                 index === 0
-                  ? "border-ink bg-ink text-white"
+                  ? "border-primary bg-primary text-white"
                   : "border-line bg-white text-ink-soft hover:bg-soft",
               )}
             >
@@ -87,7 +87,7 @@ export default async function BrandsPage() {
         <SectionHeading
           eyebrow="Partners"
           title="Featured brands"
-          description="Brands with the widest range on ShopBeta."
+          description="Brands with the widest range on Zenvexa."
         />
         {!failed && !featured.length ? <CatalogEmpty /> : null}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

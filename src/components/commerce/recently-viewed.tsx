@@ -14,7 +14,7 @@ function toCardProduct(
     id: product.id,
     slug: product.slug,
     name: product.name,
-    brand: product.brand ?? "ShopBeta",
+    brand: product.brand ?? "Zenvexa",
     category: product.category ?? "Catalogue",
     subcategory: product.subcategory ?? product.category ?? "Catalogue",
     price: product.price ?? 0,

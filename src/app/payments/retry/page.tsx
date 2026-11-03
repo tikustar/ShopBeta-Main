@@ -200,7 +200,7 @@ function PaymentRetryContent() {
           </div>
         ) : error && !order ? (
           <div className="space-y-4 text-center">
-            <p className="text-[14px] text-primary" role="alert">
+            <p className="text-[14px] text-rose-600" role="alert">
               {error}
             </p>
             <ButtonLink href="/checkout">Go to checkout</ButtonLink>
@@ -240,7 +240,7 @@ function PaymentRetryContent() {
               ) : null}
             </div>
             {error ? (
-              <p className="text-[13px] text-primary" role="alert">
+              <p className="text-[13px] text-rose-600" role="alert">
                 {error}
               </p>
             ) : null}

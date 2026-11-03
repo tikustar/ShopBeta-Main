@@ -51,10 +51,16 @@ export function MobileBottomNav() {
                   active ? "text-primary" : "text-muted",
                 )}
               >
+                {active ? (
+                  <span
+                    className="absolute inset-x-1/4 top-0 h-[3px] rounded-b-full bg-accent"
+                    aria-hidden
+                  />
+                ) : null}
                 <span className="relative">
                   <Icon className="h-[22px] w-[22px]" aria-hidden />
                   {count ? (
-                    <span className="absolute -right-2 -top-1 grid h-[16px] min-w-[16px] place-items-center rounded-full bg-primary px-1 text-[9px] font-semibold text-white">
+                    <span className="absolute -right-2 -top-1 grid h-[16px] min-w-[16px] place-items-center rounded-full bg-accent px-1 text-[9px] font-bold text-primary-800 ring-2 ring-white">
                       {count}
                     </span>
                   ) : null}

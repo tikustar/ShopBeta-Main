@@ -32,7 +32,7 @@ const themes = [
 
 const sessions = [
   { device: "MacBook Pro · Lagos", detail: "Chrome · active now", current: true },
-  { device: "iPhone 16 Pro · Lagos", detail: "ShopBeta app · 2 hours ago", current: false },
+  { device: "iPhone 16 Pro · Lagos", detail: "Zenvexa app · 2 hours ago", current: false },
   { device: "iPad Pro · Abuja", detail: "Safari · 3 days ago", current: false },
 ];
 

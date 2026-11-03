@@ -22,7 +22,7 @@ export function ProductCard({
   return (
     <article
       className={cn(
-        "group relative flex flex-col overflow-hidden rounded-2xl border border-line bg-white p-3 transition-all duration-300 ease-premium hover:-translate-y-1 hover:border-transparent hover:sb-shadow-hover",
+        "group relative flex flex-col overflow-hidden rounded-2xl border border-line bg-white p-3 transition-all duration-300 ease-premium hover:-translate-y-1 hover:border-primary-100 hover:sb-shadow-hover",
         className,
       )}
     >
@@ -36,8 +36,8 @@ export function ProductCard({
           iconClassName="group-hover:scale-110"
         />
         <div className="absolute left-2.5 top-2.5 flex flex-col items-start gap-1.5">
-          {off > 0 ? <Badge tone="primary">-{off}%</Badge> : null}
-          {product.tags.includes("new") ? <Badge tone="ink">New</Badge> : null}
+          {off > 0 ? <Badge tone="ink">-{off}%</Badge> : null}
+          {product.tags.includes("new") ? <Badge tone="primary">New</Badge> : null}
         </div>
         <WishlistButton
           product={product}
@@ -46,7 +46,7 @@ export function ProductCard({
         />
         <Link
           href={`/product/${product.slug}`}
-          className="absolute inset-x-2.5 bottom-2.5 hidden items-center justify-center gap-2 rounded-full bg-white/95 py-2.5 text-[13px] font-medium text-ink opacity-0 backdrop-blur transition-all duration-300 ease-premium group-hover:opacity-100 sm:flex sm:translate-y-2 sm:group-hover:translate-y-0"
+          className="absolute inset-x-2.5 bottom-2.5 hidden items-center justify-center gap-2 rounded-full bg-primary/95 py-2.5 text-[13px] font-medium text-white opacity-0 backdrop-blur transition-all duration-300 ease-premium group-hover:opacity-100 sm:flex sm:translate-y-2 sm:group-hover:translate-y-0"
         >
           <Eye className="h-4 w-4" aria-hidden />
           Quick view
@@ -54,7 +54,7 @@ export function ProductCard({
       </div>
 
       <div className="flex flex-1 flex-col p-2 pt-4">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-primary-400">
           {product.brand}
         </p>
         <h3 className="mt-1.5 text-sm font-medium leading-snug tracking-[-0.01em] text-ink">
@@ -66,7 +66,7 @@ export function ProductCard({
 
         <div className="mt-auto flex items-end justify-between gap-3 pt-4">
           <div className="min-w-0">
-            <p className="text-[17px] font-semibold tracking-[-0.02em] text-ink">
+            <p className="text-[17px] font-bold tracking-[-0.02em] text-primary-800">
               {formatPrice(product.price)}
             </p>
             {product.oldPrice ? (
@@ -95,13 +95,13 @@ export function ProductListCard({ product }: { product: Product }) {
           className="h-44 w-full sm:h-40 sm:w-40"
         />
         {off > 0 ? (
-          <Badge tone="primary" className="absolute left-2.5 top-2.5">
+          <Badge tone="ink" className="absolute left-2.5 top-2.5">
             -{off}%
           </Badge>
         ) : null}
       </div>
       <div className="flex min-w-0 flex-1 flex-col">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-primary-400">
           {product.brand} · {product.subcategory}
         </p>
         <h3 className="mt-1.5 text-[17px] font-semibold tracking-[-0.02em] text-ink">
@@ -115,7 +115,7 @@ export function ProductListCard({ product }: { product: Product }) {
         </p>
         <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-baseline gap-2">
-            <span className="text-xl font-semibold tracking-[-0.02em] text-ink">
+            <span className="text-xl font-bold tracking-[-0.02em] text-primary-800">
               {formatPrice(product.price)}
             </span>
             {product.oldPrice ? (

@@ -1,4 +1,16 @@
-export const APP_NAME = "ShopBeta";
+export const APP_NAME = "Zenvexa";
+export const APP_DESCRIPTOR = "Commerce Hug";
+export const APP_TAGLINE = "Everything Naija needs, delivered with a warm hug.";
+export const BRAND_LOGO = "/brand/zenvexa-mark.png";
+export const BRAND_SOCIAL_IMAGE = "/brand/zenvexa-social.jpg";
+export const BRAND_THEME_COLOR = "#0D573E";
+
+/** Display-only: legacy catalogue copy stored in Firestore may still name the old brand. */
+export function withBrandName(text: string): string;
+export function withBrandName(text: string | undefined): string | undefined;
+export function withBrandName(text: string | undefined) {
+  return text?.replace(/\bShop ?Beta\b/g, APP_NAME);
+}
 
 /** Firestore prices are whole Naira amounts by default. */
 export const CURRENCY = {

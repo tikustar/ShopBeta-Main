@@ -36,11 +36,13 @@ function IconAction({
   href,
   label,
   count,
+  className,
   children,
 }: {
   href: string;
   label: string;
   count?: number;
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -48,11 +50,14 @@ function IconAction({
       href={href}
       aria-label={label}
       title={label}
-      className="relative grid h-10 w-10 place-items-center rounded-full text-ink transition-colors duration-200 hover:bg-soft"
+      className={cn(
+        "relative h-10 w-10 place-items-center rounded-full text-ink transition-colors duration-200 hover:bg-soft",
+        className ?? "grid",
+      )}
     >
       {children}
       {count ? (
-        <span className="absolute -right-0.5 -top-0.5 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-primary px-1 text-[10px] font-semibold text-white">
+        <span className="absolute -right-0.5 -top-0.5 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-accent px-1 text-[10px] font-bold text-ink ring-2 ring-white">
           {count}
         </span>
       ) : null}
@@ -88,21 +93,25 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-line bg-white/85 backdrop-blur-xl">
-      <div className="hidden border-b border-line bg-ink text-white lg:block">
+      <div className="hidden bg-primary text-white lg:block">
         <div className="sb-container flex h-9 items-center justify-between text-[12px]">
-          <p className="flex items-center gap-2 text-white/80">
-            <Truck className="h-3.5 w-3.5" aria-hidden />
-            Free next-day delivery on orders over $99
+          <p className="flex items-center gap-2 text-white/90">
+            <Truck className="h-3.5 w-3.5 text-accent" aria-hidden />
+            Express delivery in Lagos &amp; Abuja
+            <span className="text-white/40" aria-hidden>
+              •
+            </span>
+            Pay by card, transfer or on delivery
           </p>
-          <div className="flex items-center gap-6 text-white/70">
-            <Link href="/track-order" className="transition-colors hover:text-white">
+          <div className="flex items-center gap-6 text-white/75">
+            <Link href="/track-order" className="transition-colors hover:text-accent">
               Track order
             </Link>
-            <Link href="/help" className="transition-colors hover:text-white">
+            <Link href="/help" className="transition-colors hover:text-accent">
               Help centre
             </Link>
-            <Link href="/settings" className="transition-colors hover:text-white">
-              USD · English
+            <Link href="/settings" className="transition-colors hover:text-accent">
+              NGN · English
             </Link>
           </div>
         </div>
@@ -168,7 +177,7 @@ export function Header() {
                   href="/products"
                   className="mt-2 flex items-center justify-center gap-2 rounded-xl bg-soft py-3 text-[13px] font-medium text-ink transition-colors hover:bg-line/60"
                 >
-                  Browse all 12,000+ products
+                  Browse all products
                 </Link>
               </div>
             ) : null}
@@ -197,7 +206,12 @@ export function Header() {
           >
             <Search className="h-5 w-5" aria-hidden />
           </button>
-          <IconAction href="/wishlist" label="Wishlist" count={wishlistCount || undefined}>
+          <IconAction
+            href="/wishlist"
+            label="Wishlist"
+            count={wishlistCount || undefined}
+            className="hidden sm:grid"
+          >
             <Heart className="h-5 w-5" aria-hidden />
           </IconAction>
           <IconAction
@@ -213,7 +227,7 @@ export function Header() {
           <Link
             href={profileHref}
             aria-label="Your profile"
-            className="ml-1.5 grid h-9 w-9 shrink-0 place-items-center rounded-full bg-ink text-[12px] font-semibold text-white transition-transform duration-200 hover:scale-105"
+            className="ml-1.5 hidden h-9 w-9 shrink-0 place-items-center rounded-full bg-primary sm:grid text-[12px] font-semibold text-white ring-2 ring-accent/70 ring-offset-2 transition-transform duration-200 hover:scale-105"
           >
             {initials}
           </Link>
@@ -309,7 +323,7 @@ export function Header() {
                 onClick={() => setMenuOpen(false)}
                 className="flex items-center gap-3 rounded-xl border border-line p-3"
               >
-                <span className="grid h-10 w-10 place-items-center rounded-full bg-ink text-[12px] font-semibold text-white">
+                <span className="grid h-10 w-10 place-items-center rounded-full bg-primary text-[12px] font-semibold text-white">
                   {initials}
                 </span>
                 <span>

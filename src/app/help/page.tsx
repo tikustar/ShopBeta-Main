@@ -23,9 +23,9 @@ import { Alert } from "@/components/ui/alert";
 export const metadata: Metadata = buildListingMetadata({
   title: "Help centre",
   description:
-    "Delivery, returns, refunds and account help for ShopBeta customers.",
+    "Delivery, returns, refunds and account help for Zenvexa customers.",
   path: "/help",
-  keywords: ["help", "support", "returns", "delivery", "ShopBeta"],
+  keywords: ["help", "support", "returns", "delivery", "Zenvexa"],
 });
 
 const topics = [

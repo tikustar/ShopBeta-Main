@@ -30,7 +30,7 @@ export default function AdminAnalyticsPage() {
         description="Sales, catalogue and customer insights from Firestore. Ready for external analytics later."
       />
       {error ? (
-        <p className="text-sm text-primary" role="alert">
+        <p className="text-sm text-rose-600" role="alert">
           {error}
         </p>
       ) : null}
@@ -62,7 +62,7 @@ export default function AdminAnalyticsPage() {
               {data.revenueByDay.map((day) => (
                 <div key={day.label} className="text-center">
                   <div
-                    className="mx-auto mb-2 w-full rounded-md bg-primary/15"
+                    className="mx-auto mb-2 w-full rounded-md bg-primary/80 transition-colors hover:bg-accent"
                     style={{
                       height: `${Math.max(8, Math.min(96, day.value / 5000))}px`,
                     }}

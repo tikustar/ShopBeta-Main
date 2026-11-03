@@ -80,7 +80,7 @@ export function OrderSummary({
             <button
               type="submit"
               disabled={applying}
-              className="h-11 shrink-0 rounded-xl bg-ink px-4 text-[13px] font-medium text-white transition-colors hover:bg-primary disabled:opacity-50"
+              className="h-11 shrink-0 rounded-xl bg-primary px-4 text-[13px] font-medium text-white transition-colors hover:bg-primary-600 disabled:opacity-50"
             >
               {applying ? "Applying…" : "Apply"}
             </button>
@@ -91,7 +91,7 @@ export function OrderSummary({
               className={
                 couponHint.tone === "success"
                   ? "text-[12px] text-emerald-600"
-                  : "text-[12px] text-primary"
+                  : "text-[12px] text-rose-600"
               }
             >
               {couponHint.message}

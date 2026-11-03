@@ -204,7 +204,7 @@ export default function AdminCustomersPage() {
                     disabled={
                       savingRole || roleDraft === (selected.role || "customer")
                     }
-                    className="rounded-full bg-ink px-3 py-1.5 text-white disabled:opacity-40"
+                    className="rounded-full bg-primary px-3 py-1.5 text-white disabled:opacity-40"
                     onClick={() => void saveRole()}
                   >
                     {savingRole ? "Saving…" : "Save role"}

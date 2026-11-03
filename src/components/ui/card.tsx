@@ -17,7 +17,7 @@ export function Card({
         "rounded-2xl border border-line bg-white",
         padded && "p-5 sm:p-6",
         hover &&
-          "transition-all duration-300 ease-premium hover:-translate-y-0.5 hover:border-transparent hover:sb-shadow-hover",
+          "transition-all duration-300 ease-premium hover:-translate-y-0.5 hover:border-primary-100 hover:sb-shadow-hover",
         className,
       )}
     >
@@ -77,11 +77,12 @@ export function SectionHeading({
     >
       <div className="max-w-2xl">
         {eyebrow ? (
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+          <p className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+            <span className="h-1.5 w-5 rounded-full bg-accent" aria-hidden />
             {eyebrow}
           </p>
         ) : null}
-        <h2 className="text-2xl font-semibold tracking-[-0.025em] text-ink sm:text-[28px]">
+        <h2 className="text-2xl font-bold tracking-[-0.025em] text-ink sm:text-[28px]">
           {title}
         </h2>
         {description ? (

@@ -24,7 +24,7 @@ function asProduct(entry: {
     id: entry.productId,
     slug: entry.slug,
     name: entry.name,
-    brand: entry.brand ?? "ShopBeta",
+    brand: entry.brand ?? "Zenvexa",
     category: "",
     subcategory: "",
     price: entry.price,

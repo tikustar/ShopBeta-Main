@@ -98,7 +98,7 @@ function RefundRequestForm() {
 
     const subject = `Refund Request - ${orderId.trim()}`;
     const bodyLines = [
-      "Dear ShopBeta Support,",
+      "Dear Zenvexa Support,",
       "",
       "I would like to request a refund for the order below.",
       "",
@@ -153,7 +153,7 @@ function RefundRequestForm() {
               placeholder="SB-…"
             />
             {errors.orderId ? (
-              <p className="mt-1 text-[12px] text-primary">{errors.orderId}</p>
+              <p className="mt-1 text-[12px] text-rose-600">{errors.orderId}</p>
             ) : null}
           </div>
           <div>
@@ -165,7 +165,7 @@ function RefundRequestForm() {
               placeholder="₦0"
             />
             {errors.orderTotal ? (
-              <p className="mt-1 text-[12px] text-primary">{errors.orderTotal}</p>
+              <p className="mt-1 text-[12px] text-rose-600">{errors.orderTotal}</p>
             ) : null}
           </div>
           <div>
@@ -177,7 +177,7 @@ function RefundRequestForm() {
               placeholder="Full name"
             />
             {errors.name ? (
-              <p className="mt-1 text-[12px] text-primary">{errors.name}</p>
+              <p className="mt-1 text-[12px] text-rose-600">{errors.name}</p>
             ) : null}
           </div>
           <div>
@@ -190,7 +190,7 @@ function RefundRequestForm() {
               placeholder="you@example.com"
             />
             {errors.email ? (
-              <p className="mt-1 text-[12px] text-primary">{errors.email}</p>
+              <p className="mt-1 text-[12px] text-rose-600">{errors.email}</p>
             ) : null}
           </div>
           <div>
@@ -207,7 +207,7 @@ function RefundRequestForm() {
               ))}
             </Select>
             {errors.reason ? (
-              <p className="mt-1 text-[12px] text-primary">{errors.reason}</p>
+              <p className="mt-1 text-[12px] text-rose-600">{errors.reason}</p>
             ) : null}
           </div>
           <div>
@@ -230,7 +230,7 @@ function RefundRequestForm() {
               placeholder="Tell us what happened, when the order arrived, and what went wrong."
             />
             {errors.details ? (
-              <p className="mt-1 text-[12px] text-primary">{errors.details}</p>
+              <p className="mt-1 text-[12px] text-rose-600">{errors.details}</p>
             ) : null}
           </div>
         </div>

@@ -208,7 +208,7 @@ export default async function ProductDetailsPage({
             )}
             <Badge tone="outline">
               <Package className="h-3 w-3" aria-hidden />
-              Sold by ShopBeta
+              Sold by Zenvexa
             </Badge>
           </div>
 
@@ -265,7 +265,7 @@ export default async function ProductDetailsPage({
                       <li>{product.name}</li>
                       <li>USB-C charge cable (1m)</li>
                       <li>Quick start guide</li>
-                      <li>ShopBeta 2-year warranty card</li>
+                      <li>Zenvexa 2-year warranty card</li>
                     </ul>
                   </Card>
                 </div>

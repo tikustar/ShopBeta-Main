@@ -17,8 +17,8 @@ const config: Record<Tone, { wrap: string; icon: React.ReactNode }> = {
     icon: <AlertTriangle className="h-5 w-5 text-amber-600" aria-hidden />,
   },
   danger: {
-    wrap: "border-primary-100 bg-primary-50/70 text-primary-900",
-    icon: <XCircle className="h-5 w-5 text-primary" aria-hidden />,
+    wrap: "border-rose-100 bg-rose-50/70 text-rose-900",
+    icon: <XCircle className="h-5 w-5 text-rose-600" aria-hidden />,
   },
 };
 

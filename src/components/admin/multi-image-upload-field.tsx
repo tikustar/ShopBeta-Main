@@ -80,7 +80,7 @@ export function MultiImageUploadField({
         <p className="mt-1 text-[12px] text-muted">Uploading…</p>
       ) : null}
       {error ? (
-        <p className="mt-1 text-[12px] text-primary" role="alert">
+        <p className="mt-1 text-[12px] text-rose-600" role="alert">
           {error}
         </p>
       ) : null}

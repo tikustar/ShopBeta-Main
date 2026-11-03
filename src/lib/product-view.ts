@@ -64,7 +64,7 @@ function brandFor(product: Product) {
       .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
       .join(" ");
   }
-  return product.name.split(/\s+/)[0] ?? "ShopBeta";
+  return product.name.split(/\s+/)[0] ?? "Zenvexa";
 }
 
 function badgeFor(product: Product) {

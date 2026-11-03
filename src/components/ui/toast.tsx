@@ -10,7 +10,7 @@ const icons: Record<Tone, React.ReactNode> = {
   success: <CheckCircle2 className="h-5 w-5 text-emerald-500" aria-hidden />,
   info: <Info className="h-5 w-5 text-sky-500" aria-hidden />,
   warning: <AlertTriangle className="h-5 w-5 text-amber-500" aria-hidden />,
-  danger: <XCircle className="h-5 w-5 text-primary" aria-hidden />,
+  danger: <XCircle className="h-5 w-5 text-rose-600" aria-hidden />,
 };
 
 export function Toast({

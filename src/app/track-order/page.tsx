@@ -239,7 +239,7 @@ export default function TrackOrderPage() {
           </Button>
         </form>
         {error ? (
-          <p className="mt-3 text-[13px] text-primary" role="alert">
+          <p className="mt-3 text-[13px] text-rose-600" role="alert">
             {error}
           </p>
         ) : null}
@@ -289,7 +289,7 @@ export default function TrackOrderPage() {
                   className={
                     verifyResult.ok
                       ? "text-[13px] text-emerald-700"
-                      : "text-[13px] text-primary"
+                      : "text-[13px] text-rose-600"
                   }
                 >
                   {verifyResult.message}

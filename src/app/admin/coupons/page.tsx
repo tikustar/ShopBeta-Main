@@ -263,7 +263,7 @@ export default function AdminCouponsPage() {
                     </button>
                     <button
                       type="button"
-                      className="text-primary hover:underline"
+                      className="text-rose-600 hover:underline"
                       onClick={() => {
                         if (!window.confirm(`Delete ${item.code}?`)) return;
                         void deleteCouponAdmin(item.id, actor).then(reload);

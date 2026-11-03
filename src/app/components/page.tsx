@@ -50,7 +50,7 @@ import { BrandMark, ProductMedia } from "@/components/commerce/product-media";
 
 export const metadata: Metadata = buildPrivateMetadata(
   "Component library",
-  "Internal ShopBeta UI kit — not for public indexing.",
+  "Internal Zenvexa UI kit — not for public indexing.",
 );
 
 function Section({
@@ -120,7 +120,7 @@ export default function ComponentLibraryPage() {
       <PageHeader
         crumbs={[{ label: "Home", href: "/" }, { label: "Component library" }]}
         title="Component library"
-        description="Every reusable piece of the ShopBeta interface in one place — the reference for anyone extending the design."
+        description="Every reusable piece of the Zenvexa interface in one place — the reference for anyone extending the design."
       />
 
       <div className="grid gap-10 lg:grid-cols-[220px_1fr] lg:gap-14">
@@ -275,7 +275,7 @@ export default function ComponentLibraryPage() {
                 <Badge tone="success">In stock</Badge>
                 <Badge tone="warning">Low stock</Badge>
                 <Badge tone="info">Shipped</Badge>
-                <Badge tone="outline">Sold by ShopBeta</Badge>
+                <Badge tone="outline">Sold by Zenvexa</Badge>
               </div>
               <Divider />
               <div className="flex flex-wrap items-center gap-2">

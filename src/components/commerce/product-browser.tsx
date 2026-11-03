@@ -198,7 +198,7 @@ export function ProductBrowser({
                 onClick={() => setView(id)}
                 className={cn(
                   "grid h-9 w-9 place-items-center rounded-full transition-colors",
-                  view === id ? "bg-ink text-white" : "text-muted hover:bg-soft hover:text-ink",
+                  view === id ? "bg-primary text-white" : "text-muted hover:bg-soft hover:text-ink",
                 )}
               >
                 <Icon className="h-4 w-4" aria-hidden />

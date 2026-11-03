@@ -228,7 +228,7 @@ export default function AdminCategoriesPage() {
                     </button>
                     <button
                       type="button"
-                      className="text-primary hover:underline"
+                      className="text-rose-600 hover:underline"
                       onClick={() => {
                         if (!window.confirm(`Delete ${item.name}?`)) return;
                         void deleteCategoryAdmin(item.id, actor).then(reload);

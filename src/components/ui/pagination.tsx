@@ -49,7 +49,7 @@ export function Pagination({
               className={cn(
                 "grid h-10 w-10 place-items-center rounded-full text-[13px] font-medium transition-all duration-200",
                 page === current
-                  ? "bg-primary text-white shadow-[0_8px_18px_-10px_rgba(253,70,70,0.9)]"
+                  ? "bg-primary text-white shadow-[0_8px_18px_-10px_rgba(13,87,62,0.8)]"
                   : "border border-line bg-white text-ink hover:bg-soft",
               )}
             >

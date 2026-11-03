@@ -828,7 +828,7 @@ function buildProduct(seed: Seed, index: number): Product {
         { label: "Model year", value: "2026" },
         { label: "Connectivity", value: "USB-C, Bluetooth 5.4" },
         { label: "In the box", value: "Device, cable, quick start guide" },
-        { label: "Warranty", value: "2 year ShopBeta cover" },
+        { label: "Warranty", value: "2 year Zenvexa cover" },
       ],
   };
 }
@@ -944,7 +944,7 @@ export const orders: Order[] = [
     status: "Shipped",
     total: 2378,
     delivery: "Arriving Thursday, 7 August",
-    courier: "ShopBeta Express · Rider: Musa I.",
+    courier: "Zenvexa Express · Rider: Musa I.",
     tracking: "SBX-9931-4471",
     address: "18 Adeola Odeku Street, Victoria Island, Lagos 101241",
     payment: "Visa ending 4242",
@@ -1002,7 +1002,7 @@ export const orders: Order[] = [
     status: "Returned",
     total: 349,
     delivery: "Refund completed 19 June 2026",
-    courier: "ShopBeta Returns",
+    courier: "Zenvexa Returns",
     tracking: "SBR-5512-7781",
     address: "18 Adeola Odeku Street, Victoria Island, Lagos 101241",
     payment: "Refunded to wallet",
@@ -1093,7 +1093,7 @@ export const notifications: Notification[] = [
   {
     id: "n6",
     type: "Offers",
-    title: "You have 2,400 ShopBeta points",
+    title: "You have 2,400 Zenvexa points",
     body: "That is $24 off your next order. Points apply automatically at checkout.",
     time: "20 July",
     unread: false,
@@ -1114,7 +1114,7 @@ export const faqs = [
   {
     question: "Are products covered by warranty?",
     answer:
-      "Every product carries the manufacturer warranty, and most items add two years of ShopBeta cover at no extra cost. Warranty claims are handled in-house, so you never chase a manufacturer yourself.",
+      "Every product carries the manufacturer warranty, and most items add two years of Zenvexa cover at no extra cost. Warranty claims are handled in-house, so you never chase a manufacturer yourself.",
   },
   {
     question: "Can I pay in instalments?",
@@ -1214,7 +1214,7 @@ export const user = {
   email: "amara.bello@example.com",
   phone: "+234 801 234 5678",
   joined: "Member since March 2023",
-  tier: "ShopBeta Plus",
+  tier: "Zenvexa Plus",
   points: 2400,
   orders: 34,
   wishlist: 6,

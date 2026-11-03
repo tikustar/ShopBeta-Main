@@ -11,7 +11,7 @@ import { slugify } from "@/utils/string";
 export function toCategory(id: string, raw: Partial<CategoryDocument>): Category {
   const name = raw.name ?? id;
   const description =
-    raw.description ?? `Browse ${name} products on ShopBeta.`;
+    raw.description ?? `Browse ${name} products on Zenvexa.`;
   return {
     id,
     name,
@@ -34,7 +34,7 @@ export function toCategory(id: string, raw: Partial<CategoryDocument>): Category
 /** Normalize a raw brand document. */
 export function toBrand(id: string, raw: Partial<BrandDocument>): Brand {
   const name = raw.name ?? id;
-  const description = raw.description ?? `${name} products on ShopBeta.`;
+  const description = raw.description ?? `${name} products on Zenvexa.`;
   const logo = raw.logo ?? raw.logoUrl ?? "";
   return {
     id,

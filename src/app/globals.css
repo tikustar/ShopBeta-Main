@@ -3,11 +3,12 @@
 @tailwind utilities;
 
 :root {
-  --sb-primary: #fd4646;
-  --sb-ink: #0b0b0f;
-  --sb-muted: #6b7280;
-  --sb-line: #ececf1;
-  --sb-soft: #f7f7f9;
+  --sb-primary: #0d573e;
+  --sb-accent: #f8c73e;
+  --sb-ink: #0f1b16;
+  --sb-muted: #5f6c66;
+  --sb-line: #e5ebe7;
+  --sb-soft: #f5f8f6;
 }
 
 @layer base {
@@ -23,7 +24,7 @@
   }
 
   ::selection {
-    background-color: rgba(253, 70, 70, 0.18);
+    background-color: rgba(248, 199, 62, 0.35);
   }
 
   :focus-visible {
@@ -53,13 +54,25 @@
   }
 
   .sb-shadow-soft {
-    box-shadow: 0 1px 2px rgba(11, 11, 15, 0.04),
-      0 8px 24px -12px rgba(11, 11, 15, 0.12);
+    box-shadow: 0 1px 2px rgba(15, 27, 22, 0.04),
+      0 8px 24px -12px rgba(15, 27, 22, 0.12);
   }
 
   .sb-shadow-hover {
-    box-shadow: 0 2px 6px rgba(11, 11, 15, 0.05),
-      0 18px 40px -18px rgba(11, 11, 15, 0.22);
+    box-shadow: 0 2px 6px rgba(15, 27, 22, 0.05),
+      0 18px 40px -18px rgba(13, 87, 62, 0.28);
+  }
+
+  .sb-shadow-brand {
+    box-shadow: 0 8px 20px -10px rgba(13, 87, 62, 0.75);
+  }
+
+  .zx-pattern {
+    background-image: radial-gradient(
+      rgba(13, 87, 62, 0.07) 1px,
+      transparent 1px
+    );
+    background-size: 18px 18px;
   }
 
   .no-scrollbar::-webkit-scrollbar {

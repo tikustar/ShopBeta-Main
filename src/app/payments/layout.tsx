@@ -3,7 +3,7 @@ import { buildPrivateMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = buildPrivateMetadata(
   "Payments",
-  "ShopBeta payment status pages.",
+  "Zenvexa payment status pages.",
 );
 
 export default function PaymentsLayout({

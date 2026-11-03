@@ -12,7 +12,7 @@ import { CatalogEmpty, CatalogError } from "@/components/commerce/catalog-state"
 
 export const metadata: Metadata = buildListingMetadata({
   title: "All products",
-  description: "Browse every product in the ShopBeta catalogue.",
+  description: "Browse every product in the Zenvexa catalogue.",
   path: "/products",
 });
 
@@ -41,7 +41,7 @@ export default async function ProductListingPage() {
       <PageHeader
         crumbs={[{ label: "Home", href: "/" }, { label: "All products" }]}
         title="All products"
-        description={`${items.length.toLocaleString()} products across the live ShopBeta catalogue.`}
+        description={`${items.length.toLocaleString()} products across the live Zenvexa catalogue.`}
       />
 
       <div className="mb-8 max-w-2xl">

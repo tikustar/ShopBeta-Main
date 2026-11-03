@@ -117,7 +117,7 @@ export function ProductPurchasePanel({ product }: { product: Product }) {
         </button>
       </div>
       {error ? (
-        <p className="mt-3 text-[13px] text-primary" role="alert">
+        <p className="mt-3 text-[13px] text-rose-600" role="alert">
           {error}
         </p>
       ) : null}

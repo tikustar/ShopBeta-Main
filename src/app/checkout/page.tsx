@@ -954,7 +954,7 @@ export default function CheckoutPage() {
             footer={
               <>
                 {error ? (
-                  <p className="mb-3 text-[13px] text-primary" role="alert">
+                  <p className="mb-3 text-[13px] text-rose-600" role="alert">
                     {error}
                   </p>
                 ) : null}
@@ -962,7 +962,7 @@ export default function CheckoutPage() {
                   type="button"
                   disabled={submitting}
                   onClick={handlePlaceOrder}
-                  className="inline-flex h-[52px] w-full items-center justify-center gap-2 rounded-full bg-primary px-7 text-[15px] font-medium text-white shadow-[0_8px_20px_-10px_rgba(253,70,70,0.85)] transition-all duration-200 ease-premium hover:bg-primary-600 active:scale-[0.985] disabled:opacity-50"
+                  className="inline-flex h-[52px] w-full items-center justify-center gap-2 rounded-full bg-primary px-7 text-[15px] font-medium text-white shadow-[0_8px_20px_-10px_rgba(13,87,62,0.75)] transition-all duration-200 ease-premium hover:bg-primary-600 active:scale-[0.985] disabled:opacity-50"
                 >
                   <Lock className="h-4 w-4" aria-hidden />
                   {submitting
@@ -992,7 +992,7 @@ export default function CheckoutPage() {
                             : "Place order"}
                 </button>
                 <p className="mt-4 text-center text-[12px] leading-relaxed text-muted">
-                  By placing this order you agree to the ShopBeta terms of
+                  By placing this order you agree to the Zenvexa terms of
                   service and returns policy.
                 </p>
               </>

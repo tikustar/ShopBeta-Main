@@ -55,7 +55,7 @@ export function AddToCartButton({
         onClick={handleClick}
         title={message ?? undefined}
         className={cn(
-          "grid h-10 w-10 shrink-0 place-items-center rounded-full bg-ink text-white transition-all duration-200 ease-premium hover:bg-primary active:scale-90 disabled:opacity-40 sm:group-hover:bg-primary",
+          "grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary text-white transition-all duration-200 ease-premium hover:bg-accent hover:text-primary-800 active:scale-90 disabled:opacity-40 sm:group-hover:bg-accent sm:group-hover:text-primary-800",
           className,
         )}
       >
@@ -72,15 +72,15 @@ export function AddToCartButton({
         onClick={handleClick}
         className={
           variant === "text"
-            ? "inline-flex h-10 items-center gap-2 rounded-full bg-ink px-5 text-[13px] font-medium text-white transition-colors hover:bg-primary disabled:opacity-40"
-            : "inline-flex h-12 min-w-[180px] flex-1 items-center justify-center gap-2 rounded-full bg-primary px-7 text-[15px] font-medium text-white shadow-[0_8px_20px_-10px_rgba(253,70,70,0.85)] transition-all duration-200 ease-premium hover:bg-primary-600 active:scale-[0.985] disabled:opacity-40"
+            ? "inline-flex h-10 items-center gap-2 rounded-full bg-primary px-5 text-[13px] font-medium text-white transition-colors hover:bg-primary-600 disabled:opacity-40"
+            : "inline-flex h-12 min-w-[180px] flex-1 items-center justify-center gap-2 rounded-full bg-primary px-7 text-[15px] font-medium text-white shadow-[0_8px_20px_-10px_rgba(13,87,62,0.75)] transition-all duration-200 ease-premium hover:bg-primary-600 active:scale-[0.985] disabled:opacity-40"
         }
       >
         <ShoppingCart className="h-[18px] w-[18px]" aria-hidden />
         {product.stock <= 0 ? "Out of stock" : label}
       </button>
       {message ? (
-        <p className="text-[12px] text-primary" role="alert">
+        <p className="text-[12px] text-rose-600" role="alert">
           {message}
         </p>
       ) : null}

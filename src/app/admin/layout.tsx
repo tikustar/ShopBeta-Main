@@ -4,7 +4,7 @@ import { noIndexMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "Admin",
-  description: "ShopBeta administration dashboard",
+  description: "Zenvexa administration dashboard",
   ...noIndexMetadata,
 };
 

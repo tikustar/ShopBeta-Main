@@ -11,7 +11,13 @@ import {
   getCategories,
   getPopularSearchTerms,
 } from "@/services/catalog.service";
-import { APP_NAME } from "@/constants/app";
+import {
+  APP_DESCRIPTOR,
+  APP_NAME,
+  APP_TAGLINE,
+  BRAND_SOCIAL_IMAGE,
+  BRAND_THEME_COLOR,
+} from "@/constants/app";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -24,42 +30,44 @@ const siteUrl =
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
+  applicationName: `${APP_NAME} — ${APP_DESCRIPTOR}`,
   title: {
-    default: `${APP_NAME} — Premium electronics marketplace`,
+    default: `${APP_NAME} — ${APP_DESCRIPTOR}`,
     template: `%s · ${APP_NAME}`,
   },
-  description:
-    "ShopBeta is a premium marketplace for computers, electronics, gadgets, gaming gear, smart home devices, office equipment and networking products.",
+  description: `${APP_NAME} ${APP_DESCRIPTOR}: shop electronics, gadgets, home essentials and everyday products across Nigeria. ${APP_TAGLINE}`,
   keywords: [
-    "ShopBeta",
+    APP_NAME,
+    `${APP_NAME} ${APP_DESCRIPTOR}`,
+    "online shopping Nigeria",
     "electronics",
     "gadgets",
-    "laptops",
     "phones",
-    "gaming",
-    "smart home",
+    "home essentials",
     "Nigeria",
   ],
   alternates: { canonical: siteUrl },
-  icons: {
-    icon: "/ShopBet logo icon.png",
-    apple: "/ShopBet logo icon.png",
-    shortcut: "/ShopBet logo icon.png",
-  },
   openGraph: {
     type: "website",
-    siteName: APP_NAME,
-    title: `${APP_NAME} — Premium electronics marketplace`,
-    description:
-      "Shop computers, electronics, gadgets and gaming gear with next-day delivery.",
+    siteName: `${APP_NAME} — ${APP_DESCRIPTOR}`,
+    title: `${APP_NAME} — ${APP_DESCRIPTOR}`,
+    description: APP_TAGLINE,
     url: siteUrl,
     locale: "en_NG",
+    images: [
+      {
+        url: BRAND_SOCIAL_IMAGE,
+        width: 1080,
+        height: 602,
+        alt: `${APP_NAME} — ${APP_DESCRIPTOR}`,
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
-    title: `${APP_NAME} — Premium electronics marketplace`,
-    description:
-      "Shop computers, electronics, gadgets and gaming gear with next-day delivery.",
+    title: `${APP_NAME} — ${APP_DESCRIPTOR}`,
+    description: APP_TAGLINE,
+    images: [BRAND_SOCIAL_IMAGE],
   },
   robots: {
     index: true,
@@ -69,7 +77,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#FFFFFF",
+  themeColor: BRAND_THEME_COLOR,
   width: "device-width",
   initialScale: 1,
 };
@@ -98,7 +106,7 @@ export default async function RootLayout({
       <body className={`${geistSans.variable} antialiased`}>
         <a
           href="#main"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-full focus:bg-ink focus:px-5 focus:py-3 focus:text-sm focus:text-white"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-full focus:bg-primary focus:px-5 focus:py-3 focus:text-sm focus:text-white"
         >
           Skip to content
         </a>

@@ -3,7 +3,7 @@ import { buildPrivateMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = buildPrivateMetadata(
   "Checkout",
-  "Complete your ShopBeta order.",
+  "Complete your Zenvexa order.",
 );
 
 export default function CheckoutLayout({

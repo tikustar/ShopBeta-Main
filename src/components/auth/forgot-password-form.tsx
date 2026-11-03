@@ -56,7 +56,7 @@ export function ForgotPasswordForm() {
             />
           </div>
           {error ? (
-            <p className="text-[13px] text-primary" role="alert">
+            <p className="text-[13px] text-rose-600" role="alert">
               {error}
             </p>
           ) : null}

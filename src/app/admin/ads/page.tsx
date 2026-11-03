@@ -171,7 +171,7 @@ export default function AdminAdsPage() {
     <RequireAdmin permission="dashboard:view">
       <AdminPageHeader
         title="Ads & Expenses"
-        description="Track and manage ShopBeta advertising and other business expenses."
+        description="Track and manage Zenvexa advertising and other business expenses."
       />
       
       <div className="space-y-6">

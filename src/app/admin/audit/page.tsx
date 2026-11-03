@@ -27,7 +27,7 @@ export default function AdminAuditPage() {
         description="Product, order, coupon, banner and settings changes recorded for accountability."
       />
       {error ? (
-        <p className="text-sm text-primary" role="alert">
+        <p className="text-sm text-rose-600" role="alert">
           {error}
         </p>
       ) : null}

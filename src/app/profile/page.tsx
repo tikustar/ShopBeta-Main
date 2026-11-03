@@ -240,7 +240,7 @@ function ProfileContent() {
                 className="h-24 w-24 rounded-full border-4 border-white object-cover sm:h-28 sm:w-28"
               />
             ) : (
-              <span className="grid h-24 w-24 place-items-center rounded-full border-4 border-white bg-ink text-2xl font-semibold text-white sm:h-28 sm:w-28">
+              <span className="grid h-24 w-24 place-items-center rounded-full border-4 border-white bg-primary text-2xl font-semibold text-white sm:h-28 sm:w-28">
                 {initials}
               </span>
             )}
@@ -288,7 +288,7 @@ function ProfileContent() {
         <p className="mt-4 text-[13px] text-emerald-700">{message}</p>
       ) : null}
       {error ? (
-        <p className="mt-4 text-[13px] text-primary" role="alert">
+        <p className="mt-4 text-[13px] text-rose-600" role="alert">
           {error}
         </p>
       ) : null}

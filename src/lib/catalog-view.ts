@@ -4,14 +4,15 @@ import type {
   IconKey,
 } from "@/lib/data";
 import type { Brand, Category } from "@/types/catalog";
+import { APP_NAME, withBrandName } from "@/constants/app";
 
 const TONES = [
-  "bg-[#F4F6FA]",
-  "bg-[#F7F5FA]",
-  "bg-[#F4F8F7]",
-  "bg-[#FAF5F4]",
-  "bg-[#F8F7F2]",
-  "bg-[#F6F6F9]",
+  "bg-[#EEF7F2]",
+  "bg-[#FFF8E5]",
+  "bg-[#F3F8F4]",
+  "bg-[#FBF5E3]",
+  "bg-[#EAF4EE]",
+  "bg-[#F7F8F1]",
 ] as const;
 
 const ICON_KEYWORDS: Array<[RegExp, IconKey]> = [
@@ -48,9 +49,10 @@ export function toCategoryView(category: Category): CategoryView {
     subcategories: category.subcategories?.length
       ? category.subcategories
       : [category.name],
-    description:
+    description: withBrandName(
       category.description ??
-      `Explore ${category.name.toLowerCase()} products on ShopBeta.`,
+        `Explore ${category.name.toLowerCase()} products on ${APP_NAME}.`,
+    ),
   };
 }
 
@@ -68,7 +70,7 @@ export function toBrandView(brand: Brand): BrandView {
   return {
     name: brand.name,
     slug: brand.slug,
-    initials: initials || "SB",
+    initials: initials || "ZX",
     productCount: brand.productCount ?? 0,
     featured: Boolean(brand.featured),
     category: "Catalogue",

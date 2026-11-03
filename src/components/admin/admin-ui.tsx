@@ -10,13 +10,14 @@ export function AdminPageHeader({
   actions?: React.ReactNode;
 }) {
   return (
-    <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-[-0.02em] text-ink">
+    <div className="mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-line pb-5">
+      <div className="min-w-0">
+        <span className="mb-2 block h-1 w-10 rounded-full bg-accent" aria-hidden />
+        <h1 className="text-2xl font-bold tracking-[-0.02em] text-ink sm:text-[26px]">
           {title}
         </h1>
         {description ? (
-          <p className="mt-1 text-sm text-muted">{description}</p>
+          <p className="mt-1 max-w-2xl text-sm text-muted">{description}</p>
         ) : null}
       </div>
       {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
@@ -40,14 +41,15 @@ export function StatCard({
   return (
     <div
       className={cn(
-        "rounded-2xl border border-line bg-white p-4 sm:p-5 relative",
+        "relative overflow-hidden rounded-2xl border border-line bg-white p-4 shadow-[0_1px_2px_rgba(15,27,22,0.04)] transition-shadow hover:sb-shadow-soft sm:p-5",
         className,
       )}
     >
+      <span className="absolute inset-y-0 left-0 w-1 bg-primary" aria-hidden />
       <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted">
         {label}
       </p>
-      <p className="mt-2 text-2xl font-semibold tracking-[-0.02em] text-ink">
+      <p className="mt-2 text-2xl font-bold tracking-[-0.02em] text-primary-800">
         {value}
       </p>
       {hint ? <p className="mt-1 text-[12px] text-muted">{hint}</p> : null}
@@ -68,9 +70,9 @@ export function AdminTable({
   children: React.ReactNode;
 }) {
   return (
-    <div className="overflow-x-auto rounded-2xl border border-line bg-white">
-      <table className="min-w-full text-left text-sm">
-        <thead className="border-b border-line bg-soft/60 text-[11px] uppercase tracking-[0.08em] text-muted">
+    <div className="overflow-x-auto rounded-2xl border border-line bg-white shadow-[0_1px_2px_rgba(15,27,22,0.04)]">
+      <table className="min-w-full text-left text-sm [&_tbody_tr:hover]:bg-primary-50/40 [&_tbody_tr]:transition-colors">
+        <thead className="border-b border-line bg-primary-50/60 text-[11px] uppercase tracking-[0.08em] text-primary-700">
           <tr>
             {headers.map((header) => (
               <th key={header} className="px-4 py-3 font-semibold">
@@ -93,8 +95,9 @@ export function AdminEmpty({
   description?: string;
 }) {
   return (
-    <div className="rounded-2xl border border-dashed border-line bg-white px-6 py-12 text-center">
-      <p className="text-sm font-medium text-ink">{title}</p>
+    <div className="rounded-2xl border border-dashed border-primary-200 bg-white px-6 py-12 text-center">
+      <span className="mx-auto mb-3 block h-1.5 w-8 rounded-full bg-accent" aria-hidden />
+      <p className="text-sm font-semibold text-ink">{title}</p>
       {description ? (
         <p className="mt-1 text-[13px] text-muted">{description}</p>
       ) : null}

@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import type { Product } from "@/types/product";
 import type { Brand, Category } from "@/types/catalog";
-import { APP_NAME, CURRENCY } from "@/constants/app";
+import { APP_NAME, CURRENCY, withBrandName } from "@/constants/app";
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
   "https://shopbeta.app";
 
 const DEFAULT_KEYWORDS = [
-  "ShopBeta",
+  "Zenvexa",
   "electronics",
   "gadgets",
   "laptops",
@@ -120,10 +120,11 @@ export function buildProductMetadata(product: Product): Metadata {
 
 export function buildCategoryMetadata(category: Category): Metadata {
   const title = category.name;
-  const description =
+  const description = withBrandName(
     category.seoDescription?.slice(0, 160) ||
-    category.description?.slice(0, 160) ||
-    `Shop ${category.name} on ${APP_NAME}.`;
+      category.description?.slice(0, 160) ||
+      `Shop ${category.name} on ${APP_NAME}.`,
+  );
   const url = absoluteUrl(categoryCanonicalPath(category));
   const image = category.image;
 
@@ -145,10 +146,11 @@ export function buildCategoryMetadata(category: Category): Metadata {
 
 export function buildBrandMetadata(brand: Brand): Metadata {
   const title = brand.name;
-  const description =
+  const description = withBrandName(
     brand.seoDescription?.slice(0, 160) ||
-    brand.description?.slice(0, 160) ||
-    `Shop ${brand.name} on ${APP_NAME}.`;
+      brand.description?.slice(0, 160) ||
+      `Shop ${brand.name} on ${APP_NAME}.`,
+  );
   const url = absoluteUrl(`/products?brand=${brand.slug}`);
   const image = brand.logo || brand.logoUrl;
 
@@ -209,7 +211,7 @@ export function productJsonLd(product: Product) {
       "@type": "Review",
       author: {
         "@type": "Person",
-        name: review.reviewBy || "ShopBeta customer",
+        name: review.reviewBy || "Zenvexa customer",
       },
       reviewRating: {
         "@type": "Rating",
@@ -315,7 +317,7 @@ export function categoryItemListJsonLd(
     "@context": "https://schema.org",
     "@type": "CollectionPage",
     name: category.name,
-    description: category.description,
+    description: withBrandName(category.description),
     url: absoluteUrl(categoryCanonicalPath(category)),
     mainEntity: {
       "@type": "ItemList",
