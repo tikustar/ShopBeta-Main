@@ -11,6 +11,9 @@ const LEGACY_HOSTS = "(?:www\\.)?shopbetaa\\.store";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // jwks-rsa (firebase-admin/auth) calls require("jose"), but jose 6 is ESM-only.
+  // Bundling it through webpack resolves the import correctly in serverless functions.
+  transpilePackages: ["jwks-rsa"],
   async redirects() {
     if (process.env.ENABLE_LEGACY_DOMAIN_REDIRECT !== "true") return [];
     if (!/^https:\/\/(www\.)?zenvexacommerce\.com$/.test(CANONICAL_ORIGIN))
