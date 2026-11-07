@@ -11,6 +11,7 @@ const { routeStoreWebhook } = require("./store-routing");
 const { onRequest } = require("firebase-functions/v2/https");
 const { getFirestore } = require("firebase-admin/firestore");
 const { createHmac, timingSafeEqual } = require("crypto");
+const { createSandboxHandler } = require("./bachsSandbox");
 const {
   COLLECTIONS,
   COD_FEE_PURPOSE,
@@ -81,7 +82,7 @@ function verifyBachsSignature(
   const v2 = headers["x-bachs-signature-v2"];
   if (v2) {
     for (const part of String(v2).split(",")) {
-      const [key, value] = part.split("=", 2);
+      const [key, value] = part.trim().split("=", 2);
       if (key === "t" && value) timestamp = value.trim();
       if (key === "v1" && value) signatures.push(value.trim());
     }
@@ -133,6 +134,7 @@ async function getBachsCheckoutSession(checkoutId, sandbox, secrets) {
   );
   const body = await response.json().catch(() => null);
   if (!response.ok || !body) {
+    log("webhook.upstream", "Bachs lookup rejected", { environment: sandbox ? "sandbox" : "live", status: response.status, errorCodePresent: typeof body?.error_code === "string", hasDetail: typeof body?.detail === "string" });
     throw new Error(`Bachs session lookup failed (${response.status})`);
   }
   return body;
@@ -146,6 +148,12 @@ exports.bachsWebhook = onRequest(
   },
   async (req, res) => {
     try {
+      const sandbox = createSandboxHandler({
+        getDb: getFirestore,
+        timestamp: () => require("firebase-admin/firestore").FieldValue.serverTimestamp(),
+        log: (stage, meta) => log(stage, "Bachs sandbox diagnostic", meta),
+      });
+      if (await sandbox(req, res)) return;
       if (
         await routeStoreWebhook(req, res, "bachs", {
           shopbeta: "https://www.zenvexacommerce.com",
@@ -153,6 +161,7 @@ exports.bachsWebhook = onRequest(
         })
       ) return;
     } catch {
+      log("webhook.routing", "Bachs dispatch or forwarding unavailable", {});
       res
         .status(503)
         .json({ ok: false, reason: "Store webhook routing unavailable." });
@@ -223,6 +232,10 @@ exports.bachsWebhook = onRequest(
       const payment = paymentDoc.data();
       const orderId = payment.orderId;
       const sandbox = payment.metadata?.sandbox !== false;
+      if (sandbox) {
+        res.status(409).json({ ok: false, reason: "Sandbox payments require the isolated registry." });
+        return;
+      }
 
       const orderSnap = await db
         .collection(COLLECTIONS.orders)

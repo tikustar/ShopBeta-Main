@@ -21,6 +21,7 @@ import { randomUUID } from "node:crypto";
 
 export async function initializeBachsForOrder(orderId: string) {
   const config = await getBachsConfiguration();
+  if (config.sandbox) return { ok: false as const, reason: "Sandbox payments require the isolated registry." };
   if (!config.enabled || !config.apiKey)
     return {
       ok: false as const,
@@ -140,6 +141,7 @@ export async function verifyBachsForReference(
   if (!paymentDoc || paymentDoc.data().gateway !== "bachs")
     return { ok: false as const, reason: "Bachs payment not found." };
   const payment = paymentDoc.data();
+  if (payment.metadata?.sandbox === true) return { ok: false as const, reason: "Sandbox payments require the isolated registry." };
   const isCodFee = payment.purpose === COD_FEE_PURPOSE;
   const orderSnap = await db.collection("orders").doc(payment.orderId).get();
   if (!orderSnap.exists)
@@ -162,6 +164,7 @@ export async function verifyBachsForReference(
   const session = await getBachsCheckoutSession(config, payment.checkoutId);
   if (session.reference && session.reference !== reference)
     return { ok: false as const, reason: "Payment reference does not match." };
+  console.info(JSON.stringify({ bachs: { stage: "verification", reference, environment: config.sandbox ? "sandbox" : "live", sessionStatus: ["open", "completed", "expired", "cancelled"].includes(session.status) ? session.status : "unknown", checkoutMatches: session.checkout_id === payment.checkoutId, referenceMatches: session.reference === reference, hasTopLevelCurrency: !!session.currency, hasPricingCurrency: !!session.pricing?.currency } }));
   const normalized = normalizeBachsCheckout(session, reference);
   const expectedAmount = isCodFee
     ? Number(payment.amount)
@@ -211,7 +214,7 @@ export async function verifyBachsForReference(
   const amount = Number(
     session.pricing?.amount ?? session.total_amount ?? session.amount,
   );
-  const currency = String(session.pricing?.currency ?? "").toUpperCase();
+  const currency = String(session.currency ?? session.pricing?.currency ?? "").toUpperCase();
   if (
     session.checkout_id !== payment.checkoutId ||
     !Number.isFinite(amount) ||
@@ -244,10 +247,12 @@ export async function verifyBachsForReference(
         paymentDocId: paymentDoc.id,
         eventId,
       });
+  console.info(JSON.stringify({ bachs: { stage: "finalization", reference, ok: finalized.ok } }));
   if (!finalized.ok) return finalized;
-  await notifyMakeOrderPaid({ order: finalized.order, reference, bachsOnce: true }).catch(
-    () => undefined,
+  const notification = await notifyMakeOrderPaid({ order: finalized.order, reference, bachsOnce: true }).catch(
+    () => ({ ok: false, reason: "manual_reconciliation" }),
   );
+  console.info(JSON.stringify({ bachs: { stage: "notification", reference, ok: notification.ok, reason: notification.reason === "claimed_manual_reconciliation" ? notification.reason : notification.ok ? "accepted_or_already_sent" : "manual_reconciliation" } }));
   return {
     ok: true as const,
     reference,

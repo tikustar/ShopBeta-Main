@@ -40,6 +40,15 @@ before(async () => {
 after(async () => {
   await env?.cleanup();
 });
+test("Bachs isolated credentials and registry are inaccessible to browser clients including admins", async () => {
+  for (const db of [env.unauthenticatedContext().firestore(), env.authenticatedContext("customer").firestore(), env.authenticatedContext("admin").firestore()]) {
+    for (const path of ["privateBachsSandbox/config", "privateBachsSandbox/registry/payments/fixture", "privateBachsSandbox/registry/orders/fixture", "privateBachsSandbox/registry/inventory/fixture", "privateBachsSandbox/registry/notifications/fixture"]) {
+      await assertFails(getDoc(doc(db, path)));
+      await assertFails(setDoc(doc(db, path), { environment: "sandbox" }));
+    }
+  }
+});
+
 test("named settings require matching identity, nonblank name and no secrets", async () => {
   const db = env.authenticatedContext("admin").firestore();
   await assertSucceeds(

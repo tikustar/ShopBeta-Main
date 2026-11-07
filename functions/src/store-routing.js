@@ -57,6 +57,11 @@ async function routeStoreWebhook(req, res, provider, origins = ORIGINS) {
   if (result.docs.length !== 1) return false;
   const payment = result.docs[0].data();
   if (payment.gateway !== provider) return false;
+  if (provider === "bachs" && payment.metadata?.sandbox === true) {
+    console.info(JSON.stringify({ bachs: { stage: "routing", environment: "sandbox", result: "production_registry_rejected" } }));
+    res.status(409).json({ ok: false, reason: "Sandbox payments require the isolated registry." });
+    return true;
+  }
   const snap = await db.collection("orders").doc(payment.orderId).get();
   if (!snap.exists) return false;
   const storeId = storeFrom(snap.data());
@@ -98,6 +103,10 @@ async function routeStoreWebhook(req, res, provider, origins = ORIGINS) {
       signal: AbortSignal.timeout(25000),
     },
   );
+  if (provider === "bachs") console.info(JSON.stringify({ bachs: {
+    stage: "routing", reference: /^BA[a-f0-9]{32}$/.test(reference) ? reference : "nonstandard", environment: payment.metadata?.sandbox === false ? "live" : "unspecified", storeId,
+    credentialSnapshot: !!payment.credentialVersion, destinationHost: url.hostname, upstreamStatus: response.status, upstreamJson: (response.headers.get("content-type") || "").includes("application/json"),
+  } }));
   res
     .status(response.status)
     .type("application/json")

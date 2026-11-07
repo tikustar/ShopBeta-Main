@@ -32,6 +32,10 @@ async function bachsFetch<T>(
     | ({ detail?: string; error_code?: string } & Record<string, unknown>)
     | null;
   if (!response.ok || !body) {
+    console.error(JSON.stringify({ bachs: {
+      stage: "upstream", environment: config.sandbox ? "sandbox" : "live", status: response.status,
+      response: { errorCodePresent: typeof body?.error_code === "string", hasDetail: typeof body?.detail === "string", hasValidationErrors: Array.isArray(body?.errors) },
+    } }));
     throw new Error(
       "Bachs could not process this request. Please try again shortly.",
     );
@@ -119,6 +123,8 @@ export function getBachsCheckoutSession(
       pricing?: { amount?: string; currency?: string };
       total_amount?: string;
       amount?: string;
+      currency?: string;
+      payment_status?: string;
       customer_details?: { email?: string; name?: string } | null;
     }
   >(config, `/v1/checkout-sessions/${encodeURIComponent(checkoutId)}`);
@@ -168,7 +174,7 @@ export function verifyBachsWebhookSignature(
   const signatures: string[] = [];
   if (headers.signatureV2) {
     for (const part of headers.signatureV2.split(",")) {
-      const [key, value] = part.split("=", 2);
+      const [key, value] = part.trim().split("=", 2);
       if (key === "t" && value) timestamp = value.trim();
       if (key === "v1" && value) signatures.push(value.trim());
     }

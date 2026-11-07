@@ -68,6 +68,9 @@ export async function getBachsWebhookSecrets() {
           secrets[key].trim() && typeof apiKey === "string" &&
           secrets[key].trim() === apiKey.trim()) {
           candidates.push(current[signing] || deploymentEnv(`BACHS_${prefix}_WEBHOOK_SECRET`));
+          console.info(JSON.stringify({ bachs: { stage: "credentials", environment, snapshotRecovery: "matching_account" } }));
+        } else if (!secrets?.[signing] && secrets?.[key]) {
+          console.info(JSON.stringify({ bachs: { stage: "credentials", environment, snapshotRecovery: "account_mismatch_or_unavailable" } }));
         }
       }
     });
