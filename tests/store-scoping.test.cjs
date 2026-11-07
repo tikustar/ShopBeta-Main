@@ -24,6 +24,25 @@ function harness(initial = {}) {
   );
   return { ...f, load };
 }
+test("Bachs signing snapshots retain saved secrets and only recover missing secrets for the same account", async () => {
+  storeEnv("shopbeta");
+  const path = "privatePaymentSettings/bachs";
+  const f = harness({ [path]: { liveApiKey: "account-a", liveWebhookSecret: "sign-a" } });
+  const ctx = f.load("@/lib/server/store-context");
+  const capture = f.load("@/lib/server/store-request").captureProviderVersion;
+  const read = f.load("@/lib/server/bachs-settings").getBachsWebhookSecrets;
+  const version = await capture("bachs");
+  f.records.set(path, { liveApiKey: "account-a", liveWebhookSecret: "sign-new" });
+  assert.deepEqual(await ctx.withStoreContext({ id: "shopbeta", credentialVersion: version }, read), ["sign-a"]);
+  const savedPath = `privatePaymentSettings/shopbeta/providers/bachs/versions/${version}`;
+  delete f.records.get(savedPath).liveWebhookSecret;
+  assert.deepEqual(await ctx.withStoreContext({ id: "shopbeta", credentialVersion: version }, read), ["sign-new"]);
+  f.records.set(path, { liveApiKey: "account-b", liveWebhookSecret: "other-account" });
+  assert.deepEqual(await ctx.withStoreContext({ id: "shopbeta", credentialVersion: version }, read), []);
+  assert.equal(f.records.get(savedPath).liveApiKey, "account-a");
+  assert.equal(f.records.get(savedPath).liveWebhookSecret, undefined);
+});
+
 test("prefix handles spaces, camel case, acronyms, punctuation, Unicode and short names", () => {
   const { orderPrefix } = loader()("@/lib/store");
   for (const [name, prefix] of [
@@ -573,6 +592,62 @@ test("shared Cloud Function bridge preserves raw signature bytes and routes from
     global.fetch = original;
   }
 });
+test("Bachs bridge uses the migrated storefront without changing other providers or legacy attempts", async () => {
+  const fs = require("node:fs"), path = require("node:path");
+  const { db, records } = database({
+    "orders/o": { storeId: "shopbeta" },
+    "payments/p": {
+      gateway: "bachs", reference: "r1", orderId: "o",
+      storeId: "shopbeta", credentialVersion: "v1",
+    },
+  });
+  const module = { exports: {} };
+  new Function("require", "module", "exports", fs.readFileSync(
+    path.join(__dirname, "../functions/src/store-routing.js"), "utf8",
+  ))((name) => name === "firebase-admin/firestore"
+    ? { getFirestore: () => db } : require(name), module, module.exports);
+  const raw = Buffer.from('{ "data": { "reference": "r1" } }');
+  const request = { method: "POST", rawBody: raw, headers: {
+    "x-bachs-signature-v2": "t=123,v1=test", "x-bachs-timestamp": "123",
+  } };
+  const result = {
+    status(code) { this.code = code; return this; },
+    type() { return this; }, send(body) { this.body = body; return this; },
+  };
+  const original = global.fetch;
+  const origin = process.env.SHOPBETA_WEBHOOK_ORIGIN;
+  delete process.env.SHOPBETA_WEBHOOK_ORIGIN;
+  let target;
+  global.fetch = async (url, init) => {
+    target = url;
+    assert.equal(init.body, raw);
+    assert.equal(init.headers["x-bachs-signature-v2"], "t=123,v1=test");
+    assert.equal(init.redirect, "error");
+    return new Response('{"ok":true}', { status: 200 });
+  };
+  try {
+    const source = fs.readFileSync(path.join(__dirname, "../functions/src/bachsWebhook.js"), "utf8");
+    assert.match(source, /shopbeta: "https:\/\/www\.zenvexacommerce\.com"/);
+    await module.exports.routeStoreWebhook(request, result, "bachs", {
+      shopbeta: "https://www.zenvexacommerce.com",
+    });
+    assert.equal(target, "https://www.zenvexacommerce.com/api/payments/bachs/webhook");
+    assert.equal(result.code, 200);
+    await module.exports.routeStoreWebhook(request, result, "bachs");
+    assert.equal(target, "https://www.shopbetaa.store/api/payments/bachs/webhook");
+    records.get("payments/p").credentialVersion = undefined;
+    target = undefined;
+    assert.equal(await module.exports.routeStoreWebhook(request, result, "bachs", {
+      shopbeta: "https://www.zenvexacommerce.com",
+    }), false);
+    assert.equal(target, undefined);
+  } finally {
+    global.fetch = original;
+    if (origin === undefined) delete process.env.SHOPBETA_WEBHOOK_ORIGIN;
+    else process.env.SHOPBETA_WEBHOOK_ORIGIN = origin;
+  }
+});
+
 test("ShopBeta keeps legacy settings/credential authority until coordinated cutover; old attempts retain legacy keys afterwards", async () => {
   storeEnv("shopbeta");
   const f = harness({

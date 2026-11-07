@@ -542,7 +542,7 @@ function buildMakePayload(order, reference) {
   };
 }
 
-async function notifyMake(order, reference) {
+async function notifyMake(order, reference, options = {}) {
   const makeUrl = process.env.MAKE_WEBHOOK_URL;
   if (!makeUrl) {
     log("webhook.make", "Make.com URL not configured — skipped", {
@@ -553,6 +553,16 @@ async function notifyMake(order, reference) {
 
   const db = getFirestore();
   const orderRef = db.collection(COLLECTIONS.orders).doc(order.id);
+  if (options.bachsOnce || order.paymentMethod === "bachs") {
+    const claim = db.collection("privateStoreSettings").doc(order.storeId || "shopbeta")
+      .collection("bachsMakeNotificationClaims").doc(order.id);
+    const acquired = await db.runTransaction(async (tx) => {
+      if ((await tx.get(claim)).exists) return false;
+      tx.set(claim, { claimedAt: FieldValue.serverTimestamp() });
+      return true;
+    });
+    if (!acquired) return;
+  }
   const snap = await orderRef.get();
   const latest = snap.exists ? snap.data() : {};
   if (latest.makeNotifyStatus === "sent" && latest.makeNotifiedAt) {
@@ -572,6 +582,7 @@ async function notifyMake(order, reference) {
       body: JSON.stringify(
         buildMakePayload({ ...order, ...latest, id: order.id }, reference),
       ),
+      signal: options.bachsOnce || order.paymentMethod === "bachs" ? AbortSignal.timeout(10000) : undefined,
     });
     if (!response.ok) {
       const text = await response.text().catch(() => "");

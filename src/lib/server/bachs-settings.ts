@@ -2,6 +2,8 @@ import {
   deploymentEnv,
   providerSecrets,
   storeSettingsRef,
+  currentStoreContext,
+  withStoreContext,
 } from "@/lib/server/store-context";
 
 /**
@@ -47,10 +49,28 @@ export async function getBachsWebhookSecrets() {
   const secrets = (
     await providerSecrets("bachs").then((data) => ({ data: () => data }))
   ).data();
-  return [
+  const context = currentStoreContext();
+  const candidates = [
     secrets?.sandboxWebhookSecret,
     secrets?.liveWebhookSecret,
     deploymentEnv("BACHS_SANDBOX_WEBHOOK_SECRET"),
     deploymentEnv("BACHS_LIVE_WEBHOOK_SECRET"),
-  ].filter((v): v is string => typeof v === "string" && Boolean(v.trim()));
+  ];
+  if (context.credentialVersion) {
+    await withStoreContext({ id: context.id }, async () => {
+      const current = await providerSecrets("bachs");
+      for (const environment of ["sandbox", "live"] as const) {
+        const key = `${environment}ApiKey`;
+        const signing = `${environment}WebhookSecret`;
+        const prefix = environment.toUpperCase();
+        const apiKey = current[key] || deploymentEnv(`BACHS_${prefix}_API_KEY`);
+        if (!secrets?.[signing] && typeof secrets?.[key] === "string" &&
+          secrets[key].trim() && typeof apiKey === "string" &&
+          secrets[key].trim() === apiKey.trim()) {
+          candidates.push(current[signing] || deploymentEnv(`BACHS_${prefix}_WEBHOOK_SECRET`));
+        }
+      }
+    });
+  }
+  return candidates.filter((v): v is string => typeof v === "string" && Boolean(v.trim()));
 }

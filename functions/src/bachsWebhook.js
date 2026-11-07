@@ -146,7 +146,12 @@ exports.bachsWebhook = onRequest(
   },
   async (req, res) => {
     try {
-      if (await routeStoreWebhook(req, res, "bachs")) return;
+      if (
+        await routeStoreWebhook(req, res, "bachs", {
+          shopbeta: "https://www.zenvexacommerce.com",
+          zenvexa: "https://www.zenvexacommerce.com",
+        })
+      ) return;
     } catch {
       res
         .status(503)
@@ -344,7 +349,9 @@ exports.bachsWebhook = onRequest(
         return;
       }
 
-      await notifyMake(result.order, reference);
+      await notifyMake(result.order, reference, { bachsOnce: true }).catch(() => {
+        log("webhook.make", "Bachs notification requires manual reconciliation", { orderId });
+      });
       res.status(200).json({
         ok: true,
         alreadyProcessed: result.alreadyProcessed,

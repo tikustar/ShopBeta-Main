@@ -28,7 +28,7 @@ function storeFrom(order) {
   }
   return "shopbeta";
 }
-async function routeStoreWebhook(req, res, provider) {
+async function routeStoreWebhook(req, res, provider, origins = ORIGINS) {
   if (req.method !== "POST") return false;
   const raw = Buffer.isBuffer(req.rawBody)
     ? req.rawBody
@@ -71,7 +71,7 @@ async function routeStoreWebhook(req, res, provider) {
   }
   if (storeId === "shopbeta" && !payment.credentialVersion) return false;
   const configured =
-    process.env[storeId.toUpperCase() + "_WEBHOOK_ORIGIN"] || ORIGINS[storeId];
+    process.env[storeId.toUpperCase() + "_WEBHOOK_ORIGIN"] || origins[storeId];
   const url = new URL(configured);
   if (url.protocol !== "https:" || url.origin !== configured.replace(/\/$/, ""))
     throw new Error("Invalid trusted webhook origin.");

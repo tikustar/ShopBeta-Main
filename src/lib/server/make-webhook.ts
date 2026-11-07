@@ -171,6 +171,7 @@ export async function notifyMakeOrderPaid(input: {
   order: Order;
   reference: string;
   force?: boolean;
+  bachsOnce?: boolean;
 }): Promise<{ ok: boolean; skipped?: boolean; reason?: string }> {
   const url = await getMakeWebhookUrl();
   if (!url) {
@@ -182,6 +183,16 @@ export async function notifyMakeOrderPaid(input: {
 
   const db = getAdminDb();
   const orderRef = db.collection(COLLECTIONS.orders).doc(input.order.id);
+  if (input.bachsOnce || input.order.paymentMethod === "bachs") {
+    const claim = db.collection("privateStoreSettings").doc(currentStoreId())
+      .collection("bachsMakeNotificationClaims").doc(input.order.id);
+    const acquired = await db.runTransaction(async (tx) => {
+      if ((await tx.get(claim)).exists) return false;
+      tx.set(claim, { claimedAt: FieldValue.serverTimestamp() });
+      return true;
+    });
+    if (!acquired) return { ok: true, skipped: true, reason: "claimed_manual_reconciliation" };
+  }
   const snap = await orderRef.get();
   const latest = snap.exists
     ? ({ id: snap.id, ...snap.data() } as Order & {
@@ -223,6 +234,7 @@ export async function notifyMakeOrderPaid(input: {
         Accept: "application/json",
       },
       body: JSON.stringify(payload),
+      signal: input.bachsOnce || input.order.paymentMethod === "bachs" ? AbortSignal.timeout(10000) : undefined,
       cache: "no-store",
     });
 

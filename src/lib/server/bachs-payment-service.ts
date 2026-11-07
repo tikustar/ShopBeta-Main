@@ -245,7 +245,7 @@ export async function verifyBachsForReference(
         eventId,
       });
   if (!finalized.ok) return finalized;
-  await notifyMakeOrderPaid({ order: finalized.order, reference }).catch(
+  await notifyMakeOrderPaid({ order: finalized.order, reference, bachsOnce: true }).catch(
     () => undefined,
   );
   return {
