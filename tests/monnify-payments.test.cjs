@@ -665,5 +665,8 @@ test("public provider settings expose only visibility and retain existing provid
       sandboxWebhookSecret: false,
       liveWebhookSecret: false,
     },
+    paystackFieldsConfigured: { secretKey: false, testSecretKey: false },
+    korapayFieldsConfigured: { secretKey: false, testSecretKey: false },
+    flutterwaveFieldsConfigured: { secretKey: false, testSecretKey: false },
   });
 });

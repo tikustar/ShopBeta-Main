@@ -11,7 +11,6 @@ import {
 } from "@/services/admin-catalog.service";
 import { listCouponsAdmin } from "@/services/admin-coupons.service";
 import { listCustomersAdmin } from "@/services/admin-customers.service";
-import { listAllNotificationsAdmin } from "@/services/admin-notifications.service";
 import { listOrdersAdmin } from "@/services/admin-orders.service";
 import { listAllProductsAdmin } from "@/services/admin-products.service";
 import {
@@ -84,13 +83,11 @@ export type DashboardStats = {
   rangeOrders: number;
   pendingOrders: number;
   paidOrders: number;
-  cancelledOrders: number;
   products: number;
   categories: number;
   brands: number;
   customers: number;
   coupons: number;
-  notifications: number;
   lowStock: number;
   outOfStock: number;
   recentOrders: Order[];
@@ -116,15 +113,13 @@ export type DashboardStats = {
 export async function getAdminDashboardStats(
   range?: DashboardRange,
 ): Promise<DashboardStats> {
-  const [products, categories, brands, orders, coupons, notifications] =
-    await Promise.all([
-      listAllProductsAdmin(),
-      listCategoriesAdmin(),
-      listBrandsAdmin(),
-      listOrdersAdmin(),
-      listCouponsAdmin(),
-      listAllNotificationsAdmin(),
-    ]);
+  const [products, categories, brands, orders, coupons] = await Promise.all([
+    listAllProductsAdmin(),
+    listCategoriesAdmin(),
+    listBrandsAdmin(),
+    listOrdersAdmin(),
+    listCouponsAdmin(),
+  ]);
 
   // Ads are isolated so an ads query failure does not take down the
   // whole dashboard. Errors are logged, not silently swallowed.
@@ -204,16 +199,12 @@ export async function getAdminDashboardStats(
       (o) => (o.orderStatus ?? o.status) === "pending",
     ).length,
     paidOrders: rangedPaid.length,
-    cancelledOrders: rangedOrders.filter(
-      (o) => (o.orderStatus ?? o.status) === "cancelled",
-    ).length,
     products: products.length,
     categories: categories.length,
     brands: brands.length,
     customers: new Set(orders.map((order) => order.userId).filter(Boolean))
       .size,
     coupons: coupons.length,
-    notifications: notifications.length,
     lowStock: lowStockProducts.length,
     outOfStock: products.filter((p) => p.stock <= 0).length,
     recentOrders: [...orders]

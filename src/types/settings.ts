@@ -57,8 +57,11 @@ export type AppSettingsDocument = {
     squadSandbox?: boolean;
     codEnabled?: boolean;
     paystackEnabled?: boolean;
+    paystackSandbox?: boolean;
     korapayEnabled?: boolean;
+    korapaySandbox?: boolean;
     flutterwaveEnabled?: boolean;
+    flutterwaveSandbox?: boolean;
     bachsEnabled?: boolean;
     bachsSandbox?: boolean;
     paystackPublicKeyHint?: string;

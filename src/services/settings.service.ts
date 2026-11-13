@@ -183,18 +183,25 @@ const privateSecretDoc = (provider: SecretProvider) =>
  */
 export async function saveProviderSecrets(input: {
   paystackSecretKey?: string;
+  paystackTestSecretKey?: string;
   korapaySecretKey?: string;
+  korapayTestSecretKey?: string;
   flutterwaveSecretKey?: string;
+  flutterwaveTestSecretKey?: string;
 }) {
   requireStoreName(await getAppSettings());
   const writes: Array<Promise<unknown>> = [];
   for (const provider of SECRET_PROVIDERS) {
-    const value = input[`${provider}SecretKey`]?.trim();
-    if (!value) continue;
+    const patch: Record<string, unknown> = {};
+    const live = input[`${provider}SecretKey`]?.trim();
+    const test = input[`${provider}TestSecretKey`]?.trim();
+    if (live) patch.secretKey = live;
+    if (test) patch.testSecretKey = test;
+    if (!Object.keys(patch).length) continue;
     writes.push(
       setDoc(
         privateSecretDoc(provider),
-        { secretKey: value, updatedAt: serverTimestamp() },
+        { ...patch, updatedAt: serverTimestamp() },
         { merge: true },
       ),
     );
@@ -241,9 +248,28 @@ export async function getPaymentSecretKey(
   provider: "paystack" | "korapay" | "flutterwave",
 ): Promise<string | undefined> {
   if (typeof window === "undefined") {
-    const { providerSecrets, deploymentEnv, legacyCredentialsAllowed } =
-      await import("@/lib/server/store-context");
+    const {
+      providerSecrets,
+      deploymentEnv,
+      legacyCredentialsAllowed,
+      currentStoreContext,
+    } = await import("@/lib/server/store-context");
     const data = await providerSecrets(provider);
+    // Live key is the default; test key applies only when the payment attempt
+    // was recorded as sandbox, or (new attempts) the store's sandbox flag is
+    // set. Missing flags preserve live behavior.
+    const settings = await getAppSettings();
+    const sandbox =
+      currentStoreContext().sandbox ??
+      settings?.payments?.[`${provider}Sandbox`] === true;
+    if (sandbox) {
+      if (typeof data.testSecretKey === "string" && data.testSecretKey.trim())
+        return data.testSecretKey.trim();
+      const envTest = deploymentEnv(
+        `${provider.toUpperCase()}_TEST_SECRET_KEY`,
+      )?.trim();
+      if (envTest) return envTest;
+    }
     if (typeof data.secretKey === "string" && data.secretKey.trim())
       return data.secretKey.trim();
     // Legacy public secret fields are read only on the server, and only for ShopBeta.

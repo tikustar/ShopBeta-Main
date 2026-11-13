@@ -36,7 +36,13 @@ async function secretConfigured(
 
 /** Which named fields of a private settings doc contain values. */
 async function privateFieldsConfigured(
-  provider: "squad" | "monnify" | "bachs",
+  provider:
+    | "paystack"
+    | "korapay"
+    | "flutterwave"
+    | "squad"
+    | "monnify"
+    | "bachs",
   fields: string[],
   envFallbacks: Record<string, string | undefined> = {},
 ) {
@@ -70,6 +76,9 @@ export async function GET() {
       squadKeyConfigured,
       monnifyKeyConfigured,
       bachsFieldsConfigured,
+      paystackFieldsConfigured,
+      korapayFieldsConfigured,
+      flutterwaveFieldsConfigured,
     ] = await Promise.all([
       secretConfigured(
         "paystack",
@@ -118,6 +127,18 @@ export async function GET() {
           liveWebhookSecret: process.env.BACHS_LIVE_WEBHOOK_SECRET,
         },
       ),
+      privateFieldsConfigured("paystack", ["secretKey", "testSecretKey"], {
+        secretKey: process.env.PAYSTACK_SECRET_KEY,
+        testSecretKey: process.env.PAYSTACK_TEST_SECRET_KEY,
+      }),
+      privateFieldsConfigured("korapay", ["secretKey", "testSecretKey"], {
+        secretKey: process.env.KORAPAY_SECRET_KEY,
+        testSecretKey: process.env.KORAPAY_TEST_SECRET_KEY,
+      }),
+      privateFieldsConfigured("flutterwave", ["secretKey", "testSecretKey"], {
+        secretKey: process.env.FLUTTERWAVE_SECRET_KEY,
+        testSecretKey: process.env.FLUTTERWAVE_TEST_SECRET_KEY,
+      }),
     ]);
 
     // Return only the public payment settings (no secrets)
@@ -157,6 +178,9 @@ export async function GET() {
       squadKeyConfigured,
       monnifyKeyConfigured,
       bachsFieldsConfigured,
+      paystackFieldsConfigured,
+      korapayFieldsConfigured,
+      flutterwaveFieldsConfigured,
     };
 
     return NextResponse.json(publicSettings);

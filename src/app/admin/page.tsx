@@ -17,7 +17,14 @@ import {
 import { Input, Label, Select } from "@/components/ui/field";
 import { formatPrice } from "@/lib/utils";
 
-type RangeKey = "specific" | "week" | "month" | "3months" | "year" | "all";
+type RangeKey =
+  | "today"
+  | "specific"
+  | "week"
+  | "month"
+  | "3months"
+  | "year"
+  | "all";
 
 function startOfDay(d: Date) {
   const x = new Date(d);
@@ -44,6 +51,11 @@ function computeRange(
   switch (key) {
     case "all":
       return undefined;
+    case "today":
+      return {
+        from: startOfDay(now).getTime(),
+        to: endOfDay(now).getTime(),
+      };
     case "specific": {
       if (!specificDate) return undefined;
       const d = new Date(`${specificDate}T00:00:00`);
@@ -75,6 +87,7 @@ function computeRange(
 }
 
 const RANGE_LABELS: Record<RangeKey, string> = {
+  today: "Today",
   specific: "Specific date",
   week: "Last 7 days",
   month: "This month",
@@ -115,7 +128,7 @@ export default function AdminDashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [rangeKey, setRangeKey] = useState<RangeKey>("all");
+  const [rangeKey, setRangeKey] = useState<RangeKey>("today");
   const [specificDate, setSpecificDate] = useState("");
 
   const range = useMemo(
@@ -184,7 +197,7 @@ export default function AdminDashboardPage() {
         }
       />
 
-      <div className="mb-5 flex flex-wrap items-end gap-3 rounded-2xl border border-line bg-white p-4">
+      <div className="mb-5 flex flex-wrap items-end justify-end gap-3 rounded-2xl border border-line bg-white p-4">
         <div>
           <Label htmlFor="dashboard-range">Statistics period</Label>
           <Select
@@ -192,6 +205,7 @@ export default function AdminDashboardPage() {
             value={rangeKey}
             onChange={(e) => setRangeKey(e.target.value as RangeKey)}
           >
+            <option value="today">Today</option>
             <option value="specific">Specific Date</option>
             <option value="week">1 Week</option>
             <option value="month">This Month</option>
@@ -255,10 +269,6 @@ export default function AdminDashboardPage() {
               value={stats.pendingOrders}
             />
             <StatCard
-              label={`Cancelled · ${rangeLabel}`}
-              value={stats.cancelledOrders}
-            />
-            <StatCard
               label={`Ads expenses · ${rangeLabel}`}
               value={stats.totalAdsExpensesLabel}
               secondaryValue={`After expenses: ${stats.revenueAfterAdsLabel}`}
@@ -286,10 +296,6 @@ export default function AdminDashboardPage() {
             <StatCard label="Brands (shared catalog)" value={stats.brands} />
             <StatCard label="Customers (all time)" value={stats.customers} />
             <StatCard label="Coupons (all time)" value={stats.coupons} />
-            <StatCard
-              label="Notifications (all time)"
-              value={stats.notifications}
-            />
             <StatCard
               label="Low stock (shared inventory)"
               value={stats.lowStock}

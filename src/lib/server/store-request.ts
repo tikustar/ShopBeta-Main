@@ -18,9 +18,18 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 
 const providerFields: Record<string, Record<string, string>> = {
-  paystack: { secretKey: "PAYSTACK_SECRET_KEY" },
-  korapay: { secretKey: "KORAPAY_SECRET_KEY" },
-  flutterwave: { secretKey: "FLUTTERWAVE_SECRET_KEY" },
+  paystack: {
+    secretKey: "PAYSTACK_SECRET_KEY",
+    testSecretKey: "PAYSTACK_TEST_SECRET_KEY",
+  },
+  korapay: {
+    secretKey: "KORAPAY_SECRET_KEY",
+    testSecretKey: "KORAPAY_TEST_SECRET_KEY",
+  },
+  flutterwave: {
+    secretKey: "FLUTTERWAVE_SECRET_KEY",
+    testSecretKey: "FLUTTERWAVE_TEST_SECRET_KEY",
+  },
   squad: {
     sandboxSecretKey: "SQUAD_TEST_SECRET_KEY",
     liveSecretKey: "SQUAD_LIVE_SECRET_KEY",

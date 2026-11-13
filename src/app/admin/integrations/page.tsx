@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, ReactNode, useEffect, useState } from "react";
-import { ChevronDown, Loader2 } from "lucide-react";
+import { ChevronDown, FlaskConical, Loader2, X } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/admin-ui";
 import { RequireAdmin } from "@/components/auth/require-admin";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import { clearPaymentProviderSettingsCache } from "@/services/payments.service";
 import { useUserStore } from "@/stores/user.store";
 import { toastError, toastSuccess } from "@/stores/toast.store";
 import { publicSiteUrl } from "@/lib/site-url";
+import { formatPrice } from "@/lib/utils";
 
 type ProviderKey =
   | "paystack"
@@ -28,6 +29,8 @@ type ProviderKey =
   | "bachs"
   | "cod"
   | "make";
+
+type TestableProvider = Exclude<ProviderKey, "make">;
 
 const PROVIDER_ORDER: ProviderKey[] = [
   "paystack",
@@ -102,6 +105,54 @@ function ProviderPanel({
   );
 }
 
+/** Nested collapsible for one credential environment inside a provider panel. */
+function EnvironmentSection({
+  title,
+  active,
+  open,
+  onToggle,
+  children,
+}: {
+  title: "Live Mode" | "Test Mode";
+  active: boolean;
+  open: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="rounded-xl border border-line bg-soft">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between px-4 py-3 text-left"
+        aria-expanded={open}
+      >
+        <span className="flex items-center gap-2">
+          <span className="text-[13px] font-semibold text-ink">{title}</span>
+          <span
+            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+              active
+                ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                : "bg-black/5 text-muted"
+            }`}
+          >
+            {active ? "Active" : "Inactive"}
+          </span>
+        </span>
+        <ChevronDown
+          className={`h-4 w-4 text-muted transition-transform ${open ? "rotate-180" : ""}`}
+          aria-hidden
+        />
+      </button>
+      {open ? (
+        <div className="space-y-3 border-t border-line px-4 py-3">
+          {children}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function WebhookUrlRow({ label, url }: { label: string; url: string }) {
   return (
     <div>
@@ -113,6 +164,31 @@ function WebhookUrlRow({ label, url }: { label: string; url: string }) {
     </div>
   );
 }
+
+type TestResult = {
+  ok: boolean;
+  provider: string;
+  environment: "test" | "live";
+  email: string;
+  amount: number;
+  currency: string;
+  status?: string;
+  reference?: string;
+  checkoutUrl?: string;
+  error?: string;
+  requiresConfirmation?: boolean;
+};
+
+type TestDialogState = {
+  provider: TestableProvider;
+  providerLabel: string;
+  environment: "test" | "live";
+  email: string;
+  amount: string;
+  confirmLive: boolean;
+  running: boolean;
+  result?: TestResult;
+};
 
 const FUNCTIONS_BASE = "https://us-central1-shop-day84j.cloudfunctions.net";
 
@@ -126,11 +202,17 @@ export default function AdminIntegrationsPage() {
 
   const [form, setForm] = useState({
     paystackEnabled: false,
+    paystackSandbox: false,
     paystackSecretKey: "",
+    paystackTestSecretKey: "",
     korapayEnabled: false,
+    korapaySandbox: false,
     korapaySecretKey: "",
+    korapayTestSecretKey: "",
     flutterwaveEnabled: false,
+    flutterwaveSandbox: false,
     flutterwaveSecretKey: "",
+    flutterwaveTestSecretKey: "",
     squadEnabled: false,
     squadSandbox: true,
     squadSandboxSecretKey: "",
@@ -155,16 +237,16 @@ export default function AdminIntegrationsPage() {
     transactionalEmailWebhookUrl: "",
   });
   const [configured, setConfigured] = useState<{
-    paystack: boolean;
-    korapay: boolean;
-    flutterwave: boolean;
+    paystack: Record<string, boolean>;
+    korapay: Record<string, boolean>;
+    flutterwave: Record<string, boolean>;
     squad: Record<string, boolean>;
     monnify: Record<string, boolean>;
     bachs: Record<string, boolean>;
   }>({
-    paystack: false,
-    korapay: false,
-    flutterwave: false,
+    paystack: {},
+    korapay: {},
+    flutterwave: {},
     squad: {},
     monnify: {},
     bachs: {},
@@ -179,8 +261,11 @@ export default function AdminIntegrationsPage() {
     cod: false,
     make: false,
   });
+  /** Nested environment sections — nothing expands until the admin asks. */
+  const [envOpen, setEnvOpen] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState<ProviderKey | "all" | null>(null);
   const [saved, setSaved] = useState<Partial<Record<ProviderKey, boolean>>>({});
+  const [testDialog, setTestDialog] = useState<TestDialogState | null>(null);
 
   useEffect(() => {
     void fetch("/api/payment-settings")
@@ -188,9 +273,15 @@ export default function AdminIntegrationsPage() {
       .then((data) => {
         if (!data) return;
         setConfigured({
-          paystack: Boolean(data.paystackKeyConfigured),
-          korapay: Boolean(data.korapayKeyConfigured),
-          flutterwave: Boolean(data.flutterwaveKeyConfigured),
+          paystack: data.paystackFieldsConfigured ?? {
+            secretKey: Boolean(data.paystackKeyConfigured),
+          },
+          korapay: data.korapayFieldsConfigured ?? {
+            secretKey: Boolean(data.korapayKeyConfigured),
+          },
+          flutterwave: data.flutterwaveFieldsConfigured ?? {
+            secretKey: Boolean(data.flutterwaveKeyConfigured),
+          },
           squad: data.squadKeyConfigured ?? {},
           monnify: data.monnifyKeyConfigured ?? {},
           bachs: data.bachsFieldsConfigured ?? {},
@@ -203,8 +294,12 @@ export default function AdminIntegrationsPage() {
         setForm((f) => ({
           ...f,
           paystackEnabled: settings.payments?.paystackEnabled ?? false,
+          paystackSandbox: settings.payments?.paystackSandbox ?? false,
           korapayEnabled: settings.payments?.korapayEnabled ?? false,
+          korapaySandbox: settings.payments?.korapaySandbox ?? false,
           flutterwaveEnabled: settings.payments?.flutterwaveEnabled ?? false,
+          flutterwaveSandbox:
+            settings.payments?.flutterwaveSandbox ?? false,
           squadEnabled: settings.payments?.squadEnabled ?? false,
           squadSandbox: settings.payments?.squadSandbox ?? true,
           monnifyEnabled: settings.payments?.monnifyEnabled ?? false,
@@ -233,27 +328,47 @@ export default function AdminIntegrationsPage() {
     switch (provider) {
       case "paystack":
         await updateAppSettings(
-          { payments: { paystackEnabled: form.paystackEnabled } },
+          {
+            payments: {
+              paystackEnabled: form.paystackEnabled,
+              paystackSandbox: form.paystackSandbox,
+            },
+          },
           actor,
         );
         await saveProviderSecrets({
           paystackSecretKey: form.paystackSecretKey,
+          paystackTestSecretKey: form.paystackTestSecretKey,
         });
         break;
       case "korapay":
         await updateAppSettings(
-          { payments: { korapayEnabled: form.korapayEnabled } },
+          {
+            payments: {
+              korapayEnabled: form.korapayEnabled,
+              korapaySandbox: form.korapaySandbox,
+            },
+          },
           actor,
         );
-        await saveProviderSecrets({ korapaySecretKey: form.korapaySecretKey });
+        await saveProviderSecrets({
+          korapaySecretKey: form.korapaySecretKey,
+          korapayTestSecretKey: form.korapayTestSecretKey,
+        });
         break;
       case "flutterwave":
         await updateAppSettings(
-          { payments: { flutterwaveEnabled: form.flutterwaveEnabled } },
+          {
+            payments: {
+              flutterwaveEnabled: form.flutterwaveEnabled,
+              flutterwaveSandbox: form.flutterwaveSandbox,
+            },
+          },
           actor,
         );
         await saveProviderSecrets({
           flutterwaveSecretKey: form.flutterwaveSecretKey,
+          flutterwaveTestSecretKey: form.flutterwaveTestSecretKey,
         });
         break;
       case "squad":
@@ -388,6 +503,171 @@ export default function AdminIntegrationsPage() {
 
   const toggle = (key: ProviderKey) =>
     setOpen((o) => ({ ...o, [key]: !o[key] }));
+  const toggleEnv = (key: string) =>
+    setEnvOpen((o) => ({ ...o, [key]: !o[key] }));
+
+  /** Environment the provider is currently configured to run in (client view). */
+  const providerEnvironment = (provider: TestableProvider) => {
+    switch (provider) {
+      case "paystack":
+        return form.paystackSandbox ? "test" : "live";
+      case "korapay":
+        return form.korapaySandbox ? "test" : "live";
+      case "flutterwave":
+        return form.flutterwaveSandbox ? "test" : "live";
+      case "squad":
+        return form.squadSandbox ? "test" : "live";
+      case "monnify":
+        return form.monnifySandbox ? "test" : "live";
+      case "bachs":
+        return form.bachsSandbox ? "test" : "live";
+      default:
+        return "live" as const;
+    }
+  };
+
+  const openTestDialog = (provider: TestableProvider, label: string) =>
+    setTestDialog({
+      provider,
+      providerLabel: label,
+      environment: providerEnvironment(provider),
+      email: actor.email ?? "",
+      amount: "100",
+      confirmLive: false,
+      running: false,
+    });
+
+  const runTestPayment = async () => {
+    if (!testDialog || testDialog.running || !authUser) return;
+    if (testDialog.environment === "live" && !testDialog.confirmLive) {
+      setTestDialog((d) =>
+        d
+          ? {
+              ...d,
+              result: {
+                ok: false,
+                provider: d.provider,
+                environment: d.environment,
+                email: d.email,
+                amount: Number(d.amount) || 0,
+                currency: "NGN",
+                error:
+                  "Confirm the live-mode warning before running a live test.",
+              },
+            }
+          : d,
+      );
+      return;
+    }
+    setTestDialog((d) => (d ? { ...d, running: true, result: undefined } : d));
+    try {
+      const token = await authUser.getIdToken();
+      const res = await fetch("/api/admin/test-payment", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          provider: testDialog.provider,
+          email: testDialog.email.trim(),
+          amount: Number(testDialog.amount),
+          confirmLive: testDialog.confirmLive,
+        }),
+      });
+      const result = (await res.json().catch(() => null)) as TestResult | null;
+      setTestDialog((d) =>
+        d
+          ? {
+              ...d,
+              running: false,
+              result:
+                result ??
+                ({
+                  ok: false,
+                  provider: d.provider,
+                  environment: d.environment,
+                  email: d.email,
+                  amount: Number(d.amount) || 0,
+                  currency: "NGN",
+                  error: `Request failed (${res.status}).`,
+                } satisfies TestResult),
+            }
+          : d,
+      );
+    } catch (error) {
+      setTestDialog((d) =>
+        d
+          ? {
+              ...d,
+              running: false,
+              result: {
+                ok: false,
+                provider: d.provider,
+                environment: d.environment,
+                email: d.email,
+                amount: Number(d.amount) || 0,
+                currency: "NGN",
+                error:
+                  error instanceof Error
+                    ? error.message
+                    : "The test request failed.",
+              },
+            }
+          : d,
+      );
+    }
+  };
+
+  function TestPaymentButton({ provider, label }: { provider: TestableProvider; label: string }) {
+    const environment = providerEnvironment(provider);
+    return (
+      <div className="pt-1">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() => openTestDialog(provider, label)}
+        >
+          <FlaskConical className="h-3.5 w-3.5" aria-hidden />
+          Run Test Payment
+        </Button>
+        <p className="mt-1 text-[11px] text-muted">
+          Initializes a {environment} transaction against the saved{" "}
+          {environment === "test" ? "test" : "live"} credentials. No order,
+          stock change or email is created.
+        </p>
+      </div>
+    );
+  }
+
+  function SecretField({
+    id,
+    label,
+    value,
+    configuredFlag,
+    onChange,
+  }: {
+    id: string;
+    label: string;
+    value: string;
+    configuredFlag: boolean;
+    onChange: (value: string) => void;
+  }) {
+    return (
+      <div>
+        <Label htmlFor={id}>{label}</Label>
+        <Input
+          id={id}
+          type="password"
+          autoComplete="new-password"
+          placeholder={secretPlaceholder(configuredFlag, label)}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      </div>
+    );
+  }
 
   return (
     <RequireAdmin permission="settings:write">
@@ -413,26 +693,50 @@ export default function AdminIntegrationsPage() {
                 setForm((f) => ({ ...f, paystackEnabled: !f.paystackEnabled }))
               }
             />
-            <div>
-              <Label htmlFor="paystackSecret">Paystack Secret Key</Label>
-              <Input
+            <Checkbox
+              label="Use Paystack test mode (test keys)"
+              checked={form.paystackSandbox}
+              onChange={() =>
+                setForm((f) => ({ ...f, paystackSandbox: !f.paystackSandbox }))
+              }
+            />
+            <EnvironmentSection
+              title="Live Mode"
+              active={!form.paystackSandbox}
+              open={Boolean(envOpen["paystack:live"])}
+              onToggle={() => toggleEnv("paystack:live")}
+            >
+              <SecretField
                 id="paystackSecret"
-                type="password"
-                autoComplete="new-password"
-                placeholder={secretPlaceholder(
-                  configured.paystack,
-                  "Paystack secret key",
-                )}
+                label="Paystack Live Secret Key"
                 value={form.paystackSecretKey}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, paystackSecretKey: e.target.value }))
+                configuredFlag={Boolean(configured.paystack.secretKey)}
+                onChange={(v) =>
+                  setForm((f) => ({ ...f, paystackSecretKey: v }))
                 }
               />
-            </div>
+            </EnvironmentSection>
+            <EnvironmentSection
+              title="Test Mode"
+              active={form.paystackSandbox}
+              open={Boolean(envOpen["paystack:test"])}
+              onToggle={() => toggleEnv("paystack:test")}
+            >
+              <SecretField
+                id="paystackTestSecret"
+                label="Paystack Test Secret Key"
+                value={form.paystackTestSecretKey}
+                configuredFlag={Boolean(configured.paystack.testSecretKey)}
+                onChange={(v) =>
+                  setForm((f) => ({ ...f, paystackTestSecretKey: v }))
+                }
+              />
+            </EnvironmentSection>
             <WebhookUrlRow
               label="Paystack webhook URL"
               url={`${FUNCTIONS_BASE}/paystackWebhook`}
             />
+            <TestPaymentButton provider="paystack" label="Paystack" />
           </ProviderPanel>
         </form>
 
@@ -453,26 +757,50 @@ export default function AdminIntegrationsPage() {
                 setForm((f) => ({ ...f, korapayEnabled: !f.korapayEnabled }))
               }
             />
-            <div>
-              <Label htmlFor="korapaySecret">KoraPay Secret Key</Label>
-              <Input
+            <Checkbox
+              label="Use KoraPay test mode (test keys)"
+              checked={form.korapaySandbox}
+              onChange={() =>
+                setForm((f) => ({ ...f, korapaySandbox: !f.korapaySandbox }))
+              }
+            />
+            <EnvironmentSection
+              title="Live Mode"
+              active={!form.korapaySandbox}
+              open={Boolean(envOpen["korapay:live"])}
+              onToggle={() => toggleEnv("korapay:live")}
+            >
+              <SecretField
                 id="korapaySecret"
-                type="password"
-                autoComplete="new-password"
-                placeholder={secretPlaceholder(
-                  configured.korapay,
-                  "KoraPay secret key",
-                )}
+                label="KoraPay Live Secret Key"
                 value={form.korapaySecretKey}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, korapaySecretKey: e.target.value }))
+                configuredFlag={Boolean(configured.korapay.secretKey)}
+                onChange={(v) =>
+                  setForm((f) => ({ ...f, korapaySecretKey: v }))
                 }
               />
-            </div>
+            </EnvironmentSection>
+            <EnvironmentSection
+              title="Test Mode"
+              active={form.korapaySandbox}
+              open={Boolean(envOpen["korapay:test"])}
+              onToggle={() => toggleEnv("korapay:test")}
+            >
+              <SecretField
+                id="korapayTestSecret"
+                label="KoraPay Test Secret Key"
+                value={form.korapayTestSecretKey}
+                configuredFlag={Boolean(configured.korapay.testSecretKey)}
+                onChange={(v) =>
+                  setForm((f) => ({ ...f, korapayTestSecretKey: v }))
+                }
+              />
+            </EnvironmentSection>
             <WebhookUrlRow
               label="KoraPay webhook URL"
               url={`${FUNCTIONS_BASE}/korapayWebhook`}
             />
+            <TestPaymentButton provider="korapay" label="KoraPay" />
           </ProviderPanel>
         </form>
 
@@ -496,25 +824,49 @@ export default function AdminIntegrationsPage() {
                 }))
               }
             />
-            <div>
-              <Label htmlFor="flutterwaveSecret">Flutterwave Secret Key</Label>
-              <Input
+            <Checkbox
+              label="Use Flutterwave test mode (test keys)"
+              checked={form.flutterwaveSandbox}
+              onChange={() =>
+                setForm((f) => ({
+                  ...f,
+                  flutterwaveSandbox: !f.flutterwaveSandbox,
+                }))
+              }
+            />
+            <EnvironmentSection
+              title="Live Mode"
+              active={!form.flutterwaveSandbox}
+              open={Boolean(envOpen["flutterwave:live"])}
+              onToggle={() => toggleEnv("flutterwave:live")}
+            >
+              <SecretField
                 id="flutterwaveSecret"
-                type="password"
-                autoComplete="new-password"
-                placeholder={secretPlaceholder(
-                  configured.flutterwave,
-                  "Flutterwave secret key",
-                )}
+                label="Flutterwave Live Secret Key"
                 value={form.flutterwaveSecretKey}
-                onChange={(e) =>
-                  setForm((f) => ({
-                    ...f,
-                    flutterwaveSecretKey: e.target.value,
-                  }))
+                configuredFlag={Boolean(configured.flutterwave.secretKey)}
+                onChange={(v) =>
+                  setForm((f) => ({ ...f, flutterwaveSecretKey: v }))
                 }
               />
-            </div>
+            </EnvironmentSection>
+            <EnvironmentSection
+              title="Test Mode"
+              active={form.flutterwaveSandbox}
+              open={Boolean(envOpen["flutterwave:test"])}
+              onToggle={() => toggleEnv("flutterwave:test")}
+            >
+              <SecretField
+                id="flutterwaveTestSecret"
+                label="Flutterwave Test Secret Key"
+                value={form.flutterwaveTestSecretKey}
+                configuredFlag={Boolean(configured.flutterwave.testSecretKey)}
+                onChange={(v) =>
+                  setForm((f) => ({ ...f, flutterwaveTestSecretKey: v }))
+                }
+              />
+            </EnvironmentSection>
+            <TestPaymentButton provider="flutterwave" label="Flutterwave" />
           </ProviderPanel>
         </form>
 
@@ -542,47 +894,43 @@ export default function AdminIntegrationsPage() {
                 setForm((f) => ({ ...f, squadSandbox: !f.squadSandbox }))
               }
             />
-            <div>
-              <Label htmlFor="squadSandboxSecret">
-                Squad Sandbox Secret Key
-              </Label>
-              <Input
-                id="squadSandboxSecret"
-                type="password"
-                autoComplete="new-password"
-                placeholder={secretPlaceholder(
-                  Boolean(configured.squad.sandboxSecretKey),
-                  "Squad sandbox secret key",
-                )}
-                value={form.squadSandboxSecretKey}
-                onChange={(e) =>
-                  setForm((f) => ({
-                    ...f,
-                    squadSandboxSecretKey: e.target.value,
-                  }))
-                }
-              />
-            </div>
-            <div>
-              <Label htmlFor="squadLiveSecret">Squad Live Secret Key</Label>
-              <Input
+            <EnvironmentSection
+              title="Live Mode"
+              active={!form.squadSandbox}
+              open={Boolean(envOpen["squad:live"])}
+              onToggle={() => toggleEnv("squad:live")}
+            >
+              <SecretField
                 id="squadLiveSecret"
-                type="password"
-                autoComplete="new-password"
-                placeholder={secretPlaceholder(
-                  Boolean(configured.squad.liveSecretKey),
-                  "Squad live secret key",
-                )}
+                label="Squad Live Secret Key"
                 value={form.squadLiveSecretKey}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, squadLiveSecretKey: e.target.value }))
+                configuredFlag={Boolean(configured.squad.liveSecretKey)}
+                onChange={(v) =>
+                  setForm((f) => ({ ...f, squadLiveSecretKey: v }))
                 }
               />
-            </div>
+            </EnvironmentSection>
+            <EnvironmentSection
+              title="Test Mode"
+              active={form.squadSandbox}
+              open={Boolean(envOpen["squad:test"])}
+              onToggle={() => toggleEnv("squad:test")}
+            >
+              <SecretField
+                id="squadSandboxSecret"
+                label="Squad Sandbox Secret Key"
+                value={form.squadSandboxSecretKey}
+                configuredFlag={Boolean(configured.squad.sandboxSecretKey)}
+                onChange={(v) =>
+                  setForm((f) => ({ ...f, squadSandboxSecretKey: v }))
+                }
+              />
+            </EnvironmentSection>
             <WebhookUrlRow
               label="Squad webhook URL (API &amp; Webhook settings in the Squad dashboard)"
               url={`${FUNCTIONS_BASE}/squadWebhook`}
             />
+            <TestPaymentButton provider="squad" label="Squad" />
           </ProviderPanel>
         </form>
 
@@ -610,42 +958,69 @@ export default function AdminIntegrationsPage() {
                 setForm((f) => ({ ...f, monnifySandbox: !f.monnifySandbox }))
               }
             />
-            {(
-              [
-                ["monnifySandboxApiKey", "Monnify Sandbox API Key"],
-                ["monnifySandboxSecretKey", "Monnify Sandbox Secret Key"],
-                ["monnifySandboxContractCode", "Monnify Sandbox Contract Code"],
-                ["monnifyLiveApiKey", "Monnify Live API Key"],
-                ["monnifyLiveSecretKey", "Monnify Live Secret Key"],
-                ["monnifyLiveContractCode", "Monnify Live Contract Code"],
-              ] as const
-            ).map(([field, label]) => {
-              const configKey = field.replace(/^monnify/, "");
-              const flagKey =
-                configKey.charAt(0).toLowerCase() + configKey.slice(1);
-              return (
-                <div key={field}>
-                  <Label htmlFor={field}>{label}</Label>
-                  <Input
+            <EnvironmentSection
+              title="Live Mode"
+              active={!form.monnifySandbox}
+              open={Boolean(envOpen["monnify:live"])}
+              onToggle={() => toggleEnv("monnify:live")}
+            >
+              {(
+                [
+                  ["monnifyLiveApiKey", "Monnify Live API Key"],
+                  ["monnifyLiveSecretKey", "Monnify Live Secret Key"],
+                  ["monnifyLiveContractCode", "Monnify Live Contract Code"],
+                ] as const
+              ).map(([field, label]) => {
+                const flagKey =
+                  field.charAt(0).toLowerCase() + field.slice(1);
+                return (
+                  <SecretField
+                    key={field}
                     id={field}
-                    type="password"
-                    autoComplete="new-password"
-                    placeholder={secretPlaceholder(
-                      Boolean(configured.monnify[flagKey]),
-                      label,
-                    )}
+                    label={label}
                     value={form[field]}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, [field]: e.target.value }))
+                    configuredFlag={Boolean(configured.monnify[flagKey])}
+                    onChange={(v) =>
+                      setForm((f) => ({ ...f, [field]: v }))
                     }
                   />
-                </div>
-              );
-            })}
+                );
+              })}
+            </EnvironmentSection>
+            <EnvironmentSection
+              title="Test Mode"
+              active={form.monnifySandbox}
+              open={Boolean(envOpen["monnify:test"])}
+              onToggle={() => toggleEnv("monnify:test")}
+            >
+              {(
+                [
+                  ["monnifySandboxApiKey", "Monnify Sandbox API Key"],
+                  ["monnifySandboxSecretKey", "Monnify Sandbox Secret Key"],
+                  ["monnifySandboxContractCode", "Monnify Sandbox Contract Code"],
+                ] as const
+              ).map(([field, label]) => {
+                const flagKey =
+                  field.charAt(0).toLowerCase() + field.slice(1);
+                return (
+                  <SecretField
+                    key={field}
+                    id={field}
+                    label={label}
+                    value={form[field]}
+                    configuredFlag={Boolean(configured.monnify[flagKey])}
+                    onChange={(v) =>
+                      setForm((f) => ({ ...f, [field]: v }))
+                    }
+                  />
+                );
+              })}
+            </EnvironmentSection>
             <WebhookUrlRow
               label="Monnify webhook URL"
               url={`${publicSiteUrl()}/api/payments/monnify/webhook`}
             />
+            <TestPaymentButton provider="monnify" label="Monnify" />
           </ProviderPanel>
         </form>
 
@@ -673,80 +1048,56 @@ export default function AdminIntegrationsPage() {
                 setForm((f) => ({ ...f, bachsSandbox: !f.bachsSandbox }))
               }
             />
-            <div>
-              <Label htmlFor="bachsSandboxApiKey">Bachs Sandbox API Key</Label>
-              <Input
-                id="bachsSandboxApiKey"
-                type="password"
-                autoComplete="new-password"
-                placeholder={secretPlaceholder(
-                  Boolean(configured.bachs.sandboxApiKey),
-                  "Bachs sandbox API key (sk_sandbox_…)",
-                )}
-                value={form.bachsSandboxApiKey}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, bachsSandboxApiKey: e.target.value }))
-                }
-              />
-            </div>
-            <div>
-              <Label htmlFor="bachsLiveApiKey">Bachs Live API Key</Label>
-              <Input
+            <EnvironmentSection
+              title="Live Mode"
+              active={!form.bachsSandbox}
+              open={Boolean(envOpen["bachs:live"])}
+              onToggle={() => toggleEnv("bachs:live")}
+            >
+              <SecretField
                 id="bachsLiveApiKey"
-                type="password"
-                autoComplete="new-password"
-                placeholder={secretPlaceholder(
-                  Boolean(configured.bachs.liveApiKey),
-                  "Bachs live API key (sk_live_…)",
-                )}
+                label="Bachs Live API Key"
                 value={form.bachsLiveApiKey}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, bachsLiveApiKey: e.target.value }))
+                configuredFlag={Boolean(configured.bachs.liveApiKey)}
+                onChange={(v) =>
+                  setForm((f) => ({ ...f, bachsLiveApiKey: v }))
                 }
               />
-            </div>
-            <div>
-              <Label htmlFor="bachsSandboxWebhookSecret">
-                Bachs Sandbox Webhook Signing Secret
-              </Label>
-              <Input
-                id="bachsSandboxWebhookSecret"
-                type="password"
-                autoComplete="new-password"
-                placeholder={secretPlaceholder(
-                  Boolean(configured.bachs.sandboxWebhookSecret),
-                  "sandbox webhook signing secret",
-                )}
-                value={form.bachsSandboxWebhookSecret}
-                onChange={(e) =>
-                  setForm((f) => ({
-                    ...f,
-                    bachsSandboxWebhookSecret: e.target.value,
-                  }))
-                }
-              />
-            </div>
-            <div>
-              <Label htmlFor="bachsLiveWebhookSecret">
-                Bachs Live Webhook Signing Secret
-              </Label>
-              <Input
+              <SecretField
                 id="bachsLiveWebhookSecret"
-                type="password"
-                autoComplete="new-password"
-                placeholder={secretPlaceholder(
-                  Boolean(configured.bachs.liveWebhookSecret),
-                  "live webhook signing secret",
-                )}
+                label="Bachs Live Webhook Signing Secret"
                 value={form.bachsLiveWebhookSecret}
-                onChange={(e) =>
-                  setForm((f) => ({
-                    ...f,
-                    bachsLiveWebhookSecret: e.target.value,
-                  }))
+                configuredFlag={Boolean(configured.bachs.liveWebhookSecret)}
+                onChange={(v) =>
+                  setForm((f) => ({ ...f, bachsLiveWebhookSecret: v }))
                 }
               />
-            </div>
+            </EnvironmentSection>
+            <EnvironmentSection
+              title="Test Mode"
+              active={form.bachsSandbox}
+              open={Boolean(envOpen["bachs:test"])}
+              onToggle={() => toggleEnv("bachs:test")}
+            >
+              <SecretField
+                id="bachsSandboxApiKey"
+                label="Bachs Sandbox API Key"
+                value={form.bachsSandboxApiKey}
+                configuredFlag={Boolean(configured.bachs.sandboxApiKey)}
+                onChange={(v) =>
+                  setForm((f) => ({ ...f, bachsSandboxApiKey: v }))
+                }
+              />
+              <SecretField
+                id="bachsSandboxWebhookSecret"
+                label="Bachs Sandbox Webhook Signing Secret"
+                value={form.bachsSandboxWebhookSecret}
+                configuredFlag={Boolean(configured.bachs.sandboxWebhookSecret)}
+                onChange={(v) =>
+                  setForm((f) => ({ ...f, bachsSandboxWebhookSecret: v }))
+                }
+              />
+            </EnvironmentSection>
             <WebhookUrlRow
               label="Bachs webhook URL (Developer Portal → Webhooks → Add destination)"
               url={`${FUNCTIONS_BASE}/bachsWebhook`}
@@ -757,6 +1108,7 @@ export default function AdminIntegrationsPage() {
               and <code>checkout.expired</code>. Copy the endpoint&apos;s
               signing secret into the matching field above.
             </p>
+            <TestPaymentButton provider="bachs" label="Bachs" />
           </ProviderPanel>
         </form>
 
@@ -794,6 +1146,7 @@ export default function AdminIntegrationsPage() {
                 charged online before the order is confirmed.
               </p>
             </div>
+            <TestPaymentButton provider="cod" label="COD" />
           </ProviderPanel>
         </form>
 
@@ -864,6 +1217,221 @@ export default function AdminIntegrationsPage() {
           )}
         </Button>
       </div>
+
+      {testDialog ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="test-payment-title"
+        >
+          <div className="w-full max-w-md rounded-2xl border border-line bg-white p-5 shadow-xl">
+            <div className="mb-4 flex items-start justify-between">
+              <div>
+                <h2
+                  id="test-payment-title"
+                  className="text-sm font-semibold text-ink"
+                >
+                  Run Test Payment — {testDialog.providerLabel}
+                </h2>
+                <p className="mt-0.5 text-[12px] text-muted">
+                  Environment:{" "}
+                  <span
+                    className={
+                      testDialog.environment === "live"
+                        ? "font-semibold text-amber-700"
+                        : "font-semibold text-emerald-700"
+                    }
+                  >
+                    {testDialog.environment === "live" ? "Live" : "Test"}
+                  </span>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTestDialog(null)}
+                className="rounded-md p-1 text-muted hover:bg-black/5"
+                aria-label="Close test dialog"
+              >
+                <X className="h-4 w-4" aria-hidden />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <Label htmlFor="test-email">Customer email address</Label>
+                <Input
+                  id="test-email"
+                  type="email"
+                  value={testDialog.email}
+                  onChange={(e) =>
+                    setTestDialog((d) =>
+                      d ? { ...d, email: e.target.value } : d,
+                    )
+                  }
+                  placeholder="test@example.com"
+                />
+              </div>
+              <div>
+                <Label htmlFor="test-amount">Test amount (₦)</Label>
+                <Input
+                  id="test-amount"
+                  type="number"
+                  min={1}
+                  step="0.01"
+                  value={testDialog.amount}
+                  onChange={(e) =>
+                    setTestDialog((d) =>
+                      d ? { ...d, amount: e.target.value } : d,
+                    )
+                  }
+                />
+              </div>
+
+              {testDialog.environment === "live" ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+                  <p className="text-[12px] font-medium text-amber-800">
+                    This provider is configured in live mode. Running the test
+                    will initialize a real transaction on the provider&apos;s
+                    live API. It will not create an order, deduct stock or send
+                    notifications — but the transaction exists on your live
+                    merchant account.
+                  </p>
+                  <div className="mt-2">
+                    <Checkbox
+                      label="I understand — run a live test transaction"
+                      checked={testDialog.confirmLive}
+                      onChange={() =>
+                        setTestDialog((d) =>
+                          d ? { ...d, confirmLive: !d.confirmLive } : d,
+                        )
+                      }
+                    />
+                  </div>
+                </div>
+              ) : null}
+
+              {testDialog.result ? (
+                <div
+                  className={`rounded-xl border p-3 ${
+                    testDialog.result.ok
+                      ? "border-emerald-200 bg-emerald-50"
+                      : "border-rose-200 bg-rose-50"
+                  }`}
+                >
+                  <p
+                    className={`text-[12px] font-semibold ${
+                      testDialog.result.ok
+                        ? "text-emerald-800"
+                        : "text-rose-700"
+                    }`}
+                  >
+                    {testDialog.result.ok
+                      ? "Initialization succeeded"
+                      : "Initialization failed"}
+                  </p>
+                  <dl className="mt-2 space-y-1 text-[12px] text-ink">
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-muted">Provider</dt>
+                      <dd className="font-medium capitalize">
+                        {testDialog.result.provider}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-muted">Environment</dt>
+                      <dd className="font-medium capitalize">
+                        {testDialog.result.environment}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-muted">Email</dt>
+                      <dd className="font-medium">
+                        {testDialog.result.email}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-muted">Amount</dt>
+                      <dd className="font-medium">
+                        {formatPrice(testDialog.result.amount)}{" "}
+                        {testDialog.result.currency}
+                      </dd>
+                    </div>
+                    {testDialog.result.status ? (
+                      <div className="flex justify-between gap-3">
+                        <dt className="text-muted">Status</dt>
+                        <dd className="font-medium capitalize">
+                          {testDialog.result.status}
+                        </dd>
+                      </div>
+                    ) : null}
+                    {testDialog.result.reference ? (
+                      <div className="flex justify-between gap-3">
+                        <dt className="text-muted">Reference</dt>
+                        <dd className="break-all font-mono text-[11px]">
+                          {testDialog.result.reference}
+                        </dd>
+                      </div>
+                    ) : null}
+                    {testDialog.result.checkoutUrl ? (
+                      <div className="flex justify-between gap-3">
+                        <dt className="text-muted">Checkout URL</dt>
+                        <dd className="break-all font-mono text-[11px]">
+                          <a
+                            href={testDialog.result.checkoutUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-primary hover:underline"
+                          >
+                            Open checkout
+                          </a>
+                        </dd>
+                      </div>
+                    ) : null}
+                    {testDialog.result.error ? (
+                      <div className="flex justify-between gap-3">
+                        <dt className="text-muted">Error</dt>
+                        <dd className="text-right text-rose-700">
+                          {testDialog.result.error}
+                        </dd>
+                      </div>
+                    ) : null}
+                  </dl>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="mt-4 flex justify-end gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setTestDialog(null)}
+              >
+                Close
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => void runTestPayment()}
+                disabled={
+                  testDialog.running ||
+                  (testDialog.environment === "live" &&
+                    !testDialog.confirmLive)
+                }
+              >
+                {testDialog.running ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                    Running…
+                  </>
+                ) : (
+                  "Run test"
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </RequireAdmin>
   );
 }

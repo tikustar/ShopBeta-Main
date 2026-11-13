@@ -9,8 +9,6 @@ import {
   Zap,
 } from "lucide-react";
 import { type Product as ProductView } from "@/lib/data";
-import type { Product } from "@/types/product";
-import { HOME_HERO_PRODUCT_SLUG } from "@/constants/app";
 import { HomeHero } from "@/components/commerce/home-hero";
 import { CategoryCarousel } from "@/components/commerce/category-carousel";
 import { formatPrice } from "@/lib/utils";
@@ -25,6 +23,8 @@ import {
   websiteJsonLd,
 } from "@/lib/seo";
 import { getHomeCatalogSections } from "@/services/products.service";
+import { getTodaysTopSellerIds } from "@/lib/server/top-sellers";
+import { pickHeroProduct } from "@/lib/hero-pick";
 import { getBrands, getCategories } from "@/services/catalog.service";
 import { RecentlyViewedRail } from "@/components/commerce/recently-viewed";
 import { ButtonLink } from "@/components/ui/button";
@@ -73,27 +73,21 @@ export const metadata = {
 };
 
 /** Configured hero product when sellable, otherwise the next best sellable product. */
-function pickHeroProduct(catalog: Product[], fallback?: Product) {
-  const sellable = (product?: Product): product is Product =>
-    !!product &&
-    product.active !== false &&
-    product.stock > 0 &&
-    product.price > 0 &&
-    !!(product.thumbnail ?? product.images?.[0]);
-  const configured = catalog.find((product) => product.slug === HOME_HERO_PRODUCT_SLUG);
-  if (sellable(configured)) return configured;
-  if (sellable(fallback)) return fallback;
-  return catalog.find((product) => product.featured && sellable(product)) ?? catalog.find(sellable);
-}
 
 async function loadSections() {
-  const [home, categoryDocs, brandDocs] = await Promise.all([
-    getHomeCatalogSections(4),
-    getCategories(),
-    getBrands(),
-  ]);
+  const [home, categoryDocs, brandDocs, todaysTopSellerIds] =
+    await Promise.all([
+      getHomeCatalogSections(4),
+      getCategories(),
+      getBrands(),
+      getTodaysTopSellerIds(),
+    ]);
 
-  const heroSource = pickHeroProduct(home.catalog, home.heroSource);
+  const heroSource = pickHeroProduct(
+    home.catalog,
+    home.heroSource,
+    todaysTopSellerIds,
+  );
   const hero: ProductView | undefined = heroSource
     ? toProductView(heroSource)
     : undefined;
