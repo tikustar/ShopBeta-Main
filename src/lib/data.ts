@@ -888,6 +888,7 @@ export type Review = {
   body: string;
   verified: boolean;
   helpful: number;
+  images?: string[];
 };
 
 export const reviews: Review[] = [

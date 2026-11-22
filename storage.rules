@@ -39,6 +39,14 @@ service firebase.storage {
       allow write: if isStaff() && isImage();
     }
 
+    // Customer review images — owner-only writes, public reads
+    match /reviews/{userId}/{fileName} {
+      allow read: if true;
+      allow write: if isSignedIn()
+        && request.auth.uid == userId
+        && isImage();
+    }
+
     // Customer avatars — owner only
     match /users/{userId}/{allPaths=**} {
       allow read: if true;

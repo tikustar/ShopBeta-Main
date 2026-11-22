@@ -47,3 +47,26 @@ export async function uploadAdminImage(
   const path = `admin/${folder}/${idHint}-${Date.now()}.${ext}`;
   return uploadFile(path, file);
 }
+
+/**
+ * Upload a customer review image. Storage rules scope writes to the
+ * uploader's own `reviews/{uid}/` path — never under `admin/`.
+ */
+export async function uploadReviewImage(
+  uid: string,
+  file: File,
+  idHint = "review",
+) {
+  const check = validateImageFile(file);
+  if (!check.ok) throw new Error(check.reason);
+
+  const ext =
+    file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") ||
+    "jpg";
+  const hint = (idHint || "review").replace(/[^a-z0-9-]/gi, "").slice(0, 60) ||
+    "review";
+  const path = `reviews/${uid}/${hint}-${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}.${ext}`;
+  return uploadFile(path, file);
+}

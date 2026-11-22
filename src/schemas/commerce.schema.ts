@@ -41,6 +41,8 @@ export const wishlistDocumentSchema = z
 export const reviewDocumentSchema = z
   .object({
     productId: z.string().optional(),
+    productSlug: z.string().optional(),
+    productName: z.string().optional(),
     userId: z.string().optional(),
     reviewBy: z.string().optional(),
     rating: z.number().optional(),
@@ -51,6 +53,7 @@ export const reviewDocumentSchema = z
     verifiedPurchase: z.boolean().optional(),
     helpfulCount: z.number().optional(),
     approved: z.boolean().optional(),
+    rejected: z.boolean().optional(),
     createdAt: z.any().optional(),
     updatedAt: z.any().optional(),
   })

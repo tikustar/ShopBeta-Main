@@ -37,11 +37,14 @@ export type WishlistDocument = Timestamps & {
 
 export type Wishlist = WishlistDocument & { id: string };
 
-/** Planned standalone `reviews` collection (reviews are embedded today). */
+/** Standalone `reviews` collection document. */
 export type ReviewDocument = Timestamps & {
   productId: string;
+  /** Denormalized for admin moderation display/search. */
+  productSlug?: string;
+  productName?: string;
   userId?: string;
-  /** Legacy display name field. */
+  /** Reviewer display name (legacy field name). */
   reviewBy?: string;
   rating: number;
   title?: string;
@@ -50,12 +53,28 @@ export type ReviewDocument = Timestamps & {
   /** Alias for `review`. */
   comment?: string;
   images?: string[];
+  /** Set by admins only — never trusted from customer input. */
   verifiedPurchase?: boolean;
   helpfulCount?: number;
+  /** Only admin-approved reviews are publicly visible. Missing = unapproved. */
   approved?: boolean;
+  /** Admin moderation flag — rejected reviews stay hidden. */
+  rejected?: boolean;
 };
 
 export type Review = ReviewDocument & { id: string };
+
+/**
+ * `reviewContacts` — private reviewer contact details (email). Kept out of
+ * the public `reviews` document so approved reviews never expose emails.
+ * Document id equals the review id; readable by staff only.
+ */
+export type ReviewContactDocument = {
+  reviewId: string;
+  userId: string;
+  email?: string;
+  createdAt?: unknown;
+};
 
 export type NotificationKind = NotificationType;
 

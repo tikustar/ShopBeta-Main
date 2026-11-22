@@ -24,6 +24,7 @@ export type AdminPermission =
   | "orders:write"
   | "customers:read"
   | "customers:write"
+  | "reviews:write"
   | "coupons:write"
   | "banners:write"
   | "notifications:write"
@@ -42,6 +43,7 @@ const ALL: AdminPermission[] = [
   "orders:write",
   "customers:read",
   "customers:write",
+  "reviews:write",
   "coupons:write",
   "banners:write",
   "notifications:write",
@@ -79,6 +81,7 @@ const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "orders:write",
     "customers:read",
     "customers:write",
+    "reviews:write",
     "notifications:write",
   ],
   marketing_manager: [
@@ -127,6 +130,7 @@ export const ADMIN_NAV: Array<{
   { href: "/admin/products", label: "Products", permission: "products:read" },
   { href: "/admin/categories", label: "Categories", permission: "categories:write" },
   { href: "/admin/brands", label: "Brands", permission: "brands:write" },
+  { href: "/admin/reviews", label: "Reviews", permission: "reviews:write" },
   { href: "/admin/orders", label: "Orders", permission: "orders:read" },
   { href: "/admin/customers", label: "Customers", permission: "customers:read" },
   { href: "/admin/coupons", label: "Coupons", permission: "coupons:write" },

@@ -351,6 +351,20 @@
       ]
     },
     {
+      "collectionGroup": "reviews",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "productId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "approved",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "notifications",
       "queryScope": "COLLECTION",
       "fields": [

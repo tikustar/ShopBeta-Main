@@ -140,6 +140,31 @@ export function toReviewViews(product: Product): ReviewView[] {
   }));
 }
 
+/**
+ * Approved standalone `reviews` documents mapped onto the review card view
+ * model. Approval is admin-granted, so approved reviews display the Verified
+ * Purchase badge per the moderation policy.
+ */
+export function toApprovedReviewViews(
+  reviews: import("@/types/commerce").Review[],
+): ReviewView[] {
+  return reviews.map((review) => {
+    const body = review.review ?? review.comment ?? "";
+    return {
+      id: review.id,
+      author: review.reviewBy ?? "Customer",
+      initials: initials(review.reviewBy ?? "Customer"),
+      rating: review.rating,
+      date: review.createdAt ? formatDate(review.createdAt) : "",
+      title: review.title ?? truncate(body, 60),
+      body,
+      verified: true,
+      helpful: review.helpfulCount ?? 0,
+      images: review.images ?? [],
+    };
+  });
+}
+
 export function ratingBreakdown(reviews: ReviewView[]) {
   return [5, 4, 3, 2, 1].map((stars) => ({
     stars,

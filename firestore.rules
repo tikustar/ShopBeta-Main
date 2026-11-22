@@ -271,10 +271,52 @@ service cloud.firestore {
     }
 
     // ---------- Reviews ----------
+    // Public reads are limited to admin-approved reviews; pending, rejected
+    // and legacy (missing `approved`) reviews are visible to staff only.
     match /reviews/{reviewId} {
-      allow read: if true;
-      allow create: if ownsUserIdField();
-      allow update, delete: if isStaff() || ownsExistingUserIdField();
+      allow get, list: if resource.data.approved == true || isStaff();
+      // Customers may submit a review for moderation only: it must be bound
+      // to their own auth uid, carry a valid rating/reviewer/product, and may
+      // never self-approve, self-verify or embed contact details.
+      allow create: if isSignedIn() &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.keys().hasOnly([
+          'productId','productSlug','productName','userId','reviewBy',
+          'rating','title','review','comment','images','helpfulCount',
+          'approved','rejected','verifiedPurchase','createdAt','updatedAt'
+        ]) &&
+        request.resource.data.productId is string &&
+        request.resource.data.productId.size() > 0 &&
+        request.resource.data.reviewBy is string &&
+        request.resource.data.reviewBy.size() > 0 &&
+        request.resource.data.rating is number &&
+        request.resource.data.rating >= 1 &&
+        request.resource.data.rating <= 5 &&
+        request.resource.data.approved == false &&
+        (!('rejected' in request.resource.data) ||
+          request.resource.data.rejected == false) &&
+        (!('verifiedPurchase' in request.resource.data) ||
+          request.resource.data.verifiedPurchase == false) &&
+        !request.resource.data.keys().hasAny(['email','phone']) &&
+        (!('images' in request.resource.data) ||
+          (request.resource.data.images is list &&
+            request.resource.data.images.size() <= 6));
+      allow update, delete: if isStaff();
+    }
+
+    // ---------- Review contacts (private reviewer emails) ----------
+    // Never publicly readable; approved reviews must not expose emails.
+    match /reviewContacts/{contactId} {
+      allow read: if isStaff();
+      allow create: if isStaff() ||
+        (isSignedIn() &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.keys().hasOnly([
+          'reviewId','userId','email','createdAt'
+        ]) &&
+        request.resource.data.reviewId is string &&
+        request.resource.data.reviewId.size() > 0);
+      allow update, delete: if isStaff();
     }
 
     // ---------- Notifications ----------

@@ -12,6 +12,7 @@ import {
 import { discountPercent, formatPrice } from "@/lib/utils";
 import {
   ratingBreakdown as buildRatingBreakdown,
+  toApprovedReviewViews,
   toProductView,
   toProductViews,
   toReviewViews,
@@ -27,10 +28,11 @@ import {
   getProductBySlug,
 } from "@/services/products.service";
 import { getRecommendationsForProduct } from "@/services/recommendations.service";
+import { listApprovedReviews } from "@/services/reviews.service";
+import { WriteReview } from "@/components/commerce/write-review";
 import { productDetailCrumbs } from "@/lib/breadcrumbs";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Rating, RatingBar } from "@/components/ui/rating";
 import { Tabs } from "@/components/ui/tabs";
@@ -85,14 +87,17 @@ export default async function ProductDetailsPage({
   if (!source) notFound();
 
   const product = toProductView(source);
-  const reviews = toReviewViews(source);
+  const [approvedDocs, relatedSource] = await Promise.all([
+    listApprovedReviews(source.id).catch(() => [] as Awaited<ReturnType<typeof listApprovedReviews>>),
+    getRecommendationsForProduct(source, { related: 4, alsoLike: 4 }),
+  ]);
+  const reviews = [
+    ...toReviewViews(source),
+    ...toApprovedReviewViews(approvedDocs),
+  ];
   const ratingBreakdown = buildRatingBreakdown(reviews);
   const off = discountPercent(product.price, product.oldPrice);
   const totalReviews = ratingBreakdown.reduce((sum, row) => sum + row.count, 0);
-  const relatedSource = await getRecommendationsForProduct(source, {
-    related: 4,
-    alsoLike: 4,
-  });
   const related = toProductViews(relatedSource.related);
   const alsoLike = toProductViews(relatedSource.alsoLike);
 
@@ -292,7 +297,7 @@ export default async function ProductDetailsPage({
             {
               id: "reviews",
               label: "Reviews",
-              count: product.reviews,
+              count: product.reviews + approvedDocs.length,
               content: (
                 <div className="grid gap-8 lg:grid-cols-[300px_1fr]">
                   <Card className="h-fit">
@@ -313,11 +318,26 @@ export default async function ProductDetailsPage({
                         />
                       ))}
                     </div>
-                    <Button variant="outline" className="mt-6 w-full">
-                      Write a review
-                    </Button>
+                    <div className="mt-6">
+                      <WriteReview
+                        productId={source.id}
+                        productSlug={source.slug}
+                        productName={product.name}
+                      />
+                    </div>
                   </Card>
                   <div className="space-y-4">
+                    {!reviews.length ? (
+                      <Card>
+                        <p className="text-[15px] font-medium text-ink">
+                          No reviews yet
+                        </p>
+                        <p className="mt-1 text-[13px] text-muted">
+                          Be the first to share your experience with this
+                          product.
+                        </p>
+                      </Card>
+                    ) : null}
                     {reviews.map((review) => (
                       <Card key={review.id}>
                         <div className="flex items-start justify-between gap-4">
@@ -331,7 +351,7 @@ export default async function ProductDetailsPage({
                             </div>
                           </div>
                           {review.verified ? (
-                            <Badge tone="success">Verified buyer</Badge>
+                            <Badge tone="success">Verified Purchase</Badge>
                           ) : null}
                         </div>
                         <Rating value={review.rating} showValue={false} className="mt-4" />
@@ -341,6 +361,19 @@ export default async function ProductDetailsPage({
                         <p className="mt-2 text-[14px] leading-relaxed text-muted">
                           {review.body}
                         </p>
+                        {review.images?.length ? (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {review.images.map((url) => (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                key={url}
+                                src={url}
+                                alt={`Review photo by ${review.author}`}
+                                className="h-20 w-20 rounded-xl border border-line object-cover"
+                              />
+                            ))}
+                          </div>
+                        ) : null}
                         <div className="mt-4 flex items-center gap-4 border-t border-line pt-4 text-[13px] text-muted">
                           <button type="button" className="hover:text-primary">
                             Helpful ({review.helpful})
